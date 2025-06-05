@@ -1,11 +1,11 @@
-// src/hooks/useAppState.js 
+// src/hooks/useAppState.js - Fixed to prevent undefined array errors
 import { useState } from 'react';
 import { useClients } from './useClients';
 import { useCoaches } from './useCoaches';
 import { useSchedules } from './useSchedules';
 import { useCoachAvailability } from './useCoachAvailability';
 import { useGraceAttendance } from './useGraceAttendance';
-import { useTasks } from './useTasks'; // NEW: Added task hook
+import { useTasks } from './useTasks';
 
 export const useAppState = (isAuthenticated) => {
   // UI State
@@ -20,7 +20,7 @@ export const useAppState = (isAuthenticated) => {
   const schedulesHook = useSchedules(isAuthenticated);
   const coachAvailabilityHook = useCoachAvailability(isAuthenticated);
   const graceAttendanceHook = useGraceAttendance(isAuthenticated); 
-  const tasksHook = useTasks(isAuthenticated); // NEW: Added task hook
+  const tasksHook = useTasks(isAuthenticated);
 
   // Navigation handlers
   const handleTabChange = (tabId) => {
@@ -72,15 +72,15 @@ export const useAppState = (isAuthenticated) => {
     },
 
     resetPassword: async (client) => {
-    try {
-      const result = await clientsHook.resetClientPassword(client);
-      alert(`Password reset initiated for ${client.name}!\n\n${result.message}`);
-      return result;
-    } catch (error) {
-      console.error('Error resetting client password:', error);
-      throw error;
-    }
-  },
+      try {
+        const result = await clientsHook.resetClientPassword(client);
+        alert(`Password reset initiated for ${client.name}!\n\n${result.message}`);
+        return result;
+      } catch (error) {
+        console.error('Error resetting client password:', error);
+        throw error;
+      }
+    },
     
     remove: async (clientId, schedules) => {
       try {
@@ -159,64 +159,63 @@ export const useAppState = (isAuthenticated) => {
 
   // coach actions
   const coachActions = {
-  add: async (coachData) => {
-    try {
-      const result = await coachesHook.addNewCoach(coachData);
-      return result;
-    } catch (error) {
-      console.error('Error adding coach:', error);
-      throw error;
-    }
-  },
-  
-  update: async (coachId, updates) => {
-    try {
-      await coachesHook.updateCoach(coachId, updates);
-    } catch (error) {
-      console.error('Error updating coach:', error);
-      throw error;
-    }
-  },
-  
-  remove: async (coachId, schedules) => {
-    try {
-      await coachesHook.removeCoach(coachId, schedules);
-    } catch (error) {
-      console.error('Error removing coach:', error);
-      throw error;
-    }
-  },
-  
-  createLogin: async (coach) => {
-    try {
-      const result = await coachesHook.createCoachLoginAccount(coach);
-      alert(`Login account created for ${coach.name}!\n\n${result.message}`);
-      return result;
-    } catch (error) {
-      console.error('Error creating coach login:', error);
-      throw error;
-    }
-  },
-  
-  // NEW: Reset password function
-  resetPassword: async (coach) => {
-    try {
-      const result = await coachesHook.resetCoachPassword(coach);
-      alert(`Password reset initiated for ${coach.name}!\n\n${result.message}`);
-      return result;
-    } catch (error) {
-      console.error('Error resetting coach password:', error);
-      throw error;
-    }
-  },
-  
-  // Helper methods (existing ones)
-  getById: coachesHook.getCoachById,
-  getByType: coachesHook.getCoachesByType,
-  getActive: coachesHook.getActiveCoaches,
-  getAdmins: coachesHook.getAdminUsers,
-  getSchedulers: coachesHook.getSchedulers
-};
+    add: async (coachData) => {
+      try {
+        const result = await coachesHook.addNewCoach(coachData);
+        return result;
+      } catch (error) {
+        console.error('Error adding coach:', error);
+        throw error;
+      }
+    },
+    
+    update: async (coachId, updates) => {
+      try {
+        await coachesHook.updateCoach(coachId, updates);
+      } catch (error) {
+        console.error('Error updating coach:', error);
+        throw error;
+      }
+    },
+    
+    remove: async (coachId, schedules) => {
+      try {
+        await coachesHook.removeCoach(coachId, schedules);
+      } catch (error) {
+        console.error('Error removing coach:', error);
+        throw error;
+      }
+    },
+    
+    createLogin: async (coach) => {
+      try {
+        const result = await coachesHook.createCoachLoginAccount(coach);
+        alert(`Login account created for ${coach.name}!\n\n${result.message}`);
+        return result;
+      } catch (error) {
+        console.error('Error creating coach login:', error);
+        throw error;
+      }
+    },
+    
+    resetPassword: async (coach) => {
+      try {
+        const result = await coachesHook.resetCoachPassword(coach);
+        alert(`Password reset initiated for ${coach.name}!\n\n${result.message}`);
+        return result;
+      } catch (error) {
+        console.error('Error resetting coach password:', error);
+        throw error;
+      }
+    },
+    
+    // Helper methods (existing ones)
+    getById: coachesHook.getCoachById,
+    getByType: coachesHook.getCoachesByType,
+    getActive: coachesHook.getActiveCoaches,
+    getAdmins: coachesHook.getAdminUsers,
+    getSchedulers: coachesHook.getSchedulers
+  };
 
   // Enhanced schedule actions
   const scheduleActions = {
@@ -252,46 +251,44 @@ export const useAppState = (isAuthenticated) => {
   };
 
   // Coach availability actions
-    const availabilityActions = {
+  const availabilityActions = {
     setCoachAvailability: async (coachId, date, status, reason = '') => {
-    try {
-      const result = await coachAvailabilityHook.setCoachAvailability(coachId, date, status, reason);
-      return result;
-    } catch (error) {
-      console.error('Error setting coach availability:', error);
-      throw error;
-    }
-  },
+      try {
+        const result = await coachAvailabilityHook.setCoachAvailability(coachId, date, status, reason);
+        return result;
+      } catch (error) {
+        console.error('Error setting coach availability:', error);
+        throw error;
+      }
+    },
     
-    // NEW: Bulk availability setting
     setCoachAvailabilityBulk: async (coachId, dates, status, reason = '') => {
-    try {
-      const result = await coachAvailabilityHook.setCoachAvailabilityBulk(coachId, dates, status, reason);
-      return result;
-    } catch (error) {
-      console.error('Error setting bulk coach availability:', error);
-      throw error;
-    }
-  },
+      try {
+        const result = await coachAvailabilityHook.setCoachAvailabilityBulk(coachId, dates, status, reason);
+        return result;
+      } catch (error) {
+        console.error('Error setting bulk coach availability:', error);
+        throw error;
+      }
+    },
     
     removeCoachAvailability: async (coachId, date) => {
-    try {
-      await coachAvailabilityHook.removeCoachAvailability(coachId, date);
-    } catch (error) {
-      console.error('Error removing coach availability:', error);
-      throw error;
-    }
-  },
+      try {
+        await coachAvailabilityHook.removeCoachAvailability(coachId, date);
+      } catch (error) {
+        console.error('Error removing coach availability:', error);
+        throw error;
+      }
+    },
     
-    //Yearly summary
     getYearlyTimeOffSummary: async (coachId, year) => {
-    try {
-      return await coachAvailabilityHook.getYearlyTimeOffSummary(coachId, year);
-    } catch (error) {
-      console.error('Error getting yearly summary:', error);
-      throw error;
-    }
-  },
+      try {
+        return await coachAvailabilityHook.getYearlyTimeOffSummary(coachId, year);
+      } catch (error) {
+        console.error('Error getting yearly summary:', error);
+        throw error;
+      }
+    },
     
     unassignClientsFromCoach: async (coachId, date, schedules, removeScheduleAssignment) => {
       try {
@@ -394,7 +391,7 @@ export const useAppState = (isAuthenticated) => {
     getConsecutiveAbsences: graceAttendanceHook.getConsecutiveAbsences
   };
 
-  // NEW: Task actions
+  // Task actions
   const taskActions = {
     createTask: async (taskData) => {
       try {
@@ -501,8 +498,13 @@ export const useAppState = (isAuthenticated) => {
     tasksHook.error
   ].filter(Boolean);
 
-  // Data availability check
-  const hasData = !loading && errors.length === 0;
+  // FIXED: Always ensure arrays are returned, even during loading/error states
+  const safeClients = Array.isArray(clientsHook.clients) ? clientsHook.clients : [];
+  const safeCoaches = Array.isArray(coachesHook.coaches) ? coachesHook.coaches : [];
+  const safeSchedules = Array.isArray(schedulesHook.schedules) ? schedulesHook.schedules : [];
+  const safeAvailabilityRecords = Array.isArray(coachAvailabilityHook.availabilityRecords) ? coachAvailabilityHook.availabilityRecords : [];
+  const safeAttendanceRecords = Array.isArray(graceAttendanceHook.attendanceRecords) ? graceAttendanceHook.attendanceRecords : [];
+  const safeTasks = Array.isArray(tasksHook.tasks) ? tasksHook.tasks : [];
 
   return {
     // UI State
@@ -512,15 +514,15 @@ export const useAppState = (isAuthenticated) => {
     showPasswordModal,
     loading,
     errors,
-    hasData,
+    hasData: !loading && errors.length === 0,
 
-    // Data - only return data if no errors and not loading
-    clients: hasData ? clientsHook.clients : [],
-    coaches: hasData ? coachesHook.coaches : [],
-    schedules: hasData ? schedulesHook.schedules : [],
-    availabilityRecords: hasData ? coachAvailabilityHook.availabilityRecords : [],
-    attendanceRecords: hasData ? graceAttendanceHook.attendanceRecords : [],
-    tasks: hasData ? tasksHook.tasks : [], // NEW
+    // Data - ALWAYS return arrays, never undefined
+    clients: safeClients,
+    coaches: safeCoaches,
+    schedules: safeSchedules,
+    availabilityRecords: safeAvailabilityRecords,
+    attendanceRecords: safeAttendanceRecords,
+    tasks: safeTasks,
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -535,7 +537,7 @@ export const useAppState = (isAuthenticated) => {
     scheduleActions,
     availabilityActions,
     graceAttendanceActions,
-    taskActions, // NEW
+    taskActions,
 
     // Utility functions
     utils: {
@@ -546,7 +548,7 @@ export const useAppState = (isAuthenticated) => {
       
       // Get Grace clients
       getGraceClients: () => {
-        return clientsHook.clients.filter(client => client.program === 'grace');
+        return safeClients.filter(client => client?.program === 'grace');
       },
       
       // Get schedule statistics
@@ -565,7 +567,7 @@ export const useAppState = (isAuthenticated) => {
       
       // Get Grace attendance statistics for a date
       getGraceAttendanceStats: (date) => {
-        const graceClients = clientsHook.clients.filter(client => client.program === 'grace');
+        const graceClients = safeClients.filter(client => client?.program === 'grace');
         const attendanceData = graceAttendanceHook.getTotalAttendanceForDate(date);
         
         return {
@@ -587,7 +589,7 @@ export const useAppState = (isAuthenticated) => {
       
       // Get available coaches for a time slot (considering availability)
       getAvailableCoaches: (date, timeSlot) => {
-        const allCoaches = coachesHook.coaches;
+        const allCoaches = safeCoaches;
         const availableCoaches = availabilityActions.getAvailableCoaches(allCoaches, date);
         
         const scheduledCoaches = scheduleActions.getForTimeSlot(date, timeSlot)

@@ -1,5 +1,4 @@
-// src/components/layout/AppLayout.jsx - Final version with corrected imports
-
+// src/components/layout/AppLayout.jsx - Fixed with defensive programming
 import React, { lazy, Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -84,11 +83,11 @@ const AppLayout = ({
   isMobileMenuOpen,
   setIsMobileMenuOpen,
   
-  // Data props
-  clients,
-  coaches,
-  schedules,
-  tasks,
+  // Data props - ADD DEFAULT VALUES TO PREVENT UNDEFINED ERRORS
+  clients = [],
+  coaches = [],
+  schedules = [],
+  tasks = [],
   
   // Action props
   clientActions,
@@ -102,6 +101,7 @@ const AppLayout = ({
   // Helper function to check if user is a Grace client
   const isGraceClient = () => {
     if (userProfile?.role !== USER_ROLES.CLIENT) return false;
+    if (!Array.isArray(clients)) return false;
     const clientData = clients.find(c => c.email === userProfile.email);
     return clientData?.program === 'grace';
   };
@@ -137,6 +137,12 @@ const AppLayout = ({
 
   const handleBackToClients = () => {
     setSelectedClient(null);
+  };
+
+  // ADDED: Safe array filtering for Grace clients
+  const safeFilterGraceClients = () => {
+    if (!Array.isArray(clients)) return [];
+    return clients.filter(client => client?.program === 'grace');
   };
 
   // Route to correct component based on active tab and user role
@@ -231,10 +237,10 @@ const AppLayout = ({
                 </div>
                 
                 <ClientsTab 
-                  clients={clients.filter(client => client.program === 'grace')} 
+                  clients={safeFilterGraceClients()} 
                   coaches={coaches}
                   schedules={schedules}
-                  timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+                  timeSlots={TIME_SLOTS}
                   userProfile={userProfile}
                   selectedClient={selectedClient}
                   onClientSelect={handleClientSelect}
@@ -275,7 +281,7 @@ const AppLayout = ({
               clients={clients} 
               schedules={schedules} 
               coaches={coaches} 
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
             />
           );
         case 'my-schedule':
@@ -285,7 +291,7 @@ const AppLayout = ({
               clients={clients} 
               schedules={schedules} 
               coaches={coaches} 
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
             />
           );
         case 'my-goals':
@@ -312,7 +318,7 @@ const AppLayout = ({
               clients={clients} 
               schedules={schedules} 
               coaches={coaches} 
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
             />
           );
       }
@@ -327,7 +333,7 @@ const AppLayout = ({
             clients={clients}
             coaches={coaches}
             schedules={schedules}
-            timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+            timeSlots={TIME_SLOTS}
             onClientSelect={handleClientSelect}
           />
         );
@@ -341,7 +347,7 @@ const AppLayout = ({
               clients={clients}
               coaches={coaches}
               schedules={schedules}
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
               onClientSelect={handleClientSelect}
               scheduleActions={scheduleActions}
             />
@@ -355,7 +361,7 @@ const AppLayout = ({
               schedules={schedules}
               clients={clients}
               coaches={coaches}
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
               scheduleActions={scheduleActions}
             />
           </LazyComponentWrapper>
@@ -368,7 +374,7 @@ const AppLayout = ({
               clients={clients}
               coaches={coaches}
               schedules={schedules}
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
               userProfile={userProfile}
               selectedClient={selectedClient}
               onClientSelect={handleClientSelect}
@@ -409,6 +415,7 @@ const AppLayout = ({
             schedules={schedules}
             userProfile={userProfile}
             taskActions={taskActions}
+            tasks={tasks} // Pass tasks directly
           />
         );
         
@@ -422,7 +429,7 @@ const AppLayout = ({
               clients={clients}
               coaches={coaches}
               schedules={schedules}
-              timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+              timeSlots={TIME_SLOTS}
               businessTypes={BUSINESS_TYPES}
               equipmentOptions={EQUIPMENT_OPTIONS}
               programs={PROGRAMS}
@@ -442,7 +449,7 @@ const AppLayout = ({
             clients={clients}
             coaches={coaches}
             schedules={schedules}
-            timeSlots={TIME_SLOTS} // Use TIME_SLOTS for coaching schedules
+            timeSlots={TIME_SLOTS}
             onClientSelect={handleClientSelect}
           />
         );

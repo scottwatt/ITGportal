@@ -1,4 +1,4 @@
-// src/utils/helpers.js - Updated password generation functions
+// src/utils/helpers.js - Fixed with defensive programming
 import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS } from './constants';
 
 /**
@@ -31,8 +31,6 @@ export const generateTempPassword = (userType = 'client', length = 8) => {
 export const getDefaultPassword = (userType) => {
   return userType === 'coach' ? 'ITGemployee123' : 'ITGclient123';
 };
-
-// Rest of your existing helper functions remain the same...
 
 /**
  * Get file icon based on file type
@@ -77,7 +75,7 @@ export const formatFileSize = (bytes) => {
  * @param {Array} programs - Programs array
  * @returns {string} Program display name
  */
-export const getProgramDisplayName = (programId, programs) => {
+export const getProgramDisplayName = (programId, programs = []) => {
   const program = programs.find(p => p.id === programId);
   return program ? program.name : 'Unknown Program';
 };
@@ -139,12 +137,19 @@ export const getJobGoalPlaceholder = (programId) => {
 
 /**
  * Filter schedulable clients (excludes Grace program)
- * @param {Array} clients - All clients
+ * FIXED: Add defensive programming to prevent filter errors
+ * @param {Array} clients - All clients (can be undefined)
  * @returns {Array} Schedulable clients
  */
-export const getSchedulableClients = (clients) => {
+export const getSchedulableClients = (clients = []) => {
+  // Return empty array if clients is not an array
+  if (!Array.isArray(clients)) {
+    console.warn('getSchedulableClients: clients is not an array, returning empty array');
+    return [];
+  }
+  
   return clients.filter(client => {
-    const program = client.program || 'limitless';
+    const program = client?.program || 'limitless';
     return ['limitless', 'new-options', 'bridges'].includes(program);
   });
 };
@@ -154,7 +159,8 @@ export const getSchedulableClients = (clients) => {
  * @param {string} name - Client name
  * @returns {string} Initials (max 2 characters)
  */
-export const getClientInitials = (name) => {
+export const getClientInitials = (name = '') => {
+  if (!name || typeof name !== 'string') return 'U';
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 };
 
@@ -164,7 +170,7 @@ export const getClientInitials = (name) => {
  * @param {Array} coachTypes - Coach types array
  * @returns {string} Coach type display name
  */
-export const getCoachTypeDisplayName = (coachType, coachTypes) => {
+export const getCoachTypeDisplayName = (coachType, coachTypes = []) => {
   const type = coachTypes.find(t => t.id === coachType);
   return type ? type.name : 'Unknown Coach Type';
 };
@@ -175,6 +181,7 @@ export const getCoachTypeDisplayName = (coachType, coachTypes) => {
  * @returns {boolean} True if valid email format
  */
 export const isValidEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
@@ -185,6 +192,10 @@ export const isValidEmail = (email) => {
  * @returns {Object} Validation result with isValid and message
  */
 export const validatePassword = (password) => {
+  if (!password || typeof password !== 'string') {
+    return { isValid: false, message: 'Password is required' };
+  }
+  
   if (password.length < 6) {
     return { isValid: false, message: 'Password must be at least 6 characters' };
   }
@@ -201,7 +212,7 @@ export const validatePassword = (password) => {
  * @param {Object} data - Form data
  * @returns {Object} Cleaned data
  */
-export const cleanFormData = (data) => {
+export const cleanFormData = (data = {}) => {
   const cleaned = {};
   
   for (const [key, value] of Object.entries(data)) {
@@ -251,4 +262,44 @@ export const getErrorMessage = (error) => {
   if (error?.message) return error.message;
   if (error?.code) return `Error: ${error.code}`;
   return 'An unexpected error occurred';
+};
+
+/**
+ * ADDED: Safe array filter helper to prevent undefined errors
+ * @param {Array} array - Array to filter (can be undefined)
+ * @param {Function} predicate - Filter predicate function
+ * @returns {Array} Filtered array or empty array
+ */
+export const safeFilter = (array = [], predicate) => {
+  if (!Array.isArray(array)) {
+    console.warn('safeFilter: First argument is not an array, returning empty array');
+    return [];
+  }
+  
+  if (typeof predicate !== 'function') {
+    console.warn('safeFilter: Predicate is not a function, returning original array');
+    return array;
+  }
+  
+  return array.filter(predicate);
+};
+
+/**
+ * ADDED: Safe array find helper
+ * @param {Array} array - Array to search (can be undefined)
+ * @param {Function} predicate - Find predicate function
+ * @returns {*} Found item or undefined
+ */
+export const safeFind = (array = [], predicate) => {
+  if (!Array.isArray(array)) {
+    console.warn('safeFind: First argument is not an array, returning undefined');
+    return undefined;
+  }
+  
+  if (typeof predicate !== 'function') {
+    console.warn('safeFind: Predicate is not a function, returning undefined');
+    return undefined;
+  }
+  
+  return array.find(predicate);
 };
