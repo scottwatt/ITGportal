@@ -1,25 +1,26 @@
-// src/components/schedule/DailyTaskScheduler.jsx
+// src/components/schedule/DailyTaskScheduler.jsx - OPTIMIZED VERSION
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Plus, Save, Copy, Clipboard, X, Edit3, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDatePST, getPSTDate } from '../../utils/dateUtils';
 import { getSchedulableClients, getClientInitials } from '../../utils/helpers';
-import { TIME_BLOCKS, TASK_TYPES } from '../../utils/constants'; // Import from constants
+import { TIME_BLOCKS, TASK_TYPES } from '../../utils/constants';
 
 const DailyTaskScheduler = ({ 
   clients, 
   coaches, 
   schedules, 
   userProfile,
-  taskActions
+  taskActions,
+  tasks // NEW: Get tasks directly from props instead of loading them
 }) => {
   const [selectedDate, setSelectedDate] = useState(getPSTDate());
-  const [tasks, setTasks] = useState([]); // This should come from Firebase
   const [editingTask, setEditingTask] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedTimeBlock, setSelectedTimeBlock] = useState(null);
   const [copiedTasks, setCopiedTasks] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [optimisticTasks, setOptimisticTasks] = useState([]); // NEW: For immediate UI updates
 
   // Get schedulable clients (no Grace clients)
   const schedulableClients = getSchedulableClients(clients);
@@ -40,28 +41,50 @@ const DailyTaskScheduler = ({
     getCoachForClient(client.id) !== null
   );
 
-  // Load tasks when date changes
-  useEffect(() => {
-    loadTasksForDate();
-  }, [selectedDate]);
-
-  const loadTasksForDate = async () => {
-    if (!taskActions) return;
+  // NEW: Get tasks for the current date (combines real tasks + optimistic updates)
+  const getTasksForCurrentDate = () => {
+    // Get real tasks from Firebase for the selected date
+    const realTasks = tasks.filter(task => task.date === selectedDate);
     
-    setLoading(true);
-    try {
-      // In a real implementation, you'd get tasks from the hook's state
-      // For now, we'll simulate with taskActions.getTasksForDateFromState if available
-      if (taskActions.getTasksForDateFromState) {
-        const dateTasks = taskActions.getTasksForDateFromState(selectedDate);
-        setTasks(dateTasks);
+    // Get optimistic tasks for the selected date
+    const optimisticForDate = optimisticTasks.filter(task => task.date === selectedDate);
+    
+    // Combine them, preferring real tasks over optimistic ones
+    const combinedTasks = [...realTasks];
+    
+    // Add optimistic tasks that don't have real counterparts yet
+    optimisticForDate.forEach(optimisticTask => {
+      const hasRealTask = realTasks.some(realTask => 
+        realTask.clientId === optimisticTask.clientId && 
+        realTask.timeBlock === optimisticTask.timeBlock &&
+        Math.abs(new Date(realTask.createdAt?.seconds * 1000 || realTask.createdAt) - new Date(optimisticTask.createdAt)) < 5000
+      );
+      
+      if (!hasRealTask) {
+        combinedTasks.push(optimisticTask);
       }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
+    
+    return combinedTasks;
   };
+
+  // NEW: Clean up optimistic tasks when real tasks arrive
+  useEffect(() => {
+    const currentDateTasks = tasks.filter(task => task.date === selectedDate);
+    
+    // Remove optimistic tasks that now have real counterparts
+    setOptimisticTasks(prev => prev.filter(optimisticTask => {
+      if (optimisticTask.date !== selectedDate) return true;
+      
+      const hasRealTask = currentDateTasks.some(realTask => 
+        realTask.clientId === optimisticTask.clientId && 
+        realTask.timeBlock === optimisticTask.timeBlock &&
+        Math.abs(new Date(realTask.createdAt?.seconds * 1000 || realTask.createdAt) - new Date(optimisticTask.createdAt)) < 5000
+      );
+      
+      return !hasRealTask;
+    }));
+  }, [tasks, selectedDate]);
 
   const navigateDate = (direction) => {
     const currentDate = new Date(selectedDate + 'T12:00:00');
@@ -71,8 +94,8 @@ const DailyTaskScheduler = ({
 
   // Get task for specific client and time block
   const getTask = (clientId, timeBlockId) => {
-    return tasks.find(task => 
-      task.date === selectedDate && 
+    const currentTasks = getTasksForCurrentDate();
+    return currentTasks.find(task => 
       task.clientId === clientId && 
       task.timeBlock === timeBlockId
     );
@@ -99,23 +122,39 @@ const DailyTaskScheduler = ({
     setShowTaskModal(true);
   };
 
-  // Save task
+  // OPTIMIZED: Save task with immediate UI feedback
   const handleSaveTask = async (taskData) => {
     setLoading(true);
+    
     try {
       if (taskData.id) {
         // Update existing task
         await taskActions.updateTask(taskData.id, taskData);
       } else {
-        // Create new task
-        await taskActions.createTask(taskData);
+        // NEW: Create optimistic task immediately for instant UI feedback
+        const optimisticTask = {
+          id: `optimistic-${Date.now()}`, // Temporary ID
+          ...taskData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isOptimistic: true
+        };
+        
+        // Add to optimistic tasks for immediate UI update
+        setOptimisticTasks(prev => [...prev, optimisticTask]);
+        
+        // Create real task in Firebase (async)
+        taskActions.createTask(taskData).catch(error => {
+          // Remove optimistic task if creation fails
+          setOptimisticTasks(prev => prev.filter(t => t.id !== optimisticTask.id));
+          alert('Error saving task: ' + error.message);
+        });
       }
       
-      // Refresh tasks
-      await loadTasksForDate();
-      
+      // Close modal immediately
       setShowTaskModal(false);
       setEditingTask(null);
+      
     } catch (error) {
       alert('Error saving task: ' + error.message);
     } finally {
@@ -127,8 +166,15 @@ const DailyTaskScheduler = ({
   const handleDeleteTask = async (taskId) => {
     if (window.confirm('Are you sure you want to delete this task?')) {
       try {
+        // If it's an optimistic task, just remove it locally
+        if (taskId.startsWith('optimistic-')) {
+          setOptimisticTasks(prev => prev.filter(t => t.id !== taskId));
+          setShowTaskModal(false);
+          setEditingTask(null);
+          return;
+        }
+        
         await taskActions.deleteTask(taskId);
-        await loadTasksForDate();
         setShowTaskModal(false);
         setEditingTask(null);
       } catch (error) {
@@ -139,19 +185,19 @@ const DailyTaskScheduler = ({
 
   // Copy day's tasks
   const handleCopyDay = () => {
-    const dayTasks = tasks.filter(task => task.date === selectedDate);
-    if (dayTasks.length === 0) {
+    const currentDateTasks = getTasksForCurrentDate();
+    if (currentDateTasks.length === 0) {
       alert('No tasks to copy for this date.');
       return;
     }
     
     setCopiedTasks({
       sourceDate: selectedDate,
-      tasks: dayTasks,
+      tasks: currentDateTasks,
       copiedAt: new Date().toISOString()
     });
     
-    alert(`Copied ${dayTasks.length} tasks from ${formatDatePST(selectedDate)}!`);
+    alert(`Copied ${currentDateTasks.length} tasks from ${formatDatePST(selectedDate)}!`);
   };
 
   // Paste tasks to another day
@@ -173,11 +219,6 @@ const DailyTaskScheduler = ({
     try {
       const result = await taskActions.copyTasks(copiedTasks.sourceDate, targetDate);
       alert(`Successfully pasted ${result.length} tasks!`);
-      
-      // If we're viewing the target date, refresh
-      if (targetDate === selectedDate) {
-        await loadTasksForDate();
-      }
     } catch (error) {
       alert('Error pasting tasks: ' + error.message);
     }
@@ -319,6 +360,8 @@ const DailyTaskScheduler = ({
       </div>
     );
   };
+
+  const currentDateTasks = getTasksForCurrentDate();
 
   return (
     <div className="space-y-6">
@@ -473,9 +516,12 @@ const DailyTaskScheduler = ({
                           {task ? (
                             <div className={`p-2 rounded text-xs border ${getTaskTypeStyle(task.type)} ${
                               task.completed ? 'opacity-60 line-through' : ''
+                            } ${
+                              task.isOptimistic ? 'animate-pulse border-dashed' : ''
                             }`}>
                               <div className="font-medium truncate" title={task.title}>
                                 {task.title}
+                                {task.isOptimistic && <span className="ml-1 text-blue-500">⏳</span>}
                               </div>
                               {task.priority === 'high' && (
                                 <div className="text-red-600 font-bold">!</div>
