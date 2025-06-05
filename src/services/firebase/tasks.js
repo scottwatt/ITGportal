@@ -161,7 +161,7 @@ export const copyTasksToDate = async (sourceDate, targetDate, clientIds = null) 
     
     const newTasks = [];
     
-    for (const task of tasksToopy) {
+    for (const task of tasksToCopy) {
       // Check if task already exists (same client, timeBlock, date)
       const exists = existingTasks.some(existing => 
         existing.clientId === task.clientId && 

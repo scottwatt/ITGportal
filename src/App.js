@@ -124,13 +124,15 @@ function App() {
           clients={appState.clients}
           coaches={appState.coaches}
           schedules={appState.schedules}
+          tasks={appState.tasks}
           
           // Action props
           clientActions={appState.clientActions}
           coachActions={appState.coachActions}
           scheduleActions={appState.scheduleActions}
           availabilityActions={appState.availabilityActions}      // Coach availability
-          graceAttendanceActions={appState.graceAttendanceActions}  // NEW: Grace attendance
+          graceAttendanceActions={appState.graceAttendanceActions}  // Grace attendance
+          taskActions={appState.taskActions}  // NEW: Task actions
         />
       </ErrorBoundary>
     </div>

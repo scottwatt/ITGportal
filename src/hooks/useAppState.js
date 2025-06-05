@@ -5,6 +5,7 @@ import { useCoaches } from './useCoaches';
 import { useSchedules } from './useSchedules';
 import { useCoachAvailability } from './useCoachAvailability';
 import { useGraceAttendance } from './useGraceAttendance';
+import { useTasks } from './useTasks'; // NEW: Added task hook
 
 export const useAppState = (isAuthenticated) => {
   // UI State
@@ -19,6 +20,7 @@ export const useAppState = (isAuthenticated) => {
   const schedulesHook = useSchedules(isAuthenticated);
   const coachAvailabilityHook = useCoachAvailability(isAuthenticated);
   const graceAttendanceHook = useGraceAttendance(isAuthenticated); 
+  const tasksHook = useTasks(isAuthenticated); // NEW: Added task hook
 
   // Navigation handlers
   const handleTabChange = (tabId) => {
@@ -308,7 +310,7 @@ export const useAppState = (isAuthenticated) => {
     getUnavailableCoachesForDate: coachAvailabilityHook.getUnavailableCoachesForDate
   };
 
-  // NEW: Grace attendance actions
+  // Grace attendance actions
   const graceAttendanceActions = {
     markClientAttendance: async (clientId, date, present, notes = '') => {
       try {
@@ -392,8 +394,102 @@ export const useAppState = (isAuthenticated) => {
     getConsecutiveAbsences: graceAttendanceHook.getConsecutiveAbsences
   };
 
+  // NEW: Task actions
+  const taskActions = {
+    createTask: async (taskData) => {
+      try {
+        const result = await tasksHook.createTask(taskData);
+        return result;
+      } catch (error) {
+        console.error('Error creating task:', error);
+        throw error;
+      }
+    },
+    
+    updateTask: async (taskId, updates) => {
+      try {
+        await tasksHook.updateTask(taskId, updates);
+      } catch (error) {
+        console.error('Error updating task:', error);
+        throw error;
+      }
+    },
+    
+    deleteTask: async (taskId) => {
+      try {
+        await tasksHook.deleteTask(taskId);
+      } catch (error) {
+        console.error('Error deleting task:', error);
+        throw error;
+      }
+    },
+    
+    getTasksForSpecificDate: async (date) => {
+      try {
+        return await tasksHook.getTasksForSpecificDate(date);
+      } catch (error) {
+        console.error('Error getting tasks for date:', error);
+        throw error;
+      }
+    },
+    
+    getTasksForClientDate: async (clientId, date) => {
+      try {
+        return await tasksHook.getTasksForClientDate(clientId, date);
+      } catch (error) {
+        console.error('Error getting tasks for client and date:', error);
+        throw error;
+      }
+    },
+    
+    getTasksForClientRange: async (clientId, startDate, endDate) => {
+      try {
+        return await tasksHook.getTasksForClientRange(clientId, startDate, endDate);
+      } catch (error) {
+        console.error('Error getting tasks for client range:', error);
+        throw error;
+      }
+    },
+    
+    copyTasks: async (sourceDate, targetDate, clientIds = null) => {
+      try {
+        return await tasksHook.copyTasks(sourceDate, targetDate, clientIds);
+      } catch (error) {
+        console.error('Error copying tasks:', error);
+        throw error;
+      }
+    },
+    
+    toggleCompletion: async (taskId, completed) => {
+      try {
+        await tasksHook.toggleCompletion(taskId, completed);
+      } catch (error) {
+        console.error('Error toggling task completion:', error);
+        throw error;
+      }
+    },
+    
+    getClientTaskStatistics: async (clientId, startDate, endDate) => {
+      try {
+        return await tasksHook.getClientTaskStatistics(clientId, startDate, endDate);
+      } catch (error) {
+        console.error('Error getting task statistics:', error);
+        throw error;
+      }
+    },
+    
+    // Helper methods for local state
+    getTasksForDateFromState: tasksHook.getTasksForDateFromState,
+    getTasksForClientAndDateFromState: tasksHook.getTasksForClientAndDateFromState,
+    getTaskForClientAndTimeBlock: tasksHook.getTaskForClientAndTimeBlock,
+    getTasksByType: tasksHook.getTasksByType,
+    getCompletedTasksForDate: tasksHook.getCompletedTasksForDate,
+    getIncompleteTasksForDate: tasksHook.getIncompleteTasksForDate,
+    getTaskCompletionRate: tasksHook.getTaskCompletionRate
+  };
+
   // Loading state - true if any critical data is still loading
-  const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || coachAvailabilityHook.loading || graceAttendanceHook.loading;
+  const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || coachAvailabilityHook.loading || graceAttendanceHook.loading || tasksHook.loading;
 
   // Error state - collect all errors
   const errors = [
@@ -401,7 +497,8 @@ export const useAppState = (isAuthenticated) => {
     coachesHook.error,
     schedulesHook.error,
     coachAvailabilityHook.error,
-    graceAttendanceHook.error
+    graceAttendanceHook.error,
+    tasksHook.error
   ].filter(Boolean);
 
   // Data availability check
@@ -422,7 +519,8 @@ export const useAppState = (isAuthenticated) => {
     coaches: hasData ? coachesHook.coaches : [],
     schedules: hasData ? schedulesHook.schedules : [],
     availabilityRecords: hasData ? coachAvailabilityHook.availabilityRecords : [],
-    attendanceRecords: hasData ? graceAttendanceHook.attendanceRecords : [], // NEW
+    attendanceRecords: hasData ? graceAttendanceHook.attendanceRecords : [],
+    tasks: hasData ? tasksHook.tasks : [], // NEW
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -436,7 +534,8 @@ export const useAppState = (isAuthenticated) => {
     coachActions,
     scheduleActions,
     availabilityActions,
-    graceAttendanceActions, // NEW
+    graceAttendanceActions,
+    taskActions, // NEW
 
     // Utility functions
     utils: {
