@@ -1,6 +1,6 @@
 // src/utils/constants.js - Fixed with separate time blocks for tasks
 
-import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock } from 'lucide-react';
+import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car } from 'lucide-react';
 
 // User roles
 export const USER_ROLES = {
@@ -83,7 +83,7 @@ export const COACH_TYPES_DETAILED = [
   { id: 'grace', name: 'Grace Coach', programs: ['grace'] }
 ];
 
-// Navigation items for different user roles
+//Navigation function to include mileage tracking
 export const getNavigationItemsForUser = (userProfile) => {
   if (!userProfile) return [];
 
@@ -107,7 +107,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       return [
         { id: 'dashboard', label: 'Dashboard', icon: Building2 },
         { id: 'my-schedule', label: 'My Schedule', icon: Calendar },
-        { id: 'my-tasks', label: 'My Tasks', icon: Clock }, // Task system for regular clients
+        { id: 'my-tasks', label: 'My Tasks', icon: Clock },
         { id: 'my-goals', label: 'My Goals', icon: ClipboardList },
         { id: 'resources', label: 'Resources', icon: BookOpen }
       ];
@@ -121,6 +121,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'grace-schedule', label: 'Grace Schedule', icon: Calendar },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
       { id: 'clients', label: 'Grace Participants', icon: Users },
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -130,8 +131,9 @@ export const getNavigationItemsForUser = (userProfile) => {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: Building2 },
       { id: 'schedule', label: 'My Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock }, // Task scheduling for success coaches
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'clients', label: 'Clients', icon: Users },
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -141,8 +143,9 @@ export const getNavigationItemsForUser = (userProfile) => {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: Building2 },
       { id: 'schedule', label: 'My Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock }, // Task scheduling
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'clients', label: 'Clients', icon: Users },
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -152,10 +155,11 @@ export const getNavigationItemsForUser = (userProfile) => {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: Building2 },
       { id: 'schedule', label: 'Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock }, // Task scheduling for schedulers
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -165,16 +169,31 @@ export const getNavigationItemsForUser = (userProfile) => {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: Building2 },
       { id: 'schedule', label: 'Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock }, // Task scheduling for admins
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'resources', label: 'Resources', icon: BookOpen },
       { id: 'admin', label: 'Admin Panel', icon: Settings },
-      { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
 
   return [];
+};
+
+// Helper function to check if user can access mileage tracking
+export const canAccessMileageTracking = (userProfile) => {
+  if (!userProfile) return false;
+  
+  const { role } = userProfile;
+  
+  // All coaches, admins, and schedulers can access mileage tracking
+  if ([USER_ROLES.COACH, USER_ROLES.ADMIN, USER_ROLES.SCHEDULER].includes(role)) {
+    return true;
+  }
+  
+  return false;
 };
 
 // Helper function to check if user can access Grace attendance
@@ -416,3 +435,17 @@ export const FILE_TYPE_MAPPINGS = {
   archive: ['zip', 'rar', '7z', 'tar', 'gz'],
   code: ['html', 'css', 'js', 'jsx', 'py', 'php', 'rb']
 };
+
+export const MILEAGE_PURPOSES = [
+  { id: 'business', label: 'Business', deductible: true },
+  { id: 'personal', label: 'Personal', deductible: false }
+];
+
+export const MILEAGE_CATEGORIES = [
+  { id: 'client_visit', label: 'Client Visit' },
+  { id: 'office_meeting', label: 'Office Meeting' },
+  { id: 'training', label: 'Training' },
+  { id: 'errand', label: 'Work Errand' },
+  { id: 'other', label: 'Other' }
+];
+

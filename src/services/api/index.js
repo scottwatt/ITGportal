@@ -4,7 +4,8 @@ import * as clientsService from '../firebase/clients';
 import * as coachesService from '../firebase/coaches';
 import * as schedulesService from '../firebase/schedules';
 import * as coachAvailabilityService from '../firebase/coachAvailability';
-import * as graceAttendanceService from '../firebase/graceAttendance'; // NEW IMPORT
+import * as graceAttendanceService from '../firebase/graceAttendance'; 
+import * as mileageTrackerService from '../firebase/mileageTracker'; 
 
 // Re-export all services with consistent naming
 export const api = {
@@ -78,6 +79,16 @@ export const api = {
     getAllSummary: graceAttendanceService.getAllGraceAttendanceSummary,
     getMonthlyStats: graceAttendanceService.getMonthlyAttendanceStats,
     getClientsStatus: graceAttendanceService.getAttendanceStatusForClients
+  },
+
+  mileage: {
+    getAll: mileageTrackerService.subscribeToCoachMileage,
+    add: mileageTrackerService.addMileageRecord,
+    update: mileageTrackerService.updateMileageRecord,
+    remove: mileageTrackerService.deleteMileageRecord,
+    calculateDistance: mileageTrackerService.calculateDistance,
+    getForMonth: mileageTrackerService.getMileageForMonth,
+    calculateTotals: mileageTrackerService.calculateMonthlyTotals
   }
 };
 
@@ -87,7 +98,8 @@ export const clientsAPI = api.clients;
 export const coachesAPI = api.coaches;
 export const schedulesAPI = api.schedules;
 export const availabilityAPI = api.availability;
-export const graceAttendanceAPI = api.graceAttendance; // NEW EXPORT
+export const graceAttendanceAPI = api.graceAttendance; 
+export const mileageAPI = api.mileage; 
 
 // Default export
 export default api;

@@ -1,4 +1,4 @@
-// src/App.js - Updated with Grace Attendance support
+// src/App.js - Updated with Grace Attendance support + Mileage Tracking
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -125,6 +125,7 @@ function App() {
           coaches={appState.coaches}
           schedules={appState.schedules}
           tasks={appState.tasks}
+          mileageRecords={appState.mileageRecords}  // ADDED: Mileage records
           
           // Action props
           clientActions={appState.clientActions}
@@ -132,7 +133,8 @@ function App() {
           scheduleActions={appState.scheduleActions}
           availabilityActions={appState.availabilityActions}      // Coach availability
           graceAttendanceActions={appState.graceAttendanceActions}  // Grace attendance
-          taskActions={appState.taskActions}  // NEW: Task actions
+          taskActions={appState.taskActions}  // Task actions
+          mileageActions={appState.mileageActions}  // ADDED: Mileage actions
         />
       </ErrorBoundary>
     </div>

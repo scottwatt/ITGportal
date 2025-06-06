@@ -1,4 +1,4 @@
-// src/hooks/useAppState.js - Fixed to prevent undefined array errors
+// src/hooks/useAppState.js - Fixed to prevent undefined array errors + Mileage Tracker
 import { useState } from 'react';
 import { useClients } from './useClients';
 import { useCoaches } from './useCoaches';
@@ -6,6 +6,8 @@ import { useSchedules } from './useSchedules';
 import { useCoachAvailability } from './useCoachAvailability';
 import { useGraceAttendance } from './useGraceAttendance';
 import { useTasks } from './useTasks';
+import { useMileageTracker } from './useMileageTracker';
+import { useAuth } from './useAuth'; // ADD THIS IMPORT to get current user
 
 export const useAppState = (isAuthenticated) => {
   // UI State
@@ -14,6 +16,9 @@ export const useAppState = (isAuthenticated) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
+  // Get current user for mileage tracking
+  const { user } = useAuth();
+
   // Data hooks - these handle their own loading and error states
   const clientsHook = useClients(isAuthenticated);
   const coachesHook = useCoaches(isAuthenticated);
@@ -21,6 +26,13 @@ export const useAppState = (isAuthenticated) => {
   const coachAvailabilityHook = useCoachAvailability(isAuthenticated);
   const graceAttendanceHook = useGraceAttendance(isAuthenticated); 
   const tasksHook = useTasks(isAuthenticated);
+  
+  // Mileage tracking hook - find current user's coach record
+  const currentCoach = coachesHook.coaches.find(c => c.uid === user?.uid);
+  const mileageHook = useMileageTracker(
+    isAuthenticated && currentCoach ? currentCoach.uid : null,
+    isAuthenticated
+  );
 
   // Navigation handlers
   const handleTabChange = (tabId) => {
@@ -485,8 +497,58 @@ export const useAppState = (isAuthenticated) => {
     getTaskCompletionRate: tasksHook.getTaskCompletionRate
   };
 
-  // Loading state - true if any critical data is still loading
-  const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || coachAvailabilityHook.loading || graceAttendanceHook.loading || tasksHook.loading;
+  // NEW: Mileage actions
+  const mileageActions = {
+    addRecord: async (recordData) => {
+      try {
+        const result = await mileageHook.addRecord(recordData);
+        return result;
+      } catch (error) {
+        console.error('Error adding mileage record:', error);
+        throw error;
+      }
+    },
+    
+    updateRecord: async (recordId, updates) => {
+      try {
+        await mileageHook.updateRecord(recordId, updates);
+      } catch (error) {
+        console.error('Error updating mileage record:', error);
+        throw error;
+      }
+    },
+    
+    deleteRecord: async (recordId) => {
+      try {
+        await mileageHook.deleteRecord(recordId);
+      } catch (error) {
+        console.error('Error deleting mileage record:', error);
+        throw error;
+      }
+    },
+    
+    getMonthlyRecords: async (year, month) => {
+      try {
+        return await mileageHook.getMonthlyRecords(year, month);
+      } catch (error) {
+        console.error('Error getting monthly mileage:', error);
+        throw error;
+      }
+    },
+    
+    // Helper methods
+    getRecordsForDate: mileageHook.getRecordsForDate,
+    getRecordsForMonth: mileageHook.getRecordsForMonth,
+    getCurrentMonthTotals: mileageHook.getCurrentMonthTotals,
+    getMonthlyTotals: mileageHook.getMonthlyTotals,
+    clearError: mileageHook.clearError
+  };
+
+  // Loading state - true if any critical data is still loading (excluding mileage)
+  const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || 
+                  coachAvailabilityHook.loading || graceAttendanceHook.loading || 
+                  tasksHook.loading;
+                  // Note: mileageHook.loading is excluded so it doesn't block app startup
 
   // Error state - collect all errors
   const errors = [
@@ -495,7 +557,8 @@ export const useAppState = (isAuthenticated) => {
     schedulesHook.error,
     coachAvailabilityHook.error,
     graceAttendanceHook.error,
-    tasksHook.error
+    tasksHook.error,
+    mileageHook.error
   ].filter(Boolean);
 
   // FIXED: Always ensure arrays are returned, even during loading/error states
@@ -505,6 +568,7 @@ export const useAppState = (isAuthenticated) => {
   const safeAvailabilityRecords = Array.isArray(coachAvailabilityHook.availabilityRecords) ? coachAvailabilityHook.availabilityRecords : [];
   const safeAttendanceRecords = Array.isArray(graceAttendanceHook.attendanceRecords) ? graceAttendanceHook.attendanceRecords : [];
   const safeTasks = Array.isArray(tasksHook.tasks) ? tasksHook.tasks : [];
+  const safeMileageRecords = Array.isArray(mileageHook.records) ? mileageHook.records : [];
 
   return {
     // UI State
@@ -523,6 +587,7 @@ export const useAppState = (isAuthenticated) => {
     availabilityRecords: safeAvailabilityRecords,
     attendanceRecords: safeAttendanceRecords,
     tasks: safeTasks,
+    mileageRecords: safeMileageRecords, // NEW
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -538,6 +603,7 @@ export const useAppState = (isAuthenticated) => {
     availabilityActions,
     graceAttendanceActions,
     taskActions,
+    mileageActions, // NEW
 
     // Utility functions
     utils: {
@@ -574,6 +640,16 @@ export const useAppState = (isAuthenticated) => {
           totalGraceClients: graceClients.length,
           ...attendanceData,
           attendanceRate: attendanceData.total > 0 ? Math.round((attendanceData.present / attendanceData.total) * 100) : 0
+        };
+      },
+      
+      // NEW: Get mileage statistics
+      getMileageStats: () => {
+        const currentMonthTotals = mileageActions.getCurrentMonthTotals();
+        return {
+          ...currentMonthTotals,
+          hasRecords: safeMileageRecords.length > 0,
+          totalRecords: safeMileageRecords.length
         };
       },
       

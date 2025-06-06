@@ -1,5 +1,5 @@
-// src/components/layout/AppLayout.jsx - Fixed with defensive programming
-import React, { lazy, Suspense } from 'react';
+// src/components/layout/AppLayout.jsx - Fixed with defensive programming + Mileage Tracker
+import React, { lazy, Suspense, useEffect } from 'react'; // ADDED useEffect
 import { ErrorBoundary } from 'react-error-boundary';
 
 // Core components (always loaded)
@@ -8,6 +8,9 @@ import LoadingScreen from '../shared/LoadingScreen';
 import PasswordChangeModal from '../auth/PasswordChangeModal';
 import Dashboard from '../shared/Dashboard';
 import Resources from '../shared/Resources';
+import MileageTracker from '../mileage/MileageTracker'; 
+import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader'; 
+import { canAccessMileageTracking } from '../../utils/constants';
 
 // Regular client components
 import ClientDashboard from '../client/ClientDashboard';
@@ -88,6 +91,7 @@ const AppLayout = ({
   coaches = [],
   schedules = [],
   tasks = [],
+  mileageRecords = [], // ADDED
   
   // Action props
   clientActions,
@@ -95,9 +99,20 @@ const AppLayout = ({
   scheduleActions,
   availabilityActions,
   graceAttendanceActions,
-  taskActions
+  taskActions,
+  mileageActions // ADDED
 }) => {
   
+  // ADDED: Load Google Maps API when mileage tab is accessed
+  useEffect(() => {
+    if (activeTab === 'mileage') {
+      loadGoogleMapsAPI().catch(error => {
+        console.warn('Google Maps API failed to load:', error);
+        // Mileage tracker will still work with manual entry
+      });
+    }
+  }, [activeTab]);
+
   // Helper function to check if user is a Grace client
   const isGraceClient = () => {
     if (userProfile?.role !== USER_ROLES.CLIENT) return false;
@@ -250,6 +265,15 @@ const AppLayout = ({
                 />
               </div>
             </LazyComponentWrapper>
+          );
+        // ADDED: Mileage tab for Grace coaches
+        case 'mileage':
+          return canAccessMileageTracking(userProfile) && (
+            <MileageTracker 
+              userProfile={userProfile}
+              mileageActions={mileageActions}
+              mileageRecords={mileageRecords}
+            />
           );
         case 'resources':
           return <Resources userRole={userProfile?.role} />;
@@ -416,6 +440,16 @@ const AppLayout = ({
             userProfile={userProfile}
             taskActions={taskActions}
             tasks={tasks} // Pass tasks directly
+          />
+        );
+
+      // ADDED: Mileage tab for all coaches, admins, and schedulers
+      case 'mileage':
+        return canAccessMileageTracking(userProfile) && (
+          <MileageTracker 
+            userProfile={userProfile}
+            mileageActions={mileageActions}
+            mileageRecords={mileageRecords}
           />
         );
         
