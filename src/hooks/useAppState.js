@@ -1,5 +1,5 @@
-// src/hooks/useAppState.js - Fixed to prevent undefined array errors + Mileage Tracker
-import { useState } from 'react';
+// src/hooks/useAppState.js - Fixed to prevent undefined array errors + Mileage Tracker - FIXED RE-RENDERS
+import { useState, useMemo } from 'react';
 import { useClients } from './useClients';
 import { useCoaches } from './useCoaches';
 import { useSchedules } from './useSchedules';
@@ -27,12 +27,18 @@ export const useAppState = (isAuthenticated) => {
   const graceAttendanceHook = useGraceAttendance(isAuthenticated); 
   const tasksHook = useTasks(isAuthenticated);
   
-  // Mileage tracking hook - find current user's coach record
-  const currentCoach = coachesHook.coaches.find(c => c.uid === user?.uid);
-  const mileageHook = useMileageTracker(
-    isAuthenticated && currentCoach ? currentCoach.uid : null,
-    isAuthenticated
-  );
+  // FIXED: Memoize coach lookup to prevent re-renders
+  const currentCoachId = useMemo(() => {
+    if (!isAuthenticated || !user?.uid || !Array.isArray(coachesHook.coaches)) {
+      return null;
+    }
+    
+    const coach = coachesHook.coaches.find(c => c.uid === user.uid);
+    return coach ? coach.uid : null;
+  }, [isAuthenticated, user?.uid, coachesHook.coaches]);
+
+  // Mileage tracking hook - use memoized coach ID
+  const mileageHook = useMileageTracker(currentCoachId, isAuthenticated);
 
   // Navigation handlers
   const handleTabChange = (tabId) => {
@@ -497,52 +503,58 @@ export const useAppState = (isAuthenticated) => {
     getTaskCompletionRate: tasksHook.getTaskCompletionRate
   };
 
-  // NEW: Mileage actions
-  const mileageActions = {
-    addRecord: async (recordData) => {
-      try {
-        const result = await mileageHook.addRecord(recordData);
-        return result;
-      } catch (error) {
-        console.error('Error adding mileage record:', error);
-        throw error;
-      }
-    },
-    
-    updateRecord: async (recordId, updates) => {
-      try {
-        await mileageHook.updateRecord(recordId, updates);
-      } catch (error) {
-        console.error('Error updating mileage record:', error);
-        throw error;
-      }
-    },
-    
-    deleteRecord: async (recordId) => {
-      try {
-        await mileageHook.deleteRecord(recordId);
-      } catch (error) {
-        console.error('Error deleting mileage record:', error);
-        throw error;
-      }
-    },
-    
-    getMonthlyRecords: async (year, month) => {
-      try {
-        return await mileageHook.getMonthlyRecords(year, month);
-      } catch (error) {
-        console.error('Error getting monthly mileage:', error);
-        throw error;
-      }
-    },
-    
-    // Helper methods
-    getRecordsForDate: mileageHook.getRecordsForDate,
-    getRecordsForMonth: mileageHook.getRecordsForMonth,
-    getCurrentMonthTotals: mileageHook.getCurrentMonthTotals,
-    getMonthlyTotals: mileageHook.getMonthlyTotals,
-    clearError: mileageHook.clearError
-  };
+  // FIXED: Memoize mileage actions to prevent re-creation on every render
+  const mileageActions = useMemo(() => {
+    if (!mileageHook.addRecord) {
+      return null; // Return null if mileage hook isn't ready
+    }
+
+    return {
+      addRecord: async (recordData) => {
+        try {
+          const result = await mileageHook.addRecord(recordData);
+          return result;
+        } catch (error) {
+          console.error('Error adding mileage record:', error);
+          throw error;
+        }
+      },
+      
+      updateRecord: async (recordId, updates) => {
+        try {
+          await mileageHook.updateRecord(recordId, updates);
+        } catch (error) {
+          console.error('Error updating mileage record:', error);
+          throw error;
+        }
+      },
+      
+      deleteRecord: async (recordId) => {
+        try {
+          await mileageHook.deleteRecord(recordId);
+        } catch (error) {
+          console.error('Error deleting mileage record:', error);
+          throw error;
+        }
+      },
+      
+      getMonthlyRecords: async (year, month) => {
+        try {
+          return await mileageHook.getMonthlyRecords(year, month);
+        } catch (error) {
+          console.error('Error getting monthly mileage:', error);
+          throw error;
+        }
+      },
+      
+      // Helper methods
+      getRecordsForDate: mileageHook.getRecordsForDate,
+      getRecordsForMonth: mileageHook.getRecordsForMonth,
+      getCurrentMonthTotals: mileageHook.getCurrentMonthTotals,
+      getMonthlyTotals: mileageHook.getMonthlyTotals,
+      clearError: mileageHook.clearError
+    };
+  }, [mileageHook]);
 
   // Loading state - true if any critical data is still loading (excluding mileage)
   const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || 
@@ -587,7 +599,7 @@ export const useAppState = (isAuthenticated) => {
     availabilityRecords: safeAvailabilityRecords,
     attendanceRecords: safeAttendanceRecords,
     tasks: safeTasks,
-    mileageRecords: safeMileageRecords, // NEW
+    mileageRecords: safeMileageRecords,
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -603,7 +615,7 @@ export const useAppState = (isAuthenticated) => {
     availabilityActions,
     graceAttendanceActions,
     taskActions,
-    mileageActions, // NEW
+    mileageActions, // FIXED: Now memoized
 
     // Utility functions
     utils: {
@@ -643,8 +655,12 @@ export const useAppState = (isAuthenticated) => {
         };
       },
       
-      // NEW: Get mileage statistics
+      // FIXED: Get mileage statistics with null check
       getMileageStats: () => {
+        if (!mileageActions) {
+          return { miles: 0, recordCount: 0, hasRecords: false, totalRecords: 0 };
+        }
+        
         const currentMonthTotals = mileageActions.getCurrentMonthTotals();
         return {
           ...currentMonthTotals,

@@ -1,75 +1,73 @@
-// src/utils/googleMapsLoader.js - Utility to load Google Maps API
-
-let isLoaded = false;
+// src/utils/googleMapsLoader.js - Updated to include Places API for autocomplete
 let isLoading = false;
-let loadPromise = null;
+let isLoaded = false;
 
 export const loadGoogleMapsAPI = () => {
-  // If already loaded, return resolved promise
-  if (isLoaded) {
-    return Promise.resolve();
-  }
-
-  // If currently loading, return the existing promise
-  if (isLoading) {
-    return loadPromise;
-  }
-
-  // Start loading
-  isLoading = true;
-  
-  loadPromise = new Promise((resolve, reject) => {
-    // Check if Google Maps is already available
-    if (window.google && window.google.maps) {
-      isLoaded = true;
-      isLoading = false;
+  return new Promise((resolve, reject) => {
+    // If already loaded, resolve immediately
+    if (isLoaded && window.google && window.google.maps && window.google.maps.places) {
       resolve();
       return;
     }
 
-    // Get API key from environment variables
+    // If currently loading, wait for it to finish
+    if (isLoading) {
+      const checkLoaded = () => {
+        if (isLoaded && window.google && window.google.maps && window.google.maps.places) {
+          resolve();
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+      checkLoaded();
+      return;
+    }
+
+    isLoading = true;
+
+    // Get API key from environment
     const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
       isLoading = false;
-      reject(new Error('Google Maps API key not found. Please add REACT_APP_GOOGLE_MAPS_API_KEY to your .env file.'));
+      reject(new Error('Google Maps API key not found'));
+      return;
+    }
+
+    // Check if script already exists
+    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+      // Script exists, wait for it to load
+      const checkLoaded = () => {
+        if (window.google && window.google.maps && window.google.maps.places) {
+          isLoaded = true;
+          isLoading = false;
+          resolve();
+        } else {
+          setTimeout(checkLoaded, 100);
+        }
+      };
+      checkLoaded();
       return;
     }
 
     // Create script element
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initGoogleMaps`;
     script.async = true;
     script.defer = true;
 
-    // Handle successful load
-    script.onload = () => {
+    // Global callback function
+    window.initGoogleMaps = () => {
       isLoaded = true;
       isLoading = false;
       resolve();
     };
 
-    // Handle load error
     script.onerror = () => {
       isLoading = false;
       reject(new Error('Failed to load Google Maps API'));
     };
 
-    // Add script to document
     document.head.appendChild(script);
   });
-
-  return loadPromise;
-};
-
-// Check if Google Maps API is loaded
-export const isGoogleMapsLoaded = () => {
-  return isLoaded && window.google && window.google.maps;
-};
-
-// Reset loader state (useful for testing)
-export const resetGoogleMapsLoader = () => {
-  isLoaded = false;
-  isLoading = false;
-  loadPromise = null;
 };

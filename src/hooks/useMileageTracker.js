@@ -1,5 +1,5 @@
-// src/hooks/useMileageTracker.js - Updated to work with new mileage service
-import { useState, useEffect, useCallback } from 'react';
+// src/hooks/useMileageTracker.js - Updated to work with new mileage service - FIXED RE-RENDERS
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   subscribeToCoachMileage,
   addMileageRecord, 
@@ -13,36 +13,62 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [unsubscribe, setUnsubscribe] = useState(null);
+  
+  // Use refs to prevent stale closures and unnecessary re-subscriptions
+  const unsubscribeRef = useRef(null);
+  const coachIdRef = useRef(coachId);
+  const isAuthenticatedRef = useRef(isAuthenticated);
 
-  // Subscribe to real-time mileage records
+  // Update refs when props change
   useEffect(() => {
+    coachIdRef.current = coachId;
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [coachId, isAuthenticated]);
+
+  // Subscribe to real-time mileage records - OPTIMIZED
+  useEffect(() => {
+    // Clean up previous subscription first
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
     if (!isAuthenticated || !coachId) {
       setRecords([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
+    console.log('🔥 Setting up mileage subscription for coach:', coachId);
     setLoading(true);
     setError(null);
 
     try {
       const unsubscribeFn = subscribeToCoachMileage(coachId, (newRecords) => {
-        setRecords(newRecords);
-        setLoading(false);
+        console.log('📨 Received mileage records update:', newRecords.length, 'records');
+        
+        // Only update state if component is still mounted and coach hasn't changed
+        if (coachIdRef.current === coachId && isAuthenticatedRef.current) {
+          setRecords(newRecords);
+          setLoading(false);
+        }
       });
 
-      setUnsubscribe(unsubscribeFn);
+      unsubscribeRef.current = unsubscribeFn;
 
       // Set a timeout to prevent infinite loading
       const timeoutId = setTimeout(() => {
-        setLoading(false);
+        if (coachIdRef.current === coachId && isAuthenticatedRef.current) {
+          setLoading(false);
+        }
       }, 5000);
 
       return () => {
         clearTimeout(timeoutId);
-        if (unsubscribeFn) {
-          unsubscribeFn();
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
         }
       };
     } catch (err) {
@@ -50,32 +76,39 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
       setError('Failed to load mileage records');
       setLoading(false);
     }
-  }, [coachId, isAuthenticated]);
+  }, [coachId, isAuthenticated]); // Only depend on essential props
 
-  // Add a new mileage record
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  }, []);
+
+  // Add a new mileage record - MEMOIZED
   const addRecord = useCallback(async (recordData) => {
-    if (!coachId) {
+    if (!coachIdRef.current) {
       throw new Error('Coach ID is required');
     }
 
     try {
-      console.log('🚀 Adding mileage record for coach:', coachId);
-      console.log('📝 Record data:', recordData);
+      console.log('🚀 Adding mileage record for coach:', coachIdRef.current);
       
       setError(null);
-      const newRecord = await addMileageRecord(coachId, recordData);
+      const newRecord = await addMileageRecord(coachIdRef.current, recordData);
       console.log('✅ Successfully added record:', newRecord);
       return newRecord;
     } catch (err) {
       console.error('❌ Error adding mileage record:', err);
-      console.error('❌ Coach ID:', coachId);
-      console.error('❌ Record data:', recordData);
       setError('Failed to add mileage record: ' + err.message);
       throw err;
     }
-  }, [coachId]);
+  }, []); // No dependencies - uses refs
 
-  // Update an existing mileage record
+  // Update an existing mileage record - MEMOIZED
   const updateRecord = useCallback(async (recordId, updates) => {
     try {
       setError(null);
@@ -88,7 +121,7 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     }
   }, []);
 
-  // Delete a mileage record
+  // Delete a mileage record - MEMOIZED
   const deleteRecord = useCallback(async (recordId) => {
     try {
       setError(null);
@@ -100,16 +133,16 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     }
   }, []);
 
-  // Get monthly mileage records
+  // Get monthly mileage records - MEMOIZED
   const getMonthlyRecords = useCallback(async (year, month) => {
-    if (!coachId) {
+    if (!coachIdRef.current) {
       throw new Error('Coach ID is required');
     }
 
     try {
       setError(null);
-      console.log('📅 Getting monthly mileage records and updating state:', { coachId, year, month });
-      const monthlyRecords = await getMonthlyMileageRecords(coachId, year, month);
+      console.log('📅 Getting monthly mileage records:', { coachId: coachIdRef.current, year, month });
+      const monthlyRecords = await getMonthlyMileageRecords(coachIdRef.current, year, month);
       
       // IMPORTANT: Update the local state with the results
       console.log('🔄 Updating records state with:', monthlyRecords.length, 'records');
@@ -121,9 +154,9 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
       setError('Failed to load monthly records');
       throw err;
     }
-  }, [coachId]);
+  }, []); // No dependencies - uses refs
 
-  // Helper functions for working with local state
+  // Helper functions for working with local state - MEMOIZED
   const getRecordsForDate = useCallback((date) => {
     return records.filter(record => record.date === date);
   }, [records]);
@@ -157,7 +190,7 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     };
   }, [getRecordsForMonth]);
 
-  // Clear error state
+  // Clear error state - MEMOIZED
   const clearError = useCallback(() => {
     setError(null);
   }, []);

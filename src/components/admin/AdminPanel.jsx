@@ -1,4 +1,4 @@
-// src/components/admin/AdminPanel.jsx - Updated with Grace Calendar Configuration tab
+// src/components/admin/AdminPanel.jsx - Updated with Mileage Overview tab
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
@@ -10,11 +10,13 @@ import {
   Trash2, 
   CheckCircle, 
   X,
-  Clock
+  Clock,
+  Car  // NEW: Added Car icon for mileage tab
 } from 'lucide-react';
 import DragDropScheduler from '../schedule/DragDropScheduler';
 import EnhancedCoachAvailabilityManager from './EnhancedCoachAvailabilityManager';
 import CalendarConfiguration from './CalendarConfiguration';
+import AdminMileageOverview from './AdminMileageOverview'; // NEW: Import the new component
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { generateTempPassword, cleanFormData } from '../../utils/helpers';
 import { isCalendarAPIReady } from '../../services/googleCalendar/calendarService';
@@ -345,12 +347,13 @@ const handleAddClient = async (e) => {
   // Get Grace clients count for display
   const graceClients = clients.filter(client => client.program === 'grace');
 
-  // UPDATED: Tabs array with Grace Calendar Configuration
+  // UPDATED: Tabs array with Mileage Overview
   const tabs = [
     { id: 'schedule', label: 'Daily Schedule', icon: Calendar },
     { id: 'availability', label: 'Coach Availability', icon: Clock },
     { id: 'clients', label: 'Clients', icon: User },
-    { id: 'staff', label: 'Staff', icon: UserPlus }  
+    { id: 'staff', label: 'Staff', icon: UserPlus },
+    { id: 'mileage-overview', label: 'Mileage Overview', icon: Car }  // NEW: Added mileage overview tab
 ];
 
   return (
@@ -507,6 +510,12 @@ const handleAddClient = async (e) => {
             />
           )}
 
+          {/* NEW: Mileage Overview Tab */}
+          {activeTab === 'mileage-overview' && (
+            <AdminMileageOverview 
+              coaches={coaches}
+            />
+          )}
 
           {/* Clients Tab */}
           {activeTab === 'clients' && (

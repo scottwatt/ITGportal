@@ -99,8 +99,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       return [
         { id: 'dashboard', label: 'Dashboard', icon: Building2 },
         { id: 'my-schedule', label: 'My Schedule', icon: Calendar },
-        { id: 'my-goals', label: 'My Goals', icon: ClipboardList },
-        { id: 'resources', label: 'Resources', icon: BookOpen }
+        { id: 'my-goals', label: 'My Goals', icon: ClipboardList }
       ];
     } else {
       // Regular client (Limitless/New Options/Bridges)
@@ -121,7 +120,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'grace-schedule', label: 'Grace Schedule', icon: Calendar },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
       { id: 'clients', label: 'Grace Participants', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -133,7 +132,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'schedule', label: 'My Schedule', icon: Calendar },
       { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -145,7 +144,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'schedule', label: 'My Schedule', icon: Calendar },
       { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
       { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }
@@ -159,7 +158,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
       { id: 'resources', label: 'Resources', icon: BookOpen }
     ];
   }

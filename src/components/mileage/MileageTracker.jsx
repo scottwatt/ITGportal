@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   formatMileageDate, 
   calculateMileage, 
   validateMileageRecord
 } from '../../utils/mileageHelpers';
 import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader';
+import AddressAutocomplete from './AddressAutoComplete'; // NEW: Import autocomplete component
 import { Plus, Edit, Trash2, Car, MapPin, Calendar, FileText, Map } from 'lucide-react';
 
 const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) => {
@@ -28,32 +29,53 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     useGoogleMaps: false
   });
 
-  // Load records for selected month
+  // MEMOIZED: Get records for selected month - prevent recalculation on every render
+  const monthlyRecords = useMemo(() => {
+    if (!Array.isArray(mileageRecords)) return [];
+    
+    return mileageRecords.filter(record => {
+      const recordDate = new Date(record.date);
+      const recordMonth = recordDate.getMonth() + 1;
+      const recordYear = recordDate.getFullYear();
+      
+      return recordMonth === selectedMonth && recordYear === selectedYear;
+    });
+  }, [mileageRecords, selectedMonth, selectedYear]);
+
+  // MEMOIZED: Calculate monthly totals - prevent recalculation on every render
+  const monthlyTotals = useMemo(() => {
+    return monthlyRecords.reduce((totals, record) => ({
+      miles: totals.miles + record.mileage
+    }), { miles: 0 });
+  }, [monthlyRecords]);
+
+  // Load records for selected month - MEMOIZED callback
+  const loadMonthlyRecords = useCallback(async () => {
+    // Check if mileageActions is available
+    if (!mileageActions || !mileageActions.getMonthlyRecords) {
+      console.warn('Mileage actions not available yet');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await mileageActions.getMonthlyRecords(selectedYear, selectedMonth);
+    } catch (err) {
+      setError('Failed to load mileage records');
+      console.error('Error loading records:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, selectedYear, mileageActions]);
+
+  // Load monthly records effect - now uses memoized callback
   useEffect(() => {
-    const loadMonthlyRecords = async () => {
-      // Check if mileageActions is available
-      if (!mileageActions || !mileageActions.getMonthlyRecords) {
-        console.warn('Mileage actions not available yet');
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await mileageActions.getMonthlyRecords(selectedYear, selectedMonth);
-      } catch (err) {
-        setError('Failed to load mileage records');
-        console.error('Error loading records:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (userProfile?.uid && mileageActions) {
       loadMonthlyRecords();
     }
-  }, [selectedMonth, selectedYear, userProfile?.uid, mileageActions]);
+  }, [userProfile?.uid, loadMonthlyRecords]);
 
-  // Load Google Maps API when component mounts
+  // Load Google Maps API when component mounts - ONLY ONCE
   useEffect(() => {
     const initMaps = async () => {
       try {
@@ -66,38 +88,19 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     };
     
     initMaps();
-  }, []);
+  }, []); // Empty dependency array - only run once
 
-  // NOW we can do other code after all hooks are defined
-  // Debug: Check what props we're receiving (only log once)
-  useEffect(() => {
-    console.log('🔍 MileageTracker mounted with:', {
-      userProfile: userProfile?.uid || 'undefined',
-      mileageActions: mileageActions ? 'defined' : 'undefined',
-      mileageRecords: Array.isArray(mileageRecords) ? mileageRecords.length : 'not array'
-    });
-  }, []); // Only run once on mount
-
-  // Get records for selected month with simplified filtering
-  const monthlyRecords = mileageRecords.filter(record => {
-    const recordDate = new Date(record.date);
-    const recordMonth = recordDate.getMonth() + 1;
-    const recordYear = recordDate.getFullYear();
-    
-    return recordMonth === selectedMonth && recordYear === selectedYear;
-  });
-
-  // Handle form input changes
-  const handleInputChange = (e) => {
+  // MEMOIZED: Handle form input changes
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-  };
+  }, []);
 
-  // Calculate mileage using Google Maps
-  const calculateGoogleMileage = async () => {
+  // UPDATED: Calculate mileage using Google Maps with better address handling
+  const calculateGoogleMileage = useCallback(async () => {
     if (!mapsLoaded || !window.google) {
       alert('Google Maps is not available. Please enter mileage manually.');
       return;
@@ -109,17 +112,27 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     }
 
     try {
-      // Automatically append "Bakersfield, CA" if not already included
+      // Since we're using Google Places Autocomplete, addresses should already be well-formatted
+      // But we'll still add Bakersfield, CA if not present for extra safety
       const formatAddress = (address) => {
         const trimmed = address.trim();
-        if (trimmed.toLowerCase().includes('bakersfield') || trimmed.toLowerCase().includes('ca')) {
+        // Check if address already has city/state information
+        if (trimmed.toLowerCase().includes('bakersfield') || 
+            trimmed.toLowerCase().includes(', ca') ||
+            trimmed.toLowerCase().includes('california')) {
           return trimmed;
         }
-        return `${trimmed}, Bakersfield, CA`;
+        // Only add Bakersfield if it seems to be missing location info
+        if (!trimmed.includes(',')) {
+          return `${trimmed}, Bakersfield, CA`;
+        }
+        return trimmed;
       };
 
       const startAddress = formatAddress(formData.startLocation);
       const endAddress = formatAddress(formData.endLocation);
+
+      console.log('🗺️ Calculating distance:', { startAddress, endAddress });
 
       const service = new window.google.maps.DistanceMatrixService();
       
@@ -128,7 +141,9 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
           origins: [startAddress],
           destinations: [endAddress],
           travelMode: window.google.maps.TravelMode.DRIVING,
-          unitSystem: window.google.maps.UnitSystem.IMPERIAL
+          unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+          avoidHighways: false,
+          avoidTolls: false
         }, (response, status) => {
           if (status === window.google.maps.DistanceMatrixStatus.OK) {
             resolve(response);
@@ -141,18 +156,20 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
       const distance = result.rows[0].elements[0];
       if (distance.status === 'OK') {
         const miles = Math.round(distance.distance.value * 0.000621371 * 100) / 100;
+        console.log('✅ Distance calculated:', miles, 'miles');
         setFormData(prev => ({ ...prev, mileage: miles.toString() }));
       } else {
-        alert('Could not calculate distance between these locations.');
+        console.error('Distance calculation failed:', distance.status);
+        alert('Could not calculate distance between these locations. Please check the addresses and try again.');
       }
     } catch (err) {
-      console.error('Error calculating mileage:', err);
-      alert('Error calculating mileage. Please enter manually.');
+      console.error('❌ Error calculating mileage:', err);
+      alert('Error calculating mileage. Please check the addresses and try again, or enter mileage manually.');
     }
-  };
+  }, [mapsLoaded, formData.startLocation, formData.endLocation]);
 
-  // Handle form submission
-  const handleSubmit = async (e) => {
+  // MEMOIZED: Handle form submission
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
     // Check if mileageActions is available
@@ -171,8 +188,6 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
       setLoading(true);
       setError(null);
 
-      console.log('📝 Submitting mileage record:', formData);
-
       const recordData = {
         date: formData.date,
         startLocation: formData.startLocation.trim(),
@@ -181,20 +196,16 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
         mileage: parseFloat(formData.mileage)
       };
 
-      console.log('📝 Processed record data:', recordData);
-
       if (editingRecord) {
         if (!mileageActions.updateRecord) {
           throw new Error('Update function not available');
         }
         await mileageActions.updateRecord(editingRecord.id, recordData);
-        console.log('✅ Record updated successfully');
       } else {
         if (!mileageActions.addRecord) {
           throw new Error('Add function not available');
         }
         await mileageActions.addRecord(recordData);
-        console.log('✅ Record added successfully');
       }
 
       // Reset form
@@ -209,15 +220,15 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
       setIsAddingRecord(false);
       setEditingRecord(null);
     } catch (err) {
-      console.error('❌ Error saving record:', err);
+      console.error('Error saving record:', err);
       setError(err.message || (editingRecord ? 'Failed to update record' : 'Failed to add record'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, editingRecord, mileageActions]);
 
-  // Handle record deletion
-  const handleDelete = async (recordId) => {
+  // MEMOIZED: Handle record deletion
+  const handleDelete = useCallback(async (recordId) => {
     if (!mileageActions || !mileageActions.deleteRecord) {
       setError('Delete function not available. Please refresh the page.');
       return;
@@ -234,10 +245,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
         setLoading(false);
       }
     }
-  };
+  }, [mileageActions]);
 
-  // Handle record editing
-  const handleEdit = (record) => {
+  // MEMOIZED: Handle record editing
+  const handleEdit = useCallback((record) => {
     setFormData({
       date: record.date,
       startLocation: record.startLocation,
@@ -248,10 +259,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     });
     setEditingRecord(record);
     setIsAddingRecord(true);
-  };
+  }, []);
 
-  // Cancel form
-  const handleCancel = () => {
+  // MEMOIZED: Cancel form
+  const handleCancel = useCallback(() => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       startLocation: '',
@@ -263,7 +274,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     setIsAddingRecord(false);
     setEditingRecord(null);
     setError(null);
-  };
+  }, []);
 
   // Early return AFTER all hooks and functions are defined
   if (!userProfile) {
@@ -281,18 +292,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
       <div className="space-y-6">
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded">
           <p>Mileage tracking is loading... If this persists, please refresh the page.</p>
-          <p className="text-sm mt-2">Debug: mileageActions not available</p>
         </div>
       </div>
     );
   }
-
-  // Get records for selected month - this was moved above with debugging
-
-  // Calculate monthly totals
-  const monthlyTotals = monthlyRecords.reduce((totals, record) => ({
-    miles: totals.miles + record.mileage
-  }), { miles: 0 });
 
   return (
     <div className="space-y-6">
@@ -437,36 +440,41 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
               </div>
             </div>
 
+            {/* UPDATED: Address inputs with autocomplete */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin size={16} className="inline mr-1" />
                   Start Location
                 </label>
-                <input
-                  type="text"
+                <AddressAutocomplete
                   name="startLocation"
                   value={formData.startLocation}
                   onChange={handleInputChange}
-                  placeholder="e.g., ITG Office, 123 Main St (Bakersfield, CA assumed)"
-                  className="w-full border border-gray-300 rounded px-3 py-2"
+                  placeholder="e.g., ITG Office, 123 Main St"
                   required
+                  className="w-full"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  🎯 Auto-suggests Bakersfield addresses
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin size={16} className="inline mr-1" />
                   End Location
                 </label>
-                <input
-                  type="text"
+                <AddressAutocomplete
                   name="endLocation"
                   value={formData.endLocation}
                   onChange={handleInputChange}
-                  placeholder="e.g., Client Home, 456 Oak Ave (Bakersfield, CA assumed)"
-                  className="w-full border border-gray-300 rounded px-3 py-2"
+                  placeholder="e.g., Client Home, 456 Oak Ave"
                   required
+                  className="w-full"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  📍 Select from address suggestions
+                </p>
               </div>
             </div>
 
