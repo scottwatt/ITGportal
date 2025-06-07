@@ -1,4 +1,4 @@
-// src/components/admin/AdminPanel.jsx - Updated with Mileage Overview tab
+// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
@@ -11,12 +11,14 @@ import {
   CheckCircle, 
   X,
   Clock,
-  Car  // NEW: Added Car icon for mileage tab
+  Car,
+  Users,
+  Assignment
 } from 'lucide-react';
 import DragDropScheduler from '../schedule/DragDropScheduler';
 import EnhancedCoachAvailabilityManager from './EnhancedCoachAvailabilityManager';
 import CalendarConfiguration from './CalendarConfiguration';
-import AdminMileageOverview from './AdminMileageOverview'; // NEW: Import the new component
+import AdminMileageOverview from './AdminMileageOverview';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { generateTempPassword, cleanFormData } from '../../utils/helpers';
 import { isCalendarAPIReady } from '../../services/googleCalendar/calendarService';
@@ -60,6 +62,7 @@ const AdminPanel = ({
   const [clientFilter, setClientFilter] = useState('all');
   const [editingClient, setEditingClient] = useState(null);
   const [editingCoach, setEditingCoach] = useState(null);
+  const [showTaskAssignments, setShowTaskAssignments] = useState(false);
   
   // MOVED DRAG STATE HERE TO PREVENT PARENT RE-RENDERS FROM AFFECTING THIS COMPONENT
   const [draggedClient, setDraggedClient] = useState(null);
@@ -77,17 +80,18 @@ const AdminPanel = ({
   const [newClient, setNewClient] = useState({
     name: '', email: '', phone: '', jobGoal: '', businessName: '', 
     equipment: '', strengths: '', challenges: '', coachingApproach: '', 
-    businessDescription: '', currentGoals: '', program: 'limitless'
+    businessDescription: '', currentGoals: '', program: 'limitless',
+    dailyTaskCoachId: '' // NEW: For task coach assignment
   });
  
   const [newCoach, setNewCoach] = useState({
-  name: '', 
-  email: '', 
-  role: 'coach', 
-  coachType: 'success',
-  phone: '',
-  notes: ''
-});
+    name: '', 
+    email: '', 
+    role: 'coach', 
+    coachType: 'success',
+    phone: '',
+    notes: ''
+  });
 
   const [isDragActive, setIsDragActive] = useState(false);
   
@@ -124,29 +128,29 @@ const AdminPanel = ({
   }, []);
 
   const handleResetCoachPassword = async (coach) => {
-  if (window.confirm(`Send password reset email to ${coach.email}?\n\nThis will allow them to set a new password via email.`)) {
-    try {
-      await coachActions.resetPassword(coach);
-    } catch (error) {
-      alert(`Error sending password reset: ${error.message}`);
+    if (window.confirm(`Send password reset email to ${coach.email}?\n\nThis will allow them to set a new password via email.`)) {
+      try {
+        await coachActions.resetPassword(coach);
+      } catch (error) {
+        alert(`Error sending password reset: ${error.message}`);
+      }
     }
-  }
-};
+  };
 
-const handleResetClientPassword = async (client) => {
-  if (window.confirm(`Send password reset email to ${client.email}?\n\nThis will allow them to set a new password via email.`)) {
-    try {
-      await clientActions.resetPassword(client);
-    } catch (error) {
-      alert(`Error sending password reset: ${error.message}`);
+  const handleResetClientPassword = async (client) => {
+    if (window.confirm(`Send password reset email to ${client.email}?\n\nThis will allow them to set a new password via email.`)) {
+      try {
+        await clientActions.resetPassword(client);
+      } catch (error) {
+        alert(`Error sending password reset: ${error.message}`);
+      }
     }
-  }
-};
+  };
 
   const handleDrop = useCallback(async (e, coachId, timeSlot, explicitDate) => {
     e.preventDefault();
     setDragOverSlot(null);
-    setIsDragActive(false); // Reset drag active state
+    setIsDragActive(false);
     
     const scheduleDate = explicitDate || e.dataTransfer.getData('scheduleDate') || selectedDateRef.current;
     
@@ -162,7 +166,7 @@ const handleResetClientPassword = async (client) => {
       return;
     }
 
-    // NEW: Check if coach is available on this date
+    // Check if coach is available on this date
     if (!availabilityActions.isCoachAvailable(coachId, scheduleDate)) {
       const status = availabilityActions.getCoachStatusForDate(coachId, scheduleDate);
       const reason = availabilityActions.getCoachReasonForDate(coachId, scheduleDate);
@@ -240,36 +244,57 @@ const handleResetClientPassword = async (client) => {
     );
   };
 
-  // Updated handleAddClient function
-const handleAddClient = async (e) => {
-  e.preventDefault();
-  try {
-    const result = await clientActions.add(newClient);
-    setNewClient({ 
-      name: '', email: '', phone: '', jobGoal: '', businessName: '', 
-      equipment: '', strengths: '', challenges: '', coachingApproach: '', 
-      businessDescription: '', currentGoals: '', program: 'limitless'
-    });
-    
-    // Show the fixed password in the alert
-    alert(`Client added successfully!\n\nLogin credentials for ${newClient.name}:\nEmail: ${newClient.email}\nPassword: ITGclient123\n\nThis is the standard password for all clients. Please share these credentials with the client and ask them to change their password on first login.`);
-  } catch (error) {
-    alert('Error adding client. Please try again.');
-  }
-};
+  // NEW: Handle task coach assignment
+  const handleAssignTaskCoach = async (clientId, coachId) => {
+    try {
+      await clientActions.update(clientId, { dailyTaskCoachId: coachId });
+      alert('Task coach assigned successfully!');
+    } catch (error) {
+      alert('Error assigning task coach. Please try again.');
+    }
+  };
+
+  // NEW: Get assigned clients for a coach
+  const getAssignedClients = (coachId) => {
+    return clients.filter(client => client.dailyTaskCoachId === coachId);
+  };
+
+  // NEW: Get success coaches for task assignment
+  const getSuccessCoaches = () => {
+    return coaches.filter(c => 
+      c.role === 'coach' && 
+      (c.coachType || 'success') === 'success'
+    );
+  };
+
+  const handleAddClient = async (e) => {
+    e.preventDefault();
+    try {
+      const result = await clientActions.add(newClient);
+      setNewClient({ 
+        name: '', email: '', phone: '', jobGoal: '', businessName: '', 
+        equipment: '', strengths: '', challenges: '', coachingApproach: '', 
+        businessDescription: '', currentGoals: '', program: 'limitless',
+        dailyTaskCoachId: ''
+      });
+      
+      alert(`Client added successfully!\n\nLogin credentials for ${newClient.name}:\nEmail: ${newClient.email}\nPassword: ITGclient123\n\nThis is the standard password for all clients. Please share these credentials with the client and ask them to change their password on first login.`);
+    } catch (error) {
+      alert('Error adding client. Please try again.');
+    }
+  };
 
   const handleAddCoach = async (e) => {
-  e.preventDefault();
-  try {
-    const result = await coachActions.add(newCoach);
-    setNewCoach({ name: '', email: '', uid: '', role: 'coach', coachType: 'success' });
-    
-    // Show the fixed password in the alert
-    alert(`Coach added successfully!\n\nLogin credentials for ${newCoach.name}:\nEmail: ${newCoach.email}\nPassword: ITGemployee123\n\nThis is the standard password for all staff members. Please share these credentials and ask them to change their password on first login.`);
-  } catch (error) {
-    alert('Error adding coach. Please try again.');
-  }
-};
+    e.preventDefault();
+    try {
+      const result = await coachActions.add(newCoach);
+      setNewCoach({ name: '', email: '', uid: '', role: 'coach', coachType: 'success' });
+      
+      alert(`Coach added successfully!\n\nLogin credentials for ${newCoach.name}:\nEmail: ${newCoach.email}\nPassword: ITGemployee123\n\nThis is the standard password for all staff members. Please share these credentials and ask them to change their password on first login.`);
+    } catch (error) {
+      alert('Error adding coach. Please try again.');
+    }
+  };
 
   // Handle client deletion
   const handleDeleteClient = async (clientId, clientName) => {
@@ -300,12 +325,12 @@ const handleAddClient = async (e) => {
   };
 
   const handleEditClient = (client) => {
-    console.log('Setting editingClient to:', client); // DEBUG
+    console.log('Setting editingClient to:', client);
     setEditingClient({...client});
   };
 
   const handleEditCoach = (coach) => {
-    console.log('Setting editingCoach to:', coach); // DEBUG
+    console.log('Setting editingCoach to:', coach);
     setEditingCoach({...coach});
   };
 
@@ -347,14 +372,15 @@ const handleAddClient = async (e) => {
   // Get Grace clients count for display
   const graceClients = clients.filter(client => client.program === 'grace');
 
-  // UPDATED: Tabs array with Mileage Overview
+  // UPDATED: Tabs array with Task Assignments
   const tabs = [
     { id: 'schedule', label: 'Daily Schedule', icon: Calendar },
     { id: 'availability', label: 'Coach Availability', icon: Clock },
     { id: 'clients', label: 'Clients', icon: User },
     { id: 'staff', label: 'Staff', icon: UserPlus },
-    { id: 'mileage-overview', label: 'Mileage Overview', icon: Car }  // NEW: Added mileage overview tab
-];
+    { id: 'task-assignments', label: 'Task Assignments', icon: Users },
+    { id: 'mileage-overview', label: 'Mileage Overview', icon: Car }
+  ];
 
   return (
     <div className="space-y-6">
@@ -362,7 +388,7 @@ const handleAddClient = async (e) => {
 
       <PasswordInfoSection />
       
-      {/* UPDATED: Summary Cards with Grace calendar status */}
+      {/* Summary Cards with Grace calendar status */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="text-center py-4">
@@ -400,7 +426,6 @@ const handleAddClient = async (e) => {
               <div>Available Coaches: {getAvailableCoachesForScheduling().length}</div>
             </div>
 
-            {/* Drag status indicator */}
             {isDragActive && (
               <div className="mt-2 text-xs bg-[#BED2D8] text-[#292929] px-2 py-1 rounded">
                 🔒 Date locked during drag operation
@@ -510,14 +535,144 @@ const handleAddClient = async (e) => {
             />
           )}
 
-          {/* NEW: Mileage Overview Tab */}
+          {/* NEW: Task Assignments Tab */}
+          {activeTab === 'task-assignments' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
+                <h3 className="text-xl font-semibold mb-2">Daily Task Coach Assignments</h3>
+                <p className="text-[#BED2D8]">Assign coaches to manage daily tasks for specific clients</p>
+              </div>
+
+              {/* Success Coaches and their assigned clients */}
+              <div className="space-y-6">
+                {getSuccessCoaches().map(coach => {
+                  const assignedClients = getAssignedClients(coach.uid || coach.id);
+                  const schedulableClientsForAssignment = clients.filter(c => 
+                    ['limitless', 'new-options', 'bridges'].includes(c.program || 'limitless')
+                  );
+                  
+                  return (
+                    <div key={coach.id} className="bg-white p-6 rounded-lg shadow-md border">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-lg font-semibold text-[#292929]">
+                          {coach.name} - Daily Task Management
+                        </h4>
+                        <span className="bg-[#BED2D8] text-[#292929] px-3 py-1 rounded text-sm">
+                          {assignedClients.length} Assigned Clients
+                        </span>
+                      </div>
+
+                      {/* Assigned Clients */}
+                      <div className="mb-4">
+                        <h5 className="font-medium text-[#292929] mb-2">Currently Assigned Clients:</h5>
+                        {assignedClients.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {assignedClients.map(client => (
+                              <div key={client.id} className="bg-[#BED2D8] p-3 rounded flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-[#292929]">{client.name}</p>
+                                  <p className="text-sm text-[#707070]">
+                                    {client.program === 'limitless' ? client.businessName :
+                                     client.program === 'new-options' ? 'Community Job' :
+                                     client.program === 'bridges' ? 'Career Dev' :
+                                     'Other'}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleAssignTaskCoach(client.id, '')}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  title="Remove assignment"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[#9B97A2] italic">No clients assigned for daily task management</p>
+                        )}
+                      </div>
+
+                      {/* Available Clients to Assign */}
+                      <div>
+                        <h5 className="font-medium text-[#292929] mb-2">Available Clients to Assign:</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {schedulableClientsForAssignment
+                            .filter(client => client.dailyTaskCoachId !== (coach.uid || coach.id))
+                            .map(client => (
+                              <div key={client.id} className="bg-[#F5F5F5] p-3 rounded flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-[#292929]">{client.name}</p>
+                                  <p className="text-sm text-[#707070]">
+                                    {client.program === 'limitless' ? client.businessName :
+                                     client.program === 'new-options' ? 'Community Job' :
+                                     client.program === 'bridges' ? 'Career Dev' :
+                                     'Other'}
+                                  </p>
+                                  {client.dailyTaskCoachId && (
+                                    <p className="text-xs text-[#9B97A2]">
+                                      Currently: {coaches.find(c => (c.uid || c.id) === client.dailyTaskCoachId)?.name || 'Unknown'}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleAssignTaskCoach(client.id, coach.uid || coach.id)}
+                                  className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69]"
+                                >
+                                  Assign
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Unassigned Clients */}
+              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Unassigned Clients</h4>
+                <div className="space-y-2">
+                  {clients
+                    .filter(c => 
+                      ['limitless', 'new-options', 'bridges'].includes(c.program || 'limitless') && 
+                      !c.dailyTaskCoachId
+                    )
+                    .map(client => (
+                      <div key={client.id} className="flex justify-between items-center bg-white p-2 rounded">
+                        <span className="text-[#292929]">{client.name}</span>
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleAssignTaskCoach(client.id, e.target.value);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="text-sm border rounded px-2 py-1"
+                        >
+                          <option value="">Assign to coach...</option>
+                          {getSuccessCoaches().map(coach => (
+                            <option key={coach.id} value={coach.uid || coach.id}>
+                              {coach.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mileage Overview Tab */}
           {activeTab === 'mileage-overview' && (
             <AdminMileageOverview 
               coaches={coaches}
             />
           )}
 
-          {/* Clients Tab */}
+          {/* ENHANCED: Clients Tab with simplified Grace fields */}
           {activeTab === 'clients' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -540,150 +695,192 @@ const handleAddClient = async (e) => {
                 </div>
               </div>
 
-              {/* Add Client Form */}
+              {/* ENHANCED: Add Client Form with simplified Grace fields */}
               <div className="bg-[#F5F5F5] p-6 rounded-lg">
                 <h4 className="text-lg font-semibold mb-4 text-[#292929]">Add New Client</h4>
-                <form onSubmit={handleAddClient} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    value={newClient.name}
-                    onChange={(e) => setNewClient({...newClient, name: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    required
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({...newClient, email: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    required
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone"
-                    value={newClient.phone}
-                    onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                  />
-                  <select
-                    value={newClient.program}
-                    onChange={(e) => setNewClient({...newClient, program: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    required
-                  >
-                    <option value="">Select Program</option>
-                    {programs.map(program => (
-                      <option key={program.id} value={program.id}>{program.name} - {program.description}</option>
-                    ))}
-                  </select>
+                <form onSubmit={handleAddClient} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Full Name"
+                      value={newClient.name}
+                      onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                      required
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newClient.email}
+                      onChange={(e) => setNewClient({...newClient, email: e.target.value})}
+                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                      required
+                    />
+                  </div>
                   
-                  {/* Show business fields only for Limitless program */}
-                  {newClient.program === 'limitless' && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Business Name"
-                        value={newClient.businessName}
-                        onChange={(e) => setNewClient({...newClient, businessName: e.target.value})}
-                        className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input
+                      type="tel"
+                      placeholder="Phone"
+                      value={newClient.phone}
+                      onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    />
+                    <select
+                      value={newClient.program}
+                      onChange={(e) => setNewClient({...newClient, program: e.target.value})}
+                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                      required
+                    >
+                      <option value="">Select Program</option>
+                      {programs.map(program => (
+                        <option key={program.id} value={program.id}>{program.name} - {program.description}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* CONDITIONAL FIELDS: Show different fields based on program */}
+                  {newClient.program === 'grace' ? (
+                    // SIMPLIFIED: Grace participants only need goals
+                    <div>
+                      <textarea
+                        placeholder="Goals and interests for Grace enrichment program"
+                        value={newClient.currentGoals}
+                        onChange={(e) => setNewClient({...newClient, currentGoals: e.target.value})}
+                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                        rows="3"
                       />
-                      <select
-                        value={newClient.jobGoal}
-                        onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
-                        className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      >
-                        <option value="">Select Business Type</option>
-                        {businessTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={newClient.equipment}
-                        onChange={(e) => setNewClient({...newClient, equipment: e.target.value})}
-                        className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      >
-                        <option value="">Equipment Used</option>
-                        {equipmentOptions.map(equipment => (
-                          <option key={equipment} value={equipment}>{equipment}</option>
-                        ))}
-                      </select>
+                    </div>
+                  ) : (
+                    // FULL FIELDS: All other programs get full business information
+                    <>
+                      {/* Task Coach Assignment for non-Grace clients */}
+                      <div>
+                        <select
+                          value={newClient.dailyTaskCoachId}
+                          onChange={(e) => setNewClient({...newClient, dailyTaskCoachId: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                        >
+                          <option value="">Select Daily Task Coach (Optional)</option>
+                          {getSuccessCoaches().map(coach => (
+                            <option key={coach.id} value={coach.uid || coach.id}>
+                              {coach.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Show business fields only for Limitless program */}
+                      {newClient.program === 'limitless' && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input
+                              type="text"
+                              placeholder="Business Name"
+                              value={newClient.businessName}
+                              onChange={(e) => setNewClient({...newClient, businessName: e.target.value})}
+                              className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                            />
+                            <select
+                              value={newClient.jobGoal}
+                              onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
+                              className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                            >
+                              <option value="">Select Business Type</option>
+                              {businessTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <select
+                            value={newClient.equipment}
+                            onChange={(e) => setNewClient({...newClient, equipment: e.target.value})}
+                            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          >
+                            <option value="">Equipment Used</option>
+                            {equipmentOptions.map(equipment => (
+                              <option key={equipment} value={equipment}>{equipment}</option>
+                            ))}
+                          </select>
+                        </>
+                      )}
+                      
+                      {/* Show job fields for New Options */}
+                      {newClient.program === 'new-options' && (
+                        <input
+                          type="text"
+                          placeholder="Job Interest/Field"
+                          value={newClient.jobGoal}
+                          onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          title="What type of community job are they interested in?"
+                        />
+                      )}
+                      
+                      {/* Show skill development fields for Bridges */}
+                      {newClient.program === 'bridges' && (
+                        <input
+                          type="text"
+                          placeholder="Career Goals/Skills"
+                          value={newClient.jobGoal}
+                          onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          title="What career skills or internship goals are they working toward?"
+                        />
+                      )}
+                      
+                      <div>
+                        <textarea
+                          placeholder={
+                            newClient.program === 'limitless' ? 'Business Description' :
+                            newClient.program === 'new-options' ? 'Job interests and community work goals' :
+                            newClient.program === 'bridges' ? 'Career development and internship goals' :
+                            'Program description and goals'
+                          }
+                          value={newClient.businessDescription}
+                          onChange={(e) => setNewClient({...newClient, businessDescription: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          rows="2"
+                        />
+                      </div>
+                      <div>
+                        <textarea
+                          placeholder="Current Goals (what they should work on)"
+                          value={newClient.currentGoals}
+                          onChange={(e) => setNewClient({...newClient, currentGoals: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          rows="2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <textarea
+                          placeholder="Strengths (e.g., Creative with designs, works independently, good with people)"
+                          value={newClient.strengths}
+                          onChange={(e) => setNewClient({...newClient, strengths: e.target.value})}
+                          className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          rows="2"
+                        />
+                        <textarea
+                          placeholder="Challenges (e.g., Easily distracted, needs redirection, social anxiety)"
+                          value={newClient.challenges}
+                          onChange={(e) => setNewClient({...newClient, challenges: e.target.value})}
+                          className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          rows="2"
+                        />
+                      </div>
+                      <div>
+                        <textarea
+                          placeholder="Coaching Approach (e.g., Regular check-ins, monitor progress, provide clear expectations)"
+                          value={newClient.coachingApproach}
+                          onChange={(e) => setNewClient({...newClient, coachingApproach: e.target.value})}
+                          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                          rows="3"
+                        />
+                      </div>
                     </>
                   )}
                   
-                  {/* Show job fields for New Options */}
-                  {newClient.program === 'new-options' && (
-                    <input
-                      type="text"
-                      placeholder="Job Interest/Field"
-                      value={newClient.jobGoal}
-                      onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
-                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      title="What type of community job are they interested in?"
-                    />
-                  )}
-                  
-                  {/* Show skill development fields for Bridges */}
-                  {newClient.program === 'bridges' && (
-                    <input
-                      type="text"
-                      placeholder="Career Goals/Skills"
-                      value={newClient.jobGoal}
-                      onChange={(e) => setNewClient({...newClient, jobGoal: e.target.value})}
-                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      title="What career skills or internship goals are they working toward?"
-                    />
-                  )}
-                  
-                  <div className="md:col-span-2">
-                    <textarea
-                      placeholder={
-                        newClient.program === 'limitless' ? 'Business Description' :
-                        newClient.program === 'new-options' ? 'Job interests and community work goals' :
-                        newClient.program === 'bridges' ? 'Career development and internship goals' :
-                        newClient.program === 'grace' ? 'Enrichment program goals and interests' :
-                        'Program description and goals'
-                      }
-                      value={newClient.businessDescription}
-                      onChange={(e) => setNewClient({...newClient, businessDescription: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      rows="2"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <textarea
-                      placeholder="Current Goals (what they should work on)"
-                      value={newClient.currentGoals}
-                      onChange={(e) => setNewClient({...newClient, currentGoals: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      rows="2"
-                    />
-                  </div>
-                  <textarea
-                    placeholder="Strengths (e.g., Creative with designs, works independently, good with people)"
-                    value={newClient.strengths}
-                    onChange={(e) => setNewClient({...newClient, strengths: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    rows="2"
-                  />
-                  <textarea
-                    placeholder="Challenges (e.g., Easily distracted, needs redirection, social anxiety)"
-                    value={newClient.challenges}
-                    onChange={(e) => setNewClient({...newClient, challenges: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    rows="2"
-                  />
-                  <div className="md:col-span-2">
-                    <textarea
-                      placeholder="Coaching Approach (e.g., Regular check-ins, monitor progress, provide clear expectations)"
-                      value={newClient.coachingApproach}
-                      onChange={(e) => setNewClient({...newClient, coachingApproach: e.target.value})}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                      rows="3"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <button
                       type="submit"
                       className="bg-[#6D858E] text-white px-6 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
@@ -704,69 +901,79 @@ const handleAddClient = async (e) => {
                   </span>
                 </h4>
                 <div className="space-y-4">
-                  {filteredClients.map(client => (
-                    <div key={client.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-[#F5F5F5]">
-                      <div>
-                        <h4 className="font-semibold text-[#292929]">{client.name}</h4>
-                        <p className="text-sm text-[#707070]">{client.email}</p>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className={`text-xs px-2 py-1 rounded font-medium ${
-                            client.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
-                            client.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
-                            client.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
-                            client.program === 'grace' ? 'bg-[#F5F5F5] text-[#292929]' :
-                            'bg-[#BED2D8] text-[#292929]'
-                          }`}>
-                            {client.program === 'limitless' ? 'Limitless' :
-                             client.program === 'new-options' ? 'New Options' :
-                             client.program === 'bridges' ? 'Bridges' :
-                             client.program === 'grace' ? 'Grace' :
-                             'Limitless'}
-                          </span>
-                          <p className="text-xs text-[#9B97A2]">{client.businessName || client.jobGoal}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="text-right">
-                          {client.uid ? (
-                            <div>
-                              <span className="bg-[#BED2D8] text-[#292929] px-2 py-1 rounded text-sm">
-                                ✓ Can Log In
-                              </span>
-                              {client.tempPassword && (
-                                <p className="text-xs text-[#9B97A2] mt-1">
-                                  Temp Password: <code className="bg-[#F5F5F5] px-1 rounded">{client.tempPassword}</code>
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => clientActions.createLogin(client)}
-                              className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69]"
-                            >
-                              Create Login Account
-                            </button>
+                  {filteredClients.map(client => {
+                    const taskCoach = coaches.find(c => (c.uid || c.id) === client.dailyTaskCoachId);
+                    
+                    return (
+                      <div key={client.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-[#F5F5F5]">
+                        <div>
+                          <h4 className="font-semibold text-[#292929]">{client.name}</h4>
+                          <p className="text-sm text-[#707070]">{client.email}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${
+                              client.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
+                              client.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
+                              client.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
+                              client.program === 'grace' ? 'bg-[#F5F5F5] text-[#292929]' :
+                              'bg-[#BED2D8] text-[#292929]'
+                            }`}>
+                              {client.program === 'limitless' ? 'Limitless' :
+                               client.program === 'new-options' ? 'New Options' :
+                               client.program === 'bridges' ? 'Bridges' :
+                               client.program === 'grace' ? 'Grace' :
+                               'Limitless'}
+                            </span>
+                            <p className="text-xs text-[#9B97A2]">{client.businessName || client.jobGoal}</p>
+                          </div>
+                          {/* Show task coach assignment */}
+                          {client.program !== 'grace' && (
+                            <p className="text-xs text-[#6D858E] mt-1">
+                              Task Coach: {taskCoach ? taskCoach.name : 'Not assigned'}
+                            </p>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleEditClient(client)}
-                          className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69] flex items-center space-x-1"
-                          title="Edit client"
-                        >
-                          <Edit3 size={14} />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClient(client.id, client.name)}
-                          className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
-                          title="Delete client permanently"
-                        >
-                          <Trash2 size={14} />
-                          <span>Delete</span>
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right">
+                            {client.uid ? (
+                              <div>
+                                <span className="bg-[#BED2D8] text-[#292929] px-2 py-1 rounded text-sm">
+                                  ✓ Can Log In
+                                </span>
+                                {client.tempPassword && (
+                                  <p className="text-xs text-[#9B97A2] mt-1">
+                                    Temp Password: <code className="bg-[#F5F5F5] px-1 rounded">{client.tempPassword}</code>
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => clientActions.createLogin(client)}
+                                className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69]"
+                              >
+                                Create Login Account
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleEditClient(client)}
+                            className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69] flex items-center space-x-1"
+                            title="Edit client"
+                          >
+                            <Edit3 size={14} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClient(client.id, client.name)}
+                            className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
+                            title="Delete client permanently"
+                          >
+                            <Trash2 size={14} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {filteredClients.length === 0 && (
@@ -778,7 +985,7 @@ const handleAddClient = async (e) => {
             </div>
           )}
 
-          {/* Staff Tab */}
+          {/* Staff Tab - unchanged */}
           {activeTab === 'staff' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -786,393 +993,601 @@ const handleAddClient = async (e) => {
               </div>
 
               {/* Add Coach Form */}
-<div className="bg-[#F5F5F5] p-6 rounded-lg">
-  <h4 className="text-lg font-semibold mb-4 text-[#292929]">Add New Staff Member</h4>
-  <form onSubmit={handleAddCoach} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <input
-      type="text"
-      placeholder="Full Name"
-      value={newCoach.name}
-      onChange={(e) => setNewCoach({...newCoach, name: e.target.value})}
-      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-      required
-    />
-    <input
-      type="email"
-      placeholder="Email"
-      value={newCoach.email}
-      onChange={(e) => setNewCoach({...newCoach, email: e.target.value})}
-      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-      required
-    />
-    
-    {/* REMOVED: Firebase UID input - this will be auto-generated */}
-    
-    <select
-      value={newCoach.role}
-      onChange={(e) => setNewCoach({...newCoach, role: e.target.value})}
-      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-      required
-    >
-      <option value="coach">Coach</option>
-      <option value="scheduler">Scheduler</option>
-      <option value="admin">Admin</option>
-    </select>
-    
-    <select
-      value={newCoach.coachType}
-      onChange={(e) => setNewCoach({...newCoach, coachType: e.target.value})}
-      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-      required
-    >
-      {coachTypes.map(type => (
-        <option key={type.id} value={type.id}>
-          {type.name} - {type.programs.map(p => programs.find(prog => prog.id === p)?.name).join(', ')}
-        </option>
-      ))}
-    </select>
-    
-    <div className="md:col-span-2">
-      <input
-        type="tel"
-        placeholder="Phone Number (optional)"
-        value={newCoach.phone || ''}
-        onChange={(e) => setNewCoach({...newCoach, phone: e.target.value})}
-        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-      />
-    </div>
-    
-    <div className="md:col-span-2">
-      <textarea
-        placeholder="Notes (optional)"
-        value={newCoach.notes || ''}
-        onChange={(e) => setNewCoach({...newCoach, notes: e.target.value})}
-        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-        rows="2"
-      />
-    </div>
-    
-    <div className="md:col-span-2">
-      <div className="bg-blue-50 border border-blue-200 p-3 rounded mb-4">
-        <p className="text-sm text-blue-700">
-          <strong>🔑 Login Account:</strong> A Firebase Authentication account will be automatically created with email: <code className="bg-blue-100 px-1 rounded">{newCoach.email || '[email]'}</code> and password: <code className="bg-blue-100 px-1 rounded">ITGemployee123</code>
-        </p>
-      </div>
-      
-      <button
-        type="submit"
-        className="bg-[#6D858E] text-white px-6 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
-      >
-        <Plus size={16} />
-        <span>Add Staff Member</span>
-      </button>
-    </div>
-  </form>
-</div>
+              <div className="bg-[#F5F5F5] p-6 rounded-lg">
+                <h4 className="text-lg font-semibold mb-4 text-[#292929]">Add New Staff Member</h4>
+                <form onSubmit={handleAddCoach} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={newCoach.name}
+                    onChange={(e) => setNewCoach({...newCoach, name: e.target.value})}
+                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    required
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newCoach.email}
+                    onChange={(e) => setNewCoach({...newCoach, email: e.target.value})}
+                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    required
+                  />
+                  
+                  <select
+                    value={newCoach.role}
+                    onChange={(e) => setNewCoach({...newCoach, role: e.target.value})}
+                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    required
+                  >
+                    <option value="coach">Coach</option>
+                    <option value="scheduler">Scheduler</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  
+                  <select
+                    value={newCoach.coachType}
+                    onChange={(e) => setNewCoach({...newCoach, coachType: e.target.value})}
+                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    required
+                  >
+                    {coachTypes.map(type => (
+                      <option key={type.id} value={type.id}>
+                        {type.name} - {type.programs.map(p => programs.find(prog => prog.id === p)?.name).join(', ')}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  <div className="md:col-span-2">
+                    <input
+                      type="tel"
+                      placeholder="Phone Number (optional)"
+                      value={newCoach.phone || ''}
+                      onChange={(e) => setNewCoach({...newCoach, phone: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <textarea
+                      placeholder="Notes (optional)"
+                      value={newCoach.notes || ''}
+                      onChange={(e) => setNewCoach({...newCoach, notes: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                      rows="2"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <div className="bg-blue-50 border border-blue-200 p-3 rounded mb-4">
+                      <p className="text-sm text-blue-700">
+                        <strong>🔑 Login Account:</strong> A Firebase Authentication account will be automatically created with email: <code className="bg-blue-100 px-1 rounded">{newCoach.email || '[email]'}</code> and password: <code className="bg-blue-100 px-1 rounded">ITGemployee123</code>
+                      </p>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      className="bg-[#6D858E] text-white px-6 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
+                    >
+                      <Plus size={16} />
+                      <span>Add Staff Member</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
 
               {/* Current Staff */}
               <div>
-  <h4 className="text-lg font-semibold mb-4 text-[#292929]">Current Staff Members</h4>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {coaches.map(coach => (
-      <div key={coach.id} className="p-4 border rounded-lg hover:bg-[#F5F5F5]">
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex-1">
-            <h4 className="font-semibold text-[#292929]">{coach.name}</h4>
-            <p className="text-sm text-[#707070]">{coach.email}</p>
-            <p className="text-xs text-[#9B97A2] capitalize">{coach.role}</p>
-            <span className={`text-xs px-2 py-1 rounded font-medium mt-1 inline-block ${
-              coach.coachType === 'success' ? 'bg-[#BED2D8] text-[#292929]' : 'bg-[#F5F5F5] text-[#292929]'
-            }`}>
-              {coach.coachType === 'success' ? 'Success Coach' : 'Grace Coach'}
-            </span>
-            <p className="text-xs text-[#6D858E] mt-1">
-              Today's Sessions: {schedules.filter(s => (s.coachId === coach.uid || s.coachId === coach.id) && s.date === selectedDate).length}
-            </p>
-            
-            {/* ADD THIS LOGIN STATUS SECTION */}
-            <div className="mt-2">
-              {coach.uid ? (
-                <div>
-                  <span className="bg-[#BED2D8] text-[#292929] px-2 py-1 rounded text-xs">
-                    ✓ Can Log In
-                  </span>
-                  <p className="text-xs text-[#9B97A2] mt-1">
-                    Default Password: <code className="bg-[#F5F5F5] px-1 rounded">ITGemployee123</code>
-                  </p>
+                <h4 className="text-lg font-semibold mb-4 text-[#292929]">Current Staff Members</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {coaches.map(coach => (
+                    <div key={coach.id} className="p-4 border rounded-lg hover:bg-[#F5F5F5]">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-semibold text-[#292929]">{coach.name}</h4>
+                          <p className="text-sm text-[#707070]">{coach.email}</p>
+                          <p className="text-xs text-[#9B97A2] capitalize">{coach.role}</p>
+                          <span className={`text-xs px-2 py-1 rounded font-medium mt-1 inline-block ${
+                            coach.coachType === 'success' ? 'bg-[#BED2D8] text-[#292929]' : 'bg-[#F5F5F5] text-[#292929]'
+                          }`}>
+                            {coach.coachType === 'success' ? 'Success Coach' : 'Grace Coach'}
+                          </span>
+                          <p className="text-xs text-[#6D858E] mt-1">
+                            Today's Sessions: {schedules.filter(s => (s.coachId === coach.uid || s.coachId === coach.id) && s.date === selectedDate).length}
+                          </p>
+                          
+                          {/* LOGIN STATUS SECTION */}
+                          <div className="mt-2">
+                            {coach.uid ? (
+                              <div>
+                                <span className="bg-[#BED2D8] text-[#292929] px-2 py-1 rounded text-xs">
+                                  ✓ Can Log In
+                                </span>
+                                <p className="text-xs text-[#9B97A2] mt-1">
+                                  Default Password: <code className="bg-[#F5F5F5] px-1 rounded">ITGemployee123</code>
+                                </p>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => coachActions.createLogin(coach)}
+                                className="bg-[#6D858E] text-white px-2 py-1 rounded text-xs hover:bg-[#5A4E69]"
+                              >
+                                Create Login Account
+                              </button>
+                            )}
+                          </div>
+                          
+                          {/* Show availability status */}
+                          {coach.role === 'coach' && (
+                            <p className={`text-xs mt-1 font-medium ${
+                              availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate) 
+                                ? 'text-green-600' 
+                                : 'text-red-600'
+                            }`}>
+                              {availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate) 
+                                ? 'Available Today' 
+                                : `${availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate)} Today`}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => handleEditCoach(coach)}
+                            className="bg-[#6D858E] text-white px-2 py-1 rounded text-xs hover:bg-[#5A4E69] flex items-center space-x-1"
+                            title="Edit staff member"
+                          >
+                            <Edit3 size={12} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCoach(coach.id, coach.name)}
+                            className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700 flex items-center space-x-1"
+                            title="Remove from staff"
+                          >
+                            <Trash2 size={12} />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <button
-                  onClick={() => coachActions.createLogin(coach)}
-                  className="bg-[#6D858E] text-white px-2 py-1 rounded text-xs hover:bg-[#5A4E69]"
-                >
-                  Create Login Account
-                </button>
-              )}
-            </div>
-            
-            {/* Show availability status */}
-            {coach.role === 'coach' && (
-              <p className={`text-xs mt-1 font-medium ${
-                availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate) 
-                  ? 'text-green-600' 
-                  : 'text-red-600'
-              }`}>
-                {availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate) 
-                  ? 'Available Today' 
-                  : `${availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate)} Today`}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col space-y-1">
-            <button
-              onClick={() => handleEditCoach(coach)}
-              className="bg-[#6D858E] text-white px-2 py-1 rounded text-xs hover:bg-[#5A4E69] flex items-center space-x-1"
-              title="Edit staff member"
-            >
-              <Edit3 size={12} />
-              <span>Edit</span>
-            </button>
-            <button
-              onClick={() => handleDeleteCoach(coach.id, coach.name)}
-              className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700 flex items-center space-x-1"
-              title="Remove from staff"
-            >
-              <Trash2 size={12} />
-              <span>Remove</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* CLIENT EDIT MODAL */}
-{editingClient && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
-      <div className="flex justify-between items-center p-4 border-b bg-[#6D858E] text-white">
-        <h3 className="text-lg font-semibold">Edit Client: {editingClient.name}</h3>
-        <button 
-          onClick={() => setEditingClient(null)} 
-          className="text-white hover:text-gray-200 text-2xl"
-        >
-          ×
-        </button>
-      </div>
-
-      <div className="overflow-y-auto h-[calc(90vh-140px)] p-6">
-        <form onSubmit={handleUpdateClient} className="space-y-4">
-          {/* Existing form fields... */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                value={editingClient.name || ''}
-                onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                value={editingClient.email || ''}
-                onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* ... other existing fields ... */}
-
-          {/* NEW: Password Management Section */}
-          {editingClient.uid && (
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">🔐 Password Management</h4>
-              <div className="space-y-2">
-                <p className="text-sm text-blue-700">
-                  This client has a login account with UID: <code className="bg-blue-100 px-1 rounded">{editingClient.uid}</code>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleResetClientPassword(editingClient)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-                >
-                  Send Password Reset Email
-                </button>
-                <p className="text-xs text-blue-600">
-                  This will send a password reset email to {editingClient.email}
-                </p>
               </div>
             </div>
           )}
-
-          <div className="flex space-x-3 pt-4 border-t">
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-            >
-              Update Client
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditingClient(null)}
-              className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
-
-      {/* COACH EDIT MODAL */}
-{editingCoach && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
-      <div className="flex justify-between items-center p-4 border-b bg-[#6D858E] text-white">
-        <h3 className="text-lg font-semibold">Edit Coach: {editingCoach.name}</h3>
-        <button 
-          onClick={() => setEditingCoach(null)} 
-          className="text-white hover:text-gray-200 text-2xl"
-        >
-          ×
-        </button>
+        </div>
       </div>
 
-      <div className="overflow-y-auto h-[calc(90vh-140px)] p-6">
-        <form onSubmit={handleUpdateCoach} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
-              <input
-                type="text"
-                value={editingCoach.name || ''}
-                onChange={(e) => setEditingCoach({...editingCoach, name: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                value={editingCoach.email || ''}
-                onChange={(e) => setEditingCoach({...editingCoach, email: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Firebase UID</label>
-              <input
-                type="text"
-                value={editingCoach.uid || ''}
-                onChange={(e) => setEditingCoach({...editingCoach, uid: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter Firebase UID..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Role</label>
-              <select
-                value={editingCoach.role || 'coach'}
-                onChange={(e) => setEditingCoach({...editingCoach, role: e.target.value})}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+      {/* ENHANCED CLIENT EDIT MODAL with ALL fields */}
+      {editingClient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-[#6D858E] text-white">
+              <h3 className="text-lg font-semibold">Edit Client: {editingClient.name}</h3>
+              <button 
+                onClick={() => setEditingClient(null)} 
+                className="text-white hover:text-gray-200 text-2xl"
               >
-                <option value="coach">Coach</option>
-                <option value="admin">Admin</option>
-                <option value="scheduler">Scheduler</option>
-              </select>
+                ×
+              </button>
+            </div>
+
+            <div className="overflow-y-auto h-[calc(90vh-140px)] p-6">
+              <form onSubmit={handleUpdateClient} className="space-y-4">
+                {/* Basic Information */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={editingClient.name || ''}
+                      onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editingClient.email || ''}
+                      onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={editingClient.phone || ''}
+                      onChange={(e) => setEditingClient({...editingClient, phone: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Program</label>
+                    <select
+                      value={editingClient.program || 'limitless'}
+                      onChange={(e) => setEditingClient({...editingClient, program: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    >
+                      {programs.map(program => (
+                        <option key={program.id} value={program.id}>{program.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* CONDITIONAL FIELDS: Show different fields based on program */}
+                {editingClient.program === 'grace' ? (
+                  // Grace participants: simplified fields
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Goals & Interests</label>
+                    <textarea
+                      value={editingClient.currentGoals || ''}
+                      onChange={(e) => setEditingClient({...editingClient, currentGoals: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                      rows="4"
+                      placeholder="Goals and interests for Grace enrichment program"
+                    />
+                  </div>
+                ) : (
+                  // All other programs: full fields
+                  <>
+                    {/* Task Coach Assignment */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Daily Task Coach</label>
+                      <select
+                        value={editingClient.dailyTaskCoachId || ''}
+                        onChange={(e) => setEditingClient({...editingClient, dailyTaskCoachId: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">No task coach assigned</option>
+                        {getSuccessCoaches().map(coach => (
+                          <option key={coach.id} value={coach.uid || coach.id}>
+                            {coach.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Business Information for Limitless */}
+                    {editingClient.program === 'limitless' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Business Name</label>
+                            <input
+                              type="text"
+                              value={editingClient.businessName || ''}
+                              onChange={(e) => setEditingClient({...editingClient, businessName: e.target.value})}
+                              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Business Type</label>
+                            <select
+                              value={editingClient.jobGoal || ''}
+                              onChange={(e) => setEditingClient({...editingClient, jobGoal: e.target.value})}
+                              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Select Business Type</option>
+                              {businessTypes.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Equipment</label>
+                          <select
+                            value={editingClient.equipment || ''}
+                            onChange={(e) => setEditingClient({...editingClient, equipment: e.target.value})}
+                            className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select Equipment</option>
+                            {equipmentOptions.map(equipment => (
+                              <option key={equipment} value={equipment}>{equipment}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Job fields for other programs */}
+                    {(editingClient.program === 'new-options' || editingClient.program === 'bridges') && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          {editingClient.program === 'new-options' ? 'Job Interest/Field' : 'Career Goals/Skills'}
+                        </label>
+                        <input
+                          type="text"
+                          value={editingClient.jobGoal || ''}
+                          onChange={(e) => setEditingClient({...editingClient, jobGoal: e.target.value})}
+                          className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+
+                    {/* Program Description */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        {editingClient.program === 'limitless' ? 'Business Description' :
+                         editingClient.program === 'new-options' ? 'Job Interests & Goals' :
+                         editingClient.program === 'bridges' ? 'Career Development Goals' :
+                         'Program Description'}
+                      </label>
+                      <textarea
+                        value={editingClient.businessDescription || ''}
+                        onChange={(e) => setEditingClient({...editingClient, businessDescription: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                      />
+                    </div>
+
+                    {/* Current Goals */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Current Goals</label>
+                      <textarea
+                        value={editingClient.currentGoals || ''}
+                        onChange={(e) => setEditingClient({...editingClient, currentGoals: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                      />
+                    </div>
+
+                    {/* Strengths and Challenges */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Strengths</label>
+                        <textarea
+                          value={editingClient.strengths || ''}
+                          onChange={(e) => setEditingClient({...editingClient, strengths: e.target.value})}
+                          className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Challenges</label>
+                        <textarea
+                          value={editingClient.challenges || ''}
+                          onChange={(e) => setEditingClient({...editingClient, challenges: e.target.value})}
+                          className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Coaching Approach */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Coaching Approach</label>
+                      <textarea
+                        value={editingClient.coachingApproach || ''}
+                        onChange={(e) => setEditingClient({...editingClient, coachingApproach: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                      />
+                    </div>
+
+                    {/* Progress */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Progress (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editingClient.progress || 0}
+                        onChange={(e) => setEditingClient({...editingClient, progress: parseInt(e.target.value) || 0})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">General Notes</label>
+                      <textarea
+                        value={editingClient.notes || ''}
+                        onChange={(e) => setEditingClient({...editingClient, notes: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                      />
+                    </div>
+
+                    {/* Session Notes */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Session Notes</label>
+                      <textarea
+                        value={editingClient.sessionNotes || ''}
+                        onChange={(e) => setEditingClient({...editingClient, sessionNotes: e.target.value})}
+                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Password Management Section */}
+                {editingClient.uid && (
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                    <h4 className="font-semibold text-blue-800 mb-2">🔐 Password Management</h4>
+                    <div className="space-y-2">
+                      <p className="text-sm text-blue-700">
+                        This client has a login account with UID: <code className="bg-blue-100 px-1 rounded">{editingClient.uid}</code>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleResetClientPassword(editingClient)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+                      >
+                        Send Password Reset Email
+                      </button>
+                      <p className="text-xs text-blue-600">
+                        This will send a password reset email to {editingClient.email}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex space-x-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                  >
+                    Update Client
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingClient(null)}
+                    className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
+        </div>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Coach Type</label>
-            <select
-              value={editingCoach.coachType || 'success'}
-              onChange={(e) => setEditingCoach({...editingCoach, coachType: e.target.value})}
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="success">Success Coach</option>
-              <option value="grace">Grace Coach</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone</label>
-            <input
-              type="tel"
-              value={editingCoach.phone || ''}
-              onChange={(e) => setEditingCoach({...editingCoach, phone: e.target.value})}
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter phone number..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea
-              value={editingCoach.notes || ''}
-              onChange={(e) => setEditingCoach({...editingCoach, notes: e.target.value})}
-              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
-              rows="3"
-              placeholder="Additional notes..."
-            />
-          </div>
-
-          {/* NEW: Password Management Section */}
-          {editingCoach.uid && (
-            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-              <h4 className="font-semibold text-yellow-800 mb-2">🔐 Password Management</h4>
-              <div className="space-y-2">
-                <p className="text-sm text-yellow-700">
-                  This coach has a login account with UID: <code className="bg-yellow-100 px-1 rounded">{editingCoach.uid}</code>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleResetCoachPassword(editingCoach)}
-                  className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 text-sm"
-                >
-                  Send Password Reset Email
-                </button>
-                <p className="text-xs text-yellow-600">
-                  This will send a password reset email to {editingCoach.email}
-                </p>
-              </div>
+      {/* COACH EDIT MODAL - unchanged */}
+      {editingCoach && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-[#6D858E] text-white">
+              <h3 className="text-lg font-semibold">Edit Coach: {editingCoach.name}</h3>
+              <button 
+                onClick={() => setEditingCoach(null)} 
+                className="text-white hover:text-gray-200 text-2xl"
+              >
+                ×
+              </button>
             </div>
-          )}
 
-          <div className="flex space-x-3 pt-4 border-t">
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-            >
-              Update Coach
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditingCoach(null)}
-              className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
-            >
-              Cancel
-            </button>
+            <div className="overflow-y-auto h-[calc(90vh-140px)] p-6">
+              <form onSubmit={handleUpdateCoach} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={editingCoach.name || ''}
+                      onChange={(e) => setEditingCoach({...editingCoach, name: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editingCoach.email || ''}
+                      onChange={(e) => setEditingCoach({...editingCoach, email: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Firebase UID</label>
+                    <input
+                      type="text"
+                      value={editingCoach.uid || ''}
+                      onChange={(e) => setEditingCoach({...editingCoach, uid: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter Firebase UID..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Role</label>
+                    <select
+                      value={editingCoach.role || 'coach'}
+                      onChange={(e) => setEditingCoach({...editingCoach, role: e.target.value})}
+                      className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="coach">Coach</option>
+                      <option value="admin">Admin</option>
+                      <option value="scheduler">Scheduler</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Coach Type</label>
+                  <select
+                    value={editingCoach.coachType || 'success'}
+                    onChange={(e) => setEditingCoach({...editingCoach, coachType: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="success">Success Coach</option>
+                    <option value="grace">Grace Coach</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={editingCoach.phone || ''}
+                    onChange={(e) => setEditingCoach({...editingCoach, phone: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter phone number..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Notes</label>
+                  <textarea
+                    value={editingCoach.notes || ''}
+                    onChange={(e) => setEditingCoach({...editingCoach, notes: e.target.value})}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                    placeholder="Additional notes..."
+                  />
+                </div>
+
+                {/* Password Management Section */}
+                {editingCoach.uid && (
+                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                    <h4 className="font-semibold text-yellow-800 mb-2">🔐 Password Management</h4>
+                    <div className="space-y-2">
+                      <p className="text-sm text-yellow-700">
+                        This coach has a login account with UID: <code className="bg-yellow-100 px-1 rounded">{editingCoach.uid}</code>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleResetCoachPassword(editingCoach)}
+                        className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 text-sm"
+                      >
+                        Send Password Reset Email
+                      </button>
+                      <p className="text-xs text-yellow-600">
+                        This will send a password reset email to {editingCoach.email}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex space-x-3 pt-4 border-t">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                  >
+                    Update Coach
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCoach(null)}
+                    className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-// src/utils/constants.js - Fixed with separate time blocks for tasks
+// src/utils/constants.js - Task priorities removed
 
 import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car } from 'lucide-react';
 
@@ -258,12 +258,6 @@ export const TASK_TYPES = [
   { id: 'assessment', label: 'Assessment', color: 'bg-red-100 text-red-800 border-red-200' }
 ];
 
-export const TASK_PRIORITIES = [
-  { id: 'low', label: 'Low', color: 'text-gray-600' },
-  { id: 'medium', label: 'Medium', color: 'text-blue-600' },
-  { id: 'high', label: 'High', color: 'text-red-600' }
-];
-
 // Program colors and styling
 export const PROGRAM_COLORS = {
   'limitless': {
@@ -435,6 +429,7 @@ export const FILE_TYPE_MAPPINGS = {
   code: ['html', 'css', 'js', 'jsx', 'py', 'php', 'rb']
 };
 
+// Mileage tracking constants
 export const MILEAGE_PURPOSES = [
   { id: 'business', label: 'Business', deductible: true },
   { id: 'personal', label: 'Personal', deductible: false }
@@ -448,3 +443,37 @@ export const MILEAGE_CATEGORIES = [
   { id: 'other', label: 'Other' }
 ];
 
+// Common places frequently visited by ITG coaches
+export const COMMON_PLACES = [
+  { id: 'office', name: 'ITG Office', address: '1830 Truxtun Avenue, Bakersfield, CA' },
+  { id: 'michael_girgis', name: 'Michael Girgis', address: '14404 Fremantle Ct, Bakersfield, CA' },
+  { id: 'three_way', name: 'Three Way', address: '5401 Wible Rd, Bakersfield, CA' },
+  { id: 'ford', name: 'Ford', address: '2001 Oak St, Bakersfield, CA' },
+  { id: 'luis_ceron', name: 'Luis Ceron', address: '12401 Lincolnshire Dr, Bakersfield, CA' },
+  { id: 'mare', name: 'MARE', address: '18200 Johnson Rd, Bakersfield, CA' },
+  { id: 'airien_villanueva', name: 'Airien Villanueva', address: '9709 Cobble Creek, Bakersfield, CA' },
+  { id: 'bakersfield_roasting', name: 'Bakersfield Roasting', address: '6501 Schirra Ct, Bakersfield, CA' },
+  { id: 'city_serve', name: 'City Serve', address: '3201 F Street, Bakersfield, CA' },
+  { id: 'dorthy_pastry', name: 'Dorthy Pastry', address: '2452 Pine St, Bakersfield, CA' },
+  { id: 'smart_and_final', name: 'Smart & Final', address: '1725 Golden State Hwy, Bakersfield, CA' },
+  { id: 'costco', name: 'Costco', address: '3800 Rosedale Hwy, Bakersfield, CA' },
+  { id: 'winco', name: 'Winco', address: '4200 Coffee Rd, Bakersfield, CA' },
+  { id: 'wateria', name: 'Wateria', address: '3420 Stine Rd, Bakersfield, CA' }
+];
+
+// Common business purposes for mileage records
+export const COMMON_PURPOSES = [
+  'Client pick up',
+  'Client drop off', 
+  'Shopping',
+  'Traveling to office',
+  'Other business-related travel'
+];
+
+// Validation constants for mileage
+export const MILEAGE_VALIDATION = {
+  MAX_MILES_PER_TRIP: 1000,
+  MIN_MILES_PER_TRIP: 0.1,
+  MAX_DAYS_BACK: 365, // 1 year
+  REQUIRED_FIELDS: ['date', 'startLocation', 'endLocation', 'purpose', 'mileage']
+};

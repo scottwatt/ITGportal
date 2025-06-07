@@ -1,4 +1,4 @@
-// src/services/firebase/clients.js 
+// src/services/firebase/clients.js - Updated with dailyTaskCoachId support
 import { 
   collection, 
   doc, 
@@ -24,6 +24,7 @@ import { createUserWithRestAPI, sendPasswordResetWithRestAPI } from './authRest'
 
 /**
  * Add a new client with Firebase Auth account using REST API
+ * ENHANCED: Support for dailyTaskCoachId and simplified Grace participant fields
  * @param {Object} clientData - Client data
  * @returns {Promise<Object>} Result with success flag and temp password
  */
@@ -42,18 +43,44 @@ export const addNewClient = async (clientData) => {
     
     // Clean and prepare client data
     const cleanedData = cleanFormData(clientData);
-    const newClient = {
-      ...cleanedData,
-      uid: uid, // This links Firestore doc to Firebase Auth account
-      role: 'client',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      status: 'Active',
-      progress: 0,
-      files: [],
-      tempPassword: tempPassword, // Store for reference
-      authAccountCreated: true // Flag to show auth account exists
-    };
+    
+    // ENHANCED: Prepare client data based on program type
+    let newClient;
+    
+    if (cleanedData.program === 'grace') {
+      // SIMPLIFIED: Grace participants only need basic info + goals
+      newClient = {
+        name: cleanedData.name,
+        email: cleanedData.email,
+        phone: cleanedData.phone || '',
+        program: 'grace',
+        currentGoals: cleanedData.currentGoals || '',
+        uid: uid,
+        role: 'client',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: 'Active',
+        progress: 0,
+        tempPassword: tempPassword,
+        authAccountCreated: true
+      };
+    } else {
+      // FULL: All other programs get complete business information
+      newClient = {
+        ...cleanedData,
+        uid: uid,
+        role: 'client',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: 'Active',
+        progress: 0,
+        files: [],
+        tempPassword: tempPassword,
+        authAccountCreated: true,
+        // ENHANCED: Support for daily task coach assignment
+        dailyTaskCoachId: cleanedData.dailyTaskCoachId || ''
+      };
+    }
     
     console.log('Adding client to Firestore...');
     const docRef = await addDoc(collection(db, 'clients'), newClient);
@@ -70,6 +97,7 @@ export const addNewClient = async (clientData) => {
 📧 Email: ${clientData.email}
 🔑 Password: ${tempPassword}
 🆔 UID: ${uid}
+${newClient.dailyTaskCoachId ? `👤 Daily Task Coach: Assigned` : ''}
 
 The client can now log in with these credentials.`
     };
@@ -175,7 +203,7 @@ If no email is received, check spam folder or contact IT support.`
 };
 
 /**
- * Update client information
+ * ENHANCED: Update client information with support for all fields including dailyTaskCoachId
  * @param {string} clientId - Client document ID
  * @param {Object} updates - Updates to apply
  * @returns {Promise<void>}
@@ -185,10 +213,33 @@ export const updateClient = async (clientId, updates) => {
     const cleanedUpdates = cleanFormData(updates);
     const clientRef = doc(db, 'clients', clientId);
     
-    await updateDoc(clientRef, {
-      ...cleanedUpdates,
-      updatedAt: serverTimestamp()
-    });
+    // ENHANCED: Handle program-specific field validation
+    let finalUpdates = { ...cleanedUpdates };
+    
+    if (updates.program === 'grace') {
+      // For Grace participants, only keep essential fields
+      const graceFields = {
+        name: finalUpdates.name,
+        email: finalUpdates.email,
+        phone: finalUpdates.phone,
+        program: 'grace',
+        currentGoals: finalUpdates.currentGoals,
+        progress: finalUpdates.progress,
+        notes: finalUpdates.notes,
+        updatedAt: serverTimestamp()
+      };
+      
+      // Remove business-specific fields for Grace clients
+      finalUpdates = graceFields;
+    } else {
+      // For other programs, include dailyTaskCoachId and all business fields
+      finalUpdates = {
+        ...finalUpdates,
+        updatedAt: serverTimestamp()
+      };
+    }
+    
+    await updateDoc(clientRef, finalUpdates);
   } catch (error) {
     throw new Error(`Failed to update client: ${error.message}`);
   }
@@ -219,7 +270,7 @@ export const updateClientProgress = async (clientId, progressData) => {
 };
 
 /**
- * Remove a client and all associated data
+ * ENHANCED: Remove a client and all associated data including task assignments
  * @param {string} clientId - Client document ID
  * @param {Array} schedules - All schedules (to remove client's schedules)
  * @returns {Promise<void>}
@@ -254,6 +305,21 @@ export const removeClient = async (clientId, schedules) => {
     const clientSchedules = schedules.filter(s => s.clientId === clientId);
     for (const schedule of clientSchedules) {
       await deleteDoc(doc(db, 'schedules', schedule.id));
+    }
+    
+    // ENHANCED: Remove all tasks for this client
+    try {
+      const tasksQuery = query(
+        collection(db, 'tasks'),
+        where('clientId', '==', clientId)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      
+      for (const taskDoc of tasksSnapshot.docs) {
+        await deleteDoc(doc(db, 'tasks', taskDoc.id));
+      }
+    } catch (taskError) {
+      console.warn('Error removing client tasks:', taskError);
     }
     
     // Remove the client document
@@ -443,7 +509,45 @@ export const getClientsByProgram = async (program) => {
 };
 
 /**
+ * ENHANCED: Get clients assigned to a specific coach for daily tasks
+ * @param {string} coachId - Coach ID (UID)
+ * @returns {Promise<Array>} Array of clients assigned to the coach
+ */
+export const getClientsByTaskCoach = async (coachId) => {
+  try {
+    const clientsQuery = query(
+      collection(db, 'clients'),
+      where('dailyTaskCoachId', '==', coachId)
+    );
+    const snapshot = await getDocs(clientsQuery);
+    
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    throw new Error(`Failed to get clients by task coach: ${error.message}`);
+  }
+};
+
+/**
+ * ENHANCED: Assign or remove daily task coach for a client
+ * @param {string} clientId - Client document ID
+ * @param {string} coachId - Coach ID (UID) or empty string to remove assignment
+ * @returns {Promise<void>}
+ */
+export const assignDailyTaskCoach = async (clientId, coachId) => {
+  try {
+    const clientRef = doc(db, 'clients', clientId);
+    await updateDoc(clientRef, {
+      dailyTaskCoachId: coachId || '',
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    throw new Error(`Failed to assign daily task coach: ${error.message}`);
+  }
+};
+
+/**
  * Set up real-time listener for clients
+ * ENHANCED: Includes dailyTaskCoachId field
  * @param {Function} callback - Callback function to handle clients data
  * @returns {Function} Unsubscribe function
  */

@@ -5,8 +5,9 @@ import {
   validateMileageRecord
 } from '../../utils/mileageHelpers';
 import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader';
-import AddressAutocomplete from './AddressAutoComplete'; // NEW: Import autocomplete component
-import { Plus, Edit, Trash2, Car, MapPin, Calendar, FileText, Map } from 'lucide-react';
+import { COMMON_PLACES } from '../../utils/constants'; // Import from constants
+import AddressAutocomplete from './AddressAutoComplete';
+import { Plus, Edit, Trash2, Car, MapPin, Calendar, FileText, Map, ChevronDown } from 'lucide-react';
 
 const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) => {
   // ALL HOOKS MUST BE CALLED FIRST - NO CODE BEFORE HOOKS
@@ -18,6 +19,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  
+  // NEW: State for dropdown visibility
+  const [showStartDropdown, setShowStartDropdown] = useState(false);
+  const [showEndDropdown, setShowEndDropdown] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -49,31 +54,30 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     }), { miles: 0 });
   }, [monthlyRecords]);
 
-  // Load records for selected month - MEMOIZED callback
-  const loadMonthlyRecords = useCallback(async () => {
-    // Check if mileageActions is available
-    if (!mileageActions || !mileageActions.getMonthlyRecords) {
-      console.warn('Mileage actions not available yet');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await mileageActions.getMonthlyRecords(selectedYear, selectedMonth);
-    } catch (err) {
-      setError('Failed to load mileage records');
-      console.error('Error loading records:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth, selectedYear, mileageActions]);
-
-  // Load monthly records effect - now uses memoized callback
+  // Load monthly records effect - FIXED to prevent infinite loop
   useEffect(() => {
-    if (userProfile?.uid && mileageActions) {
+    const loadMonthlyRecords = async () => {
+      // Check if mileageActions is available
+      if (!mileageActions || !mileageActions.getMonthlyRecords) {
+        console.warn('Mileage actions not available yet');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await mileageActions.getMonthlyRecords(selectedYear, selectedMonth);
+      } catch (err) {
+        setError('Failed to load mileage records');
+        console.error('Error loading records:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userProfile?.uid && mileageActions?.getMonthlyRecords) {
       loadMonthlyRecords();
     }
-  }, [userProfile?.uid, loadMonthlyRecords]);
+  }, [userProfile?.uid, selectedMonth, selectedYear]); // Removed mileageActions from dependencies
 
   // Load Google Maps API when component mounts - ONLY ONCE
   useEffect(() => {
@@ -90,6 +94,17 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     initMaps();
   }, []); // Empty dependency array - only run once
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowStartDropdown(false);
+      setShowEndDropdown(false);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   // MEMOIZED: Handle form input changes
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -97,6 +112,16 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  }, []);
+
+  // NEW: Handle common place selection
+  const handleCommonPlaceSelect = useCallback((field, place) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: place.address
+    }));
+    setShowStartDropdown(false);
+    setShowEndDropdown(false);
   }, []);
 
   // UPDATED: Calculate mileage using Google Maps with better address handling
@@ -168,7 +193,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     }
   }, [mapsLoaded, formData.startLocation, formData.endLocation]);
 
-  // MEMOIZED: Handle form submission
+  // MEMOIZED: Handle form submission - FIXED to prevent infinite loop
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
@@ -225,9 +250,9 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     } finally {
       setLoading(false);
     }
-  }, [formData, editingRecord, mileageActions]);
+  }, [formData, editingRecord]); // Removed mileageActions from dependencies
 
-  // MEMOIZED: Handle record deletion
+  // MEMOIZED: Handle record deletion - FIXED to prevent infinite loop
   const handleDelete = useCallback(async (recordId) => {
     if (!mileageActions || !mileageActions.deleteRecord) {
       setError('Delete function not available. Please refresh the page.');
@@ -245,7 +270,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
         setLoading(false);
       }
     }
-  }, [mileageActions]);
+  }, []); // Removed mileageActions from dependencies
 
   // MEMOIZED: Handle record editing
   const handleEdit = useCallback((record) => {
@@ -440,9 +465,9 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
               </div>
             </div>
 
-            {/* UPDATED: Address inputs with autocomplete */}
+            {/* UPDATED: Address inputs with autocomplete and common places */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin size={16} className="inline mr-1" />
                   Start Location
@@ -455,11 +480,41 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
                   required
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  🎯 Auto-suggests Bakersfield addresses
-                </p>
+                
+                {/* Common Places Dropdown for Start Location */}
+                <div className="relative mt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowStartDropdown(!showStartDropdown);
+                      setShowEndDropdown(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100"
+                  >
+                    <span>📍 Quick Select Common Places</span>
+                    <ChevronDown size={16} className={`transform transition-transform ${showStartDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showStartDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {COMMON_PLACES.map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onClick={() => handleCommonPlaceSelect('startLocation', place)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{place.name}</div>
+                          <div className="text-xs text-gray-500">{place.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
+              
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <MapPin size={16} className="inline mr-1" />
                   End Location
@@ -472,9 +527,38 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
                   required
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  📍 Select from address suggestions
-                </p>
+                
+                {/* Common Places Dropdown for End Location */}
+                <div className="relative mt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEndDropdown(!showEndDropdown);
+                      setShowStartDropdown(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100"
+                  >
+                    <span>📍 Quick Select Common Places</span>
+                    <ChevronDown size={16} className={`transform transition-transform ${showEndDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showEndDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {COMMON_PLACES.map((place) => (
+                        <button
+                          key={place.id}
+                          type="button"
+                          onClick={() => handleCommonPlaceSelect('endLocation', place)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{place.name}</div>
+                          <div className="text-xs text-gray-500">{place.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

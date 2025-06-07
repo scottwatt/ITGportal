@@ -1,9 +1,9 @@
-// src/components/schedule/DailyTaskScheduler.jsx - OPTIMIZED VERSION
+// src/components/schedule/DailyTaskScheduler.jsx - Enhanced with Coach Assignment Filtering (Priority Removed)
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Save, Copy, Clipboard, X, Edit3, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Plus, Save, Copy, Clipboard, X, Edit3, Trash2, ChevronLeft, ChevronRight, Users, AlertCircle } from 'lucide-react';
 import { formatDatePST, getPSTDate } from '../../utils/dateUtils';
 import { getSchedulableClients, getClientInitials } from '../../utils/helpers';
-import { TIME_BLOCKS, TASK_TYPES } from '../../utils/constants';
+import { TIME_BLOCKS, TASK_TYPES, USER_ROLES } from '../../utils/constants';
 
 const DailyTaskScheduler = ({ 
   clients, 
@@ -11,7 +11,7 @@ const DailyTaskScheduler = ({
   schedules, 
   userProfile,
   taskActions,
-  tasks // NEW: Get tasks directly from props instead of loading them
+  tasks // Get tasks directly from props instead of loading them
 }) => {
   const [selectedDate, setSelectedDate] = useState(getPSTDate());
   const [editingTask, setEditingTask] = useState(null);
@@ -20,10 +20,27 @@ const DailyTaskScheduler = ({
   const [selectedTimeBlock, setSelectedTimeBlock] = useState(null);
   const [copiedTasks, setCopiedTasks] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [optimisticTasks, setOptimisticTasks] = useState([]); // NEW: For immediate UI updates
+  const [optimisticTasks, setOptimisticTasks] = useState([]); // For immediate UI updates
 
   // Get schedulable clients (no Grace clients)
   const schedulableClients = getSchedulableClients(clients);
+  
+  // ENHANCED: Filter clients based on user role and task coach assignment
+  const getClientsForTaskScheduling = () => {
+    if (userProfile?.role === USER_ROLES.ADMIN || userProfile?.role === USER_ROLES.SCHEDULER) {
+      // Admins and schedulers can see all schedulable clients
+      return schedulableClients;
+    } else if (userProfile?.role === USER_ROLES.COACH) {
+      // Coaches can only see clients assigned to them for daily tasks
+      const assignedClients = schedulableClients.filter(client => 
+        client.dailyTaskCoachId === userProfile.uid
+      );
+      return assignedClients;
+    }
+    return [];
+  };
+
+  const availableClients = getClientsForTaskScheduling();
   
   // Get coaches assigned to clients for the day
   const getCoachForClient = (clientId) => {
@@ -36,12 +53,12 @@ const DailyTaskScheduler = ({
     return null;
   };
 
-  // Only show clients who are scheduled for the day
-  const scheduledClients = schedulableClients.filter(client => 
+  // Only show clients who are scheduled for the day AND assigned to current coach (or if admin)
+  const scheduledClients = availableClients.filter(client => 
     getCoachForClient(client.id) !== null
   );
 
-  // NEW: Get tasks for the current date (combines real tasks + optimistic updates)
+  // Get tasks for the current date (combines real tasks + optimistic updates)
   const getTasksForCurrentDate = () => {
     // Get real tasks from Firebase for the selected date
     const realTasks = tasks.filter(task => task.date === selectedDate);
@@ -65,10 +82,18 @@ const DailyTaskScheduler = ({
       }
     });
     
+    // ENHANCED: Filter tasks to only show those for clients this coach is assigned to
+    if (userProfile?.role === USER_ROLES.COACH) {
+      return combinedTasks.filter(task => {
+        const client = clients.find(c => c.id === task.clientId);
+        return client && client.dailyTaskCoachId === userProfile.uid;
+      });
+    }
+    
     return combinedTasks;
   };
 
-  // NEW: Clean up optimistic tasks when real tasks arrive
+  // Clean up optimistic tasks when real tasks arrive
   useEffect(() => {
     const currentDateTasks = tasks.filter(task => task.date === selectedDate);
     
@@ -116,13 +141,12 @@ const DailyTaskScheduler = ({
       title: '',
       description: '',
       type: 'business-work',
-      priority: 'medium',
       completed: false
     });
     setShowTaskModal(true);
   };
 
-  // OPTIMIZED: Save task with immediate UI feedback
+  // Save task with immediate UI feedback
   const handleSaveTask = async (taskData) => {
     setLoading(true);
     
@@ -131,7 +155,7 @@ const DailyTaskScheduler = ({
         // Update existing task
         await taskActions.updateTask(taskData.id, taskData);
       } else {
-        // NEW: Create optimistic task immediately for instant UI feedback
+        // Create optimistic task immediately for instant UI feedback
         const optimisticTask = {
           id: `optimistic-${Date.now()}`, // Temporary ID
           ...taskData,
@@ -294,19 +318,6 @@ const DailyTaskScheduler = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Priority</label>
-              <select
-                value={formData.priority || 'medium'}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium mb-1">Description</label>
               <textarea
                 value={formData.description || ''}
@@ -420,7 +431,7 @@ const DailyTaskScheduler = ({
         </div>
       </div>
 
-      {/* Status Bar */}
+      {/* ENHANCED: Status Bar with assignment info */}
       <div className="bg-[#BED2D8] p-4 rounded-lg border-l-4 border-[#6D858E]">
         <h3 className="font-semibold text-[#292929] mb-2">
           📅 {formatDatePST(selectedDate)} - {scheduledClients.length} Clients Scheduled
@@ -428,12 +439,31 @@ const DailyTaskScheduler = ({
         <div className="text-sm text-[#292929]">
           Click any cell to add/edit tasks • Each cell = 30-minute time block • Color-coded by task type
         </div>
+        {userProfile?.role === USER_ROLES.COACH && (
+          <div className="mt-2 text-sm text-[#707070]">
+            👤 Showing tasks for clients assigned to you ({availableClients.length} total assigned)
+          </div>
+        )}
         {copiedTasks && (
           <div className="mt-2 text-sm text-[#707070]">
             ✅ {copiedTasks.tasks.length} tasks copied from {formatDatePST(copiedTasks.sourceDate)}
           </div>
         )}
       </div>
+
+      {/* ENHANCED: Assignment Status for Coaches */}
+      {userProfile?.role === USER_ROLES.COACH && availableClients.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="text-yellow-600" size={20} />
+            <h4 className="font-semibold text-yellow-800">No Clients Assigned</h4>
+          </div>
+          <p className="text-sm text-yellow-700 mt-2">
+            You don't have any clients assigned for daily task management. Please contact an administrator 
+            to assign clients to you in the Task Assignments tab.
+          </p>
+        </div>
+      )}
 
       {/* Task Legend */}
       <div className="bg-white p-4 rounded-lg shadow-md">
@@ -460,12 +490,16 @@ const DailyTaskScheduler = ({
                   </th>
                   {scheduledClients.map(client => {
                     const coach = getCoachForClient(client.id);
+                    const taskCoach = coaches.find(c => (c.uid || c.id) === client.dailyTaskCoachId);
                     return (
                       <th key={client.id} className="border border-gray-300 p-3 text-center min-w-48">
                         <div className="space-y-1">
                           <div className="font-semibold text-[#292929]">{client.name}</div>
                           <div className="text-xs text-[#707070]">
-                            Coach: {coach?.name || 'TBD'}
+                            Session Coach: {coach?.name || 'TBD'}
+                          </div>
+                          <div className="text-xs text-[#6D858E]">
+                            Task Coach: {taskCoach?.name || 'Not assigned'}
                           </div>
                           <div className="flex items-center justify-center space-x-1">
                             <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
@@ -523,9 +557,6 @@ const DailyTaskScheduler = ({
                                 {task.title}
                                 {task.isOptimistic && <span className="ml-1 text-blue-500">⏳</span>}
                               </div>
-                              {task.priority === 'high' && (
-                                <div className="text-red-600 font-bold">!</div>
-                              )}
                             </div>
                           ) : (
                             <div className="h-12 flex items-center justify-center text-[#9B97A2] hover:text-[#6D858E]">
@@ -544,10 +575,20 @@ const DailyTaskScheduler = ({
       ) : (
         <div className="text-center py-12 bg-white rounded-lg shadow-md">
           <Calendar size={48} className="mx-auto mb-4 text-[#9B97A2]" />
-          <h3 className="text-lg font-semibold text-[#292929] mb-2">No Clients Scheduled</h3>
+          <h3 className="text-lg font-semibold text-[#292929] mb-2">
+            {availableClients.length === 0 ? 'No Assigned Clients' : 'No Clients Scheduled'}
+          </h3>
           <p className="text-[#707070]">
-            Please schedule clients first in the Daily Schedule tab before assigning tasks.
+            {availableClients.length === 0 
+              ? 'You don\'t have any clients assigned for daily task management. Contact an administrator to assign clients to you.'
+              : 'Please schedule your assigned clients first in the Daily Schedule tab before assigning tasks.'
+            }
           </p>
+          {userProfile?.role === USER_ROLES.COACH && availableClients.length > 0 && (
+            <div className="mt-4 text-sm text-[#9B97A2]">
+              You have {availableClients.length} assigned client(s) but none are scheduled for today.
+            </div>
+          )}
         </div>
       )}
 
