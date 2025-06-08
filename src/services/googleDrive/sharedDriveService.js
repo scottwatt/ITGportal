@@ -1,188 +1,479 @@
 // src/services/googleDrive/sharedDriveService.js
-// Optimized for Google Workspace Shared Drives
+// ROBUST: Better error handling, CORS fix, proper auth instance management
 
-import { googleDriveConfig } from './config';
+import { googleDriveConfig, validateGoogleDriveConfig } from './config';
 
-class SharedDriveService {
+class GoogleDriveService {
   constructor() {
     this.isInitialized = false;
     this.accessToken = null;
-    this.sharedDriveId = null; // ITG Client Files shared drive ID
+    this.sharedDriveId = null;
+    this.mainFolderId = null;
     this.isAvailable = false;
+    this.useSharedDrive = false;
+    this.authInstance = null;
+    this.lastError = null;
   }
 
   /**
-   * Initialize Google Drive API for Shared Drives
+   * Initialize Google Drive API with robust error handling
    */
   async initialize() {
     if (this.isInitialized) return this.isAvailable;
 
     try {
-      console.log('🏢 Initializing Google Workspace Shared Drive...');
+      console.log('🔧 Starting robust Google Drive initialization...');
       
-      await this.loadGoogleAPI();
-      await this.loadGapiLibraries();
+      // Validate configuration
+      const validation = validateGoogleDriveConfig();
+      if (!validation.hasCredentials) {
+        this.lastError = 'Google Drive client ID not configured.';
+        console.warn('⚠️', this.lastError);
+        this.isInitialized = true;
+        this.isAvailable = false;
+        return false;
+      }
       
-      await window.gapi.client.init({
-        apiKey: googleDriveConfig.apiKey,
-        clientId: googleDriveConfig.clientId,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-        scope: googleDriveConfig.scopes.join(' ')
-      });
-
+      // Verify OAuth client configuration
+      await this.verifyOAuthConfig();
+      
+      // Ensure Google API is loaded
+      await this.ensureGoogleAPILoaded();
+      
+      // Setup auth with better error handling
+      await this.setupAuthRobust();
+      
       this.isInitialized = true;
       this.isAvailable = true;
-      console.log('✅ Google Workspace Shared Drive initialized');
+      this.useSharedDrive = googleDriveConfig.useSharedDrive;
+      
+      console.log('✅ Google Drive initialization successful');
       return true;
 
     } catch (error) {
-      console.error('❌ Shared Drive initialization failed:', error);
+      console.error('❌ Google Drive initialization failed:', this.getErrorDetails(error));
+      this.lastError = `Initialization failed: ${this.getErrorMessage(error)}`;
       this.isAvailable = false;
+      this.isInitialized = true;
       return false;
     }
   }
 
-  async loadGoogleAPI() {
-    return new Promise((resolve, reject) => {
-      if (window.gapi) {
-        resolve();
-        return;
-      }
+  /**
+   * Verify OAuth client configuration
+   */
+  async verifyOAuthConfig() {
+    console.log('🔍 Verifying OAuth configuration...');
+    
+    const clientId = googleDriveConfig.clientId;
+    const currentOrigin = window.location.origin;
+    
+    console.log('Client ID:', clientId.substring(0, 20) + '...');
+    console.log('Current origin:', currentOrigin);
+    
+    // Basic format check
+    if (!clientId.includes('.apps.googleusercontent.com')) {
+      throw new Error('Invalid OAuth client ID format');
+    }
+    
+    console.log('✅ OAuth client ID format looks correct');
+    console.log('⚠️ Make sure these are configured in Google Cloud Console:');
+    console.log(`   - Authorized JavaScript origins: ${currentOrigin}`);
+    console.log(`   - OAuth consent screen has Google Drive scopes`);
+  }
 
+  /**
+   * Get detailed error information
+   */
+  getErrorDetails(error) {
+    return {
+      message: error.message,
+      type: typeof error,
+      constructor: error.constructor.name,
+      details: error.details,
+      error: error.error,
+      result: error.result,
+      stack: error.stack
+    };
+  }
+
+  /**
+   * Get human-readable error message
+   */
+  getErrorMessage(error) {
+    if (typeof error === 'string') return error;
+    if (error.details) return error.details;
+    if (error.error) return error.error;
+    if (error.message) return error.message;
+    if (error.result && error.result.error) {
+      return error.result.error.message || JSON.stringify(error.result.error);
+    }
+    return 'Unknown error occurred';
+  }
+
+  /**
+   * Ensure Google API is loaded
+   */
+  async ensureGoogleAPILoaded() {
+    if (typeof window.gapi === 'undefined') {
+      console.log('📦 Loading Google API...');
+      await this.loadGoogleAPIScript();
+    }
+    
+    // Wait for gapi to be ready with timeout
+    await this.waitForGapi();
+    
+    // Load required libraries
+    if (!window.gapi.client || !window.gapi.auth2) {
+      console.log('📚 Loading GAPI libraries...');
+      await this.loadGapiLibraries();
+    }
+  }
+
+  /**
+   * Wait for GAPI to be ready
+   */
+  waitForGapi() {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for GAPI to be ready'));
+      }, 10000);
+      
+      const checkGapi = () => {
+        if (window.gapi && window.gapi.load) {
+          clearTimeout(timeout);
+          resolve();
+        } else {
+          setTimeout(checkGapi, 100);
+        }
+      };
+      checkGapi();
+    });
+  }
+
+  loadGoogleAPIScript() {
+    return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://apis.google.com/js/api.js';
       script.onload = resolve;
-      script.onerror = () => reject(new Error('Failed to load Google API'));
+      script.onerror = () => reject(new Error('Failed to load Google API script'));
       document.head.appendChild(script);
     });
   }
 
-  async loadGapiLibraries() {
+  loadGapiLibraries() {
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout loading GAPI libraries'));
+      }, 15000);
+      
       window.gapi.load('client:auth2', {
-        callback: resolve,
-        onerror: () => reject(new Error('Failed to load GAPI libraries'))
+        callback: () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+        onerror: (error) => {
+          clearTimeout(timeout);
+          reject(new Error(`Failed to load GAPI libraries: ${JSON.stringify(error)}`));
+        }
       });
     });
   }
 
   /**
-   * Authenticate with Google Workspace account
+   * Setup auth with robust error handling
+   */
+  async setupAuthRobust() {
+    try {
+      console.log('🔐 Setting up Google Auth...');
+      
+      // Check for existing auth instance
+      this.authInstance = window.gapi.auth2.getAuthInstance();
+      
+      if (this.authInstance) {
+        console.log('✅ Using existing Google Auth instance');
+        
+        // Verify it has the right client ID
+        const currentClientId = this.authInstance.currentUser.get().getId();
+        console.log('Existing auth client ID:', currentClientId ? 'Present' : 'None');
+      } else {
+        console.log('🔐 Creating new Google Auth instance...');
+        
+        // Initialize client first
+        if (!window.gapi.client.getToken) {
+          await window.gapi.client.init({});
+        }
+        
+        // Initialize auth2 with detailed error handling
+        try {
+          this.authInstance = await window.gapi.auth2.init({
+            client_id: googleDriveConfig.clientId,
+            scope: googleDriveConfig.scopes.join(' '),
+            fetch_basic_profile: true,
+            ux_mode: 'popup' // Use popup instead of redirect to avoid CORS issues
+          });
+          console.log('✅ New Google Auth instance created');
+        } catch (authError) {
+          console.error('❌ Auth2 init failed:', this.getErrorDetails(authError));
+          
+          // Try fallback approach
+          console.log('🔄 Trying fallback auth approach...');
+          this.authInstance = window.gapi.auth2.getAuthInstance();
+          if (!this.authInstance) {
+            throw new Error(`Auth initialization failed: ${this.getErrorMessage(authError)}`);
+          }
+        }
+      }
+      
+      // Load Drive API
+      await this.loadDriveAPI();
+      
+    } catch (error) {
+      console.error('❌ Auth setup failed:', this.getErrorDetails(error));
+      throw new Error(`Auth initialization failed: ${this.getErrorMessage(error)}`);
+    }
+  }
+
+  /**
+   * Load Drive API with error handling
+   */
+  async loadDriveAPI() {
+    try {
+      if (!window.gapi.client.drive) {
+        console.log('📁 Loading Drive API...');
+        await window.gapi.client.load('drive', 'v3');
+        console.log('✅ Google Drive API loaded');
+      } else {
+        console.log('✅ Drive API already available');
+      }
+    } catch (error) {
+      console.error('❌ Failed to load Drive API:', this.getErrorDetails(error));
+      throw new Error(`Drive API load failed: ${this.getErrorMessage(error)}`);
+    }
+  }
+
+  /**
+   * Authenticate with detailed error handling
    */
   async authenticate() {
     try {
-      if (!this.isInitialized) {
+      if (!this.isAvailable) {
         const success = await this.initialize();
-        if (!success) throw new Error('Initialization failed');
+        if (!success) {
+          throw new Error(this.lastError || 'Google Drive not available');
+        }
       }
 
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      if (!authInstance) throw new Error('Auth instance not available');
-
-      // Check if user is signed in
-      if (!authInstance.isSignedIn.get()) {
-        console.log('👤 Prompting user to sign in with Google Workspace account...');
-        await authInstance.signIn();
+      if (!this.authInstance) {
+        throw new Error('Auth instance not available after initialization');
       }
 
-      const user = authInstance.currentUser.get();
+      console.log('🔐 Starting authentication...');
+      
+      const currentUser = this.authInstance.currentUser.get();
+      
+      if (!currentUser.isSignedIn()) {
+        console.log('👤 User not signed in, prompting...');
+        
+        try {
+          // Use signIn with specific options to handle CORS issues
+          await this.authInstance.signIn({
+            scope: googleDriveConfig.scopes.join(' '),
+            ux_mode: 'popup'
+          });
+          console.log('✅ Sign in successful');
+        } catch (signInError) {
+          console.error('❌ Sign in failed:', this.getErrorDetails(signInError));
+          
+          // Check for specific error types
+          if (this.getErrorMessage(signInError).includes('popup')) {
+            throw new Error('Sign-in popup was blocked. Please allow popups for this site and try again.');
+          } else if (this.getErrorMessage(signInError).includes('CORS')) {
+            throw new Error('CORS error during sign-in. Please check OAuth client configuration.');
+          } else {
+            throw new Error(`Sign-in failed: ${this.getErrorMessage(signInError)}`);
+          }
+        }
+      } else {
+        console.log('✅ User already signed in');
+        
+        // Verify scopes
+        const grantedScopes = currentUser.getGrantedScopes();
+        const hasRequiredScopes = googleDriveConfig.scopes.every(scope => 
+          grantedScopes.includes(scope)
+        );
+        
+        if (!hasRequiredScopes) {
+          console.log('🔄 Re-authenticating for Drive permissions...');
+          await this.authInstance.signIn({
+            scope: googleDriveConfig.scopes.join(' ')
+          });
+        }
+      }
+
+      const user = this.authInstance.currentUser.get();
       const profile = user.getBasicProfile();
       const email = profile.getEmail();
       
       console.log(`✅ Authenticated as: ${email}`);
-      
-      // Verify it's a company email (optional - you can customize this)
-      // if (!email.endsWith('@yourcompany.com')) {
-      //   console.warn('⚠️ User is not using company Google Workspace account');
-      //   // You can choose to continue or require company account
-      // }
-
       this.accessToken = user.getAuthResponse().access_token;
       
-      // Find the ITG Client Files shared drive
-      await this.findSharedDrive();
+      // Test Drive API access
+      await this.testDriveAccess();
+      
+      // Set up folder structure
+      await this.setupFolderStructure();
       
       return true;
     } catch (error) {
-      console.error('❌ Authentication failed:', error);
-      throw error;
+      console.error('❌ Authentication failed:', this.getErrorDetails(error));
+      this.lastError = this.getErrorMessage(error);
+      throw new Error(this.lastError);
     }
   }
 
   /**
-   * Find the "ITG Client Files" shared drive
+   * Test Drive API access
    */
-  async findSharedDrive() {
+  async testDriveAccess() {
     try {
-      console.log('🔍 Looking for ITG Client Files shared drive...');
+      console.log('🧪 Testing Drive API access...');
       
-      const response = await window.gapi.client.drive.drives.list({
-        pageSize: 100
+      const response = await window.gapi.client.drive.about.get({
+        fields: 'user'
       });
-
-      const drives = response.result.drives || [];
-      const itgDrive = drives.find(drive => 
-        drive.name === 'ITG Client Files' || 
-        drive.name.includes('ITG Client') ||
-        drive.name.includes('Client Files')
-      );
-
-      if (itgDrive) {
-        this.sharedDriveId = itgDrive.id;
-        console.log(`✅ Found shared drive: ${itgDrive.name} (${itgDrive.id})`);
+      
+      if (response.result && response.result.user) {
+        console.log('✅ Drive API access confirmed');
+        console.log('Drive user:', response.result.user.displayName);
       } else {
-        console.warn('⚠️ ITG Client Files shared drive not found');
-        console.log('Available shared drives:', drives.map(d => d.name));
-        
-        // Optionally create the shared drive (requires admin permissions)
-        // await this.createSharedDrive();
+        console.warn('⚠️ Unexpected Drive API response');
       }
     } catch (error) {
-      console.error('Failed to find shared drive:', error);
-      throw error;
+      console.error('❌ Drive API test failed:', this.getErrorDetails(error));
+      throw new Error(`Drive API test failed: ${this.getErrorMessage(error)}`);
     }
   }
 
   /**
-   * Get or create client folder in shared drive
+   * Setup folder structure
    */
+  async setupFolderStructure() {
+    if (this.useSharedDrive) {
+      try {
+        await this.setupSharedDrive();
+      } catch (sharedDriveError) {
+        console.warn('⚠️ Shared Drive setup failed, falling back to regular folders:', sharedDriveError);
+        this.useSharedDrive = false;
+        await this.setupRegularDrive();
+      }
+    } else {
+      await this.setupRegularDrive();
+    }
+  }
+
+  /**
+   * Set up Shared Drive
+   */
+  async setupSharedDrive() {
+    console.log('🔍 Looking for Shared Drive...');
+    
+    const response = await window.gapi.client.drive.drives.list({
+      pageSize: 100
+    });
+
+    const drives = response.result.drives || [];
+    console.log(`📊 Found ${drives.length} shared drives`);
+    
+    const itgDrive = drives.find(drive => 
+      drive.name === googleDriveConfig.mainFolderName || 
+      drive.name.includes('ITG Client') ||
+      drive.name.includes('Client Files')
+    );
+
+    if (itgDrive) {
+      this.sharedDriveId = itgDrive.id;
+      console.log(`✅ Found shared drive: ${itgDrive.name} (${itgDrive.id})`);
+    } else {
+      console.log('Available shared drives:', drives.map(d => d.name));
+      throw new Error('ITG Client Files shared drive not found');
+    }
+  }
+
+  /**
+   * Set up regular Drive folder
+   */
+  async setupRegularDrive() {
+    console.log('📁 Setting up regular Drive folder...');
+    
+    const response = await window.gapi.client.drive.files.list({
+      q: `name='${googleDriveConfig.mainFolderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name)'
+    });
+
+    if (response.result.files.length > 0) {
+      this.mainFolderId = response.result.files[0].id;
+      console.log(`✅ Found main folder: ${this.mainFolderId}`);
+    } else {
+      console.log(`📁 Creating main folder: ${googleDriveConfig.mainFolderName}`);
+      const createResponse = await window.gapi.client.drive.files.create({
+        resource: {
+          name: googleDriveConfig.mainFolderName,
+          mimeType: 'application/vnd.google-apps.folder'
+        }
+      });
+      
+      this.mainFolderId = createResponse.result.id;
+      console.log(`✅ Created main folder: ${this.mainFolderId}`);
+    }
+  }
+
+  // Rest of the methods remain the same but with better error handling...
   async getClientFolder(clientId, clientName) {
     try {
-      if (!this.sharedDriveId) {
-        throw new Error('Shared drive not available');
+      await this.ensureAuthenticated();
+      
+      const folderName = `${clientName} (${clientId})`;
+      const parentId = this.useSharedDrive ? this.sharedDriveId : this.mainFolderId;
+      
+      if (!parentId) {
+        throw new Error('Parent folder not available');
       }
 
-      const folderName = `${clientName} (${clientId})`;
-      console.log(`📁 Getting folder for client: ${folderName}`);
-      
-      // Search for existing client folder in shared drive
-      const response = await window.gapi.client.drive.files.list({
-        q: `name='${folderName}' and parents in '${this.sharedDriveId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        driveId: this.sharedDriveId,
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
+      const searchParams = {
+        q: `name='${folderName}' and parents in '${parentId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
         fields: 'files(id, name)'
-      });
+      };
+      
+      if (this.useSharedDrive) {
+        searchParams.driveId = this.sharedDriveId;
+        searchParams.includeItemsFromAllDrives = true;
+        searchParams.supportsAllDrives = true;
+      }
+
+      const response = await window.gapi.client.drive.files.list(searchParams);
 
       if (response.result.files.length > 0) {
         const folderId = response.result.files[0].id;
-        console.log(`✅ Found existing folder: ${folderId}`);
+        console.log(`✅ Found existing client folder: ${folderId}`);
         return folderId;
       } else {
-        // Create client folder in shared drive
-        console.log(`📁 Creating new folder: ${folderName}`);
-        const createResponse = await window.gapi.client.drive.files.create({
+        console.log(`📁 Creating client folder: ${folderName}`);
+        
+        const createParams = {
           resource: {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: [this.sharedDriveId]
-          },
-          supportsAllDrives: true
-        });
+            parents: [parentId]
+          }
+        };
         
-        const folderId = createResponse.result.id;
-        console.log(`✅ Created folder: ${folderId}`);
-        return folderId;
+        if (this.useSharedDrive) {
+          createParams.supportsAllDrives = true;
+        }
+        
+        const createResponse = await window.gapi.client.drive.files.create(createParams);
+        return createResponse.result.id;
       }
     } catch (error) {
       console.error('Failed to get/create client folder:', error);
@@ -190,23 +481,25 @@ class SharedDriveService {
     }
   }
 
-  /**
-   * List files in client folder
-   */
   async listClientFiles(clientId, clientName) {
     try {
       await this.ensureAuthenticated();
       
       const folderId = await this.getClientFolder(clientId, clientName);
       
-      const response = await window.gapi.client.drive.files.list({
+      const listParams = {
         q: `parents in '${folderId}' and trashed=false`,
-        driveId: this.sharedDriveId,
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
         fields: 'files(id, name, size, mimeType, createdTime, modifiedTime, webViewLink, webContentLink, owners)',
         orderBy: 'modifiedTime desc'
-      });
+      };
+      
+      if (this.useSharedDrive) {
+        listParams.driveId = this.sharedDriveId;
+        listParams.includeItemsFromAllDrives = true;
+        listParams.supportsAllDrives = true;
+      }
+
+      const response = await window.gapi.client.drive.files.list(listParams);
 
       return response.result.files.map(file => ({
         id: file.id,
@@ -227,9 +520,6 @@ class SharedDriveService {
     }
   }
 
-  /**
-   * Upload file to client folder in shared drive
-   */
   async uploadFileToClient(clientId, clientName, file, onProgress = null) {
     try {
       await this.ensureAuthenticated();
@@ -258,23 +548,27 @@ class SharedDriveService {
         xhr.addEventListener('load', () => {
           if (xhr.status === 200) {
             const response = JSON.parse(xhr.responseText);
-            console.log(`✅ Uploaded ${file.name} to shared drive`);
+            console.log(`✅ Uploaded ${file.name}`);
             resolve({
               id: response.id,
               name: response.name,
               success: true
             });
           } else {
-            reject(new Error(`Upload failed: ${xhr.statusText}`));
+            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
           }
         });
 
         xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed'));
+          reject(new Error('Upload failed - network error'));
         });
 
-        // Use supportsAllDrives parameter for shared drives
-        xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true');
+        let uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+        if (this.useSharedDrive) {
+          uploadUrl += '&supportsAllDrives=true';
+        }
+
+        xhr.open('POST', uploadUrl);
         xhr.setRequestHeader('Authorization', `Bearer ${this.accessToken}`);
         xhr.send(form);
       });
@@ -284,58 +578,51 @@ class SharedDriveService {
     }
   }
 
-  /**
-   * Delete file from shared drive
-   */
   async deleteClientFile(fileId) {
     try {
       await this.ensureAuthenticated();
       
       await window.gapi.client.drive.files.delete({
         fileId: fileId,
-        supportsAllDrives: true
+        supportsAllDrives: this.useSharedDrive
       });
       
-      console.log(`✅ Deleted file ${fileId} from shared drive`);
+      console.log(`✅ Deleted file ${fileId}`);
       return true;
     } catch (error) {
       console.error('Failed to delete file:', error);
-      throw error;
+      return false;
     }
   }
 
-  /**
-   * Share client folder with client (outside organization)
-   */
   async shareClientFolder(clientId, clientName, clientEmail) {
     try {
       await this.ensureAuthenticated();
       
       const folderId = await this.getClientFolder(clientId, clientName);
       
-      // Give client view access to their folder
       await window.gapi.client.drive.permissions.create({
         fileId: folderId,
-        supportsAllDrives: true,
+        supportsAllDrives: this.useSharedDrive,
         resource: {
-          role: 'reader', // Read-only for clients
+          role: 'reader',
           type: 'user',
           emailAddress: clientEmail
         },
         sendNotificationEmail: true,
-        emailMessage: `You now have access to your ITG client folder. You can view your files here.`
+        emailMessage: `You now have access to your ITG client folder.`
       });
       
       console.log(`✅ Shared folder with client: ${clientEmail}`);
       return folderId;
     } catch (error) {
       console.error('Failed to share client folder:', error);
-      throw error;
+      return null;
     }
   }
 
   async ensureAuthenticated() {
-    if (!this.accessToken) {
+    if (!this.accessToken || !this.authInstance?.isSignedIn?.get()) {
       await this.authenticate();
     }
   }
@@ -359,15 +646,20 @@ class SharedDriveService {
 
   async signOut() {
     try {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
+      if (this.authInstance) {
+        await this.authInstance.signOut();
+      }
       this.accessToken = null;
-      console.log('✅ Signed out from Google Workspace');
+      console.log('✅ Signed out from Google Drive');
     } catch (error) {
       console.error('Failed to sign out:', error);
     }
   }
+
+  getLastError() {
+    return this.lastError;
+  }
 }
 
-export const sharedDriveService = new SharedDriveService();
+export const sharedDriveService = new GoogleDriveService();
 export default sharedDriveService;

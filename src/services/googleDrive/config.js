@@ -1,10 +1,13 @@
 // src/services/googleDrive/config.js
-// Google Drive API Configuration
+// CORRECTED: Google Drive API requires OAuth2, not API keys
 
 export const googleDriveConfig = {
-  // Replace with your Google API Console credentials
-  apiKey: process.env.REACT_APP_GOOGLE_DRIVE_API_KEY || 'YOUR_GOOGLE_DRIVE_API_KEY',
-  clientId: process.env.REACT_APP_GOOGLE_DRIVE_CLIENT_ID || 'YOUR_GOOGLE_DRIVE_CLIENT_ID',
+  // Only Client ID is needed for Google Drive API
+  clientId: process.env.REACT_APP_GOOGLE_DRIVE_CLIENT_ID,
+  
+  // API Key is NOT used for Google Drive API (OAuth2 only)
+  // Keeping this for compatibility but it won't be used
+  apiKey: process.env.REACT_APP_GOOGLE_DRIVE_API_KEY,
   
   // Required scopes for Google Drive integration
   scopes: [
@@ -15,8 +18,9 @@ export const googleDriveConfig = {
   // Discovery document for Drive API
   discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
   
-  // Default folder structure
+  // Folder structure configuration
   mainFolderName: 'ITG Client Files',
+  useSharedDrive: process.env.REACT_APP_USE_SHARED_DRIVE !== 'false',
   
   // File upload settings
   maxFileSize: 100 * 1024 * 1024, // 100MB limit
@@ -33,7 +37,10 @@ export const googleDriveConfig = {
     'text/plain', 'text/html', 'text/css', 'application/javascript',
     // Other common types
     'application/json', 'application/xml'
-  ]
+  ],
+  
+  // Debugging options
+  debug: process.env.NODE_ENV === 'development'
 };
 
 /**
@@ -41,18 +48,27 @@ export const googleDriveConfig = {
  */
 export const validateGoogleDriveConfig = () => {
   const errors = [];
+  const warnings = [];
   
-  if (!googleDriveConfig.apiKey || googleDriveConfig.apiKey === 'YOUR_GOOGLE_DRIVE_API_KEY') {
-    errors.push('Google Drive API Key is not configured');
+  if (!googleDriveConfig.clientId) {
+    errors.push('REACT_APP_GOOGLE_DRIVE_CLIENT_ID environment variable is not set');
   }
   
-  if (!googleDriveConfig.clientId || googleDriveConfig.clientId === 'YOUR_GOOGLE_DRIVE_CLIENT_ID') {
-    errors.push('Google Drive Client ID is not configured');
+  // Check if running on localhost without HTTPS (for development)
+  if (window.location.protocol === 'http:' && !window.location.hostname.includes('localhost')) {
+    warnings.push('Google Drive API requires HTTPS in production');
+  }
+  
+  // Check if credentials look like placeholders
+  if (googleDriveConfig.clientId && googleDriveConfig.clientId.includes('YOUR_')) {
+    errors.push('Google Drive Client ID appears to be a placeholder');
   }
   
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
+    warnings,
+    hasCredentials: !!googleDriveConfig.clientId
   };
 };
 
@@ -68,6 +84,38 @@ export const isFileTypeAllowed = (mimeType) => {
  */
 export const isFileSizeValid = (fileSize) => {
   return fileSize <= googleDriveConfig.maxFileSize;
+};
+
+/**
+ * Log configuration status (for debugging)
+ */
+export const logConfigStatus = () => {
+  if (!googleDriveConfig.debug) return;
+  
+  const validation = validateGoogleDriveConfig();
+  
+  console.group('🔧 Google Drive Configuration Status');
+  console.log('Client ID:', googleDriveConfig.clientId ? '✅ Set' : '❌ Missing');
+  console.log('Use Shared Drive:', googleDriveConfig.useSharedDrive ? '✅ Yes' : '⚠️ No (regular folders)');
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Protocol:', window.location.protocol);
+  console.log('Hostname:', window.location.hostname);
+  
+  console.log('⚠️ NOTE: Google Drive API uses OAuth2 only (no API key needed)');
+  
+  if (validation.errors.length > 0) {
+    console.group('❌ Configuration Errors:');
+    validation.errors.forEach(error => console.error('-', error));
+    console.groupEnd();
+  }
+  
+  if (validation.warnings.length > 0) {
+    console.group('⚠️ Configuration Warnings:');
+    validation.warnings.forEach(warning => console.warn('-', warning));
+    console.groupEnd();
+  }
+  
+  console.groupEnd();
 };
 
 export default googleDriveConfig;

@@ -1,6 +1,9 @@
 // src/hooks/useSharedDrive.js
+// Fixed version with better error handling and graceful degradation
+
 import { useState, useEffect, useCallback } from 'react';
 import { sharedDriveService } from '../services/googleDrive/sharedDriveService';
+import { validateGoogleDriveConfig } from '../services/googleDrive/config';
 
 export const useSharedDrive = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -10,21 +13,47 @@ export const useSharedDrive = () => {
   const [error, setError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
+  const [configStatus, setConfigStatus] = useState(null);
 
-  // Initialize on mount
+  // Check configuration on mount
   useEffect(() => {
-    initializeSharedDrive();
+    checkConfiguration();
   }, []);
 
   /**
-   * Initialize Google Workspace Shared Drive
+   * Check Google Drive configuration status
    */
-  const initializeSharedDrive = async () => {
+  const checkConfiguration = () => {
+    const validation = validateGoogleDriveConfig();
+    setConfigStatus(validation);
+    
+    if (!validation.hasCredentials) {
+      setError('Google Drive not configured. Please set up API credentials.');
+      setIsAvailable(false);
+      setIsInitialized(true); // Mark as "initialized" but not available
+      return;
+    }
+    
+    if (!validation.isValid) {
+      setError(`Configuration error: ${validation.errors.join(', ')}`);
+      setIsAvailable(false);
+      setIsInitialized(true);
+      return;
+    }
+    
+    // Configuration looks good, try to initialize
+    initializeGoogleDrive();
+  };
+
+  /**
+   * Initialize Google Drive (only if configuration is valid)
+   */
+  const initializeGoogleDrive = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('🏢 Initializing Google Workspace Shared Drive...');
+      console.log('🔧 Initializing Google Drive...');
       
       const success = await sharedDriveService.initialize();
       
@@ -32,7 +61,7 @@ export const useSharedDrive = () => {
       setIsInitialized(true);
       
       if (success) {
-        console.log('✅ Google Workspace Shared Drive ready');
+        console.log('✅ Google Drive ready');
         
         // Check if already authenticated
         if (window.gapi && window.gapi.auth2) {
@@ -50,11 +79,13 @@ export const useSharedDrive = () => {
           }
         }
       } else {
-        console.log('❌ Google Workspace Shared Drive not available');
+        const lastError = sharedDriveService.getLastError();
+        setError(lastError || 'Google Drive initialization failed');
+        console.log('❌ Google Drive not available:', lastError);
       }
     } catch (err) {
-      console.error('🚨 Shared Drive initialization failed:', err);
-      setError(`Shared Drive unavailable: ${err.message}`);
+      console.error('🚨 Google Drive initialization error:', err);
+      setError(`Initialization failed: ${err.message}`);
       setIsAvailable(false);
       setIsInitialized(true);
     } finally {
@@ -63,7 +94,7 @@ export const useSharedDrive = () => {
   };
 
   /**
-   * Authenticate with Google Workspace
+   * Authenticate with Google Drive
    */
   const authenticate = useCallback(async () => {
     try {
@@ -71,10 +102,17 @@ export const useSharedDrive = () => {
       setError(null);
 
       if (!isAvailable) {
-        throw new Error('Google Workspace Shared Drive is not available. Please check your configuration.');
+        // Try to initialize first
+        await initializeGoogleDrive();
+        
+        // If still not available, show helpful error
+        if (!sharedDriveService.isAvailable) {
+          const lastError = sharedDriveService.getLastError();
+          throw new Error(lastError || 'Google Drive is not available. Please check your configuration.');
+        }
       }
 
-      console.log('👤 Starting Google Workspace authentication...');
+      console.log('👤 Starting Google Drive authentication...');
       await sharedDriveService.authenticate();
       
       // Get user info
@@ -109,7 +147,7 @@ export const useSharedDrive = () => {
       setError(null);
 
       if (!isAvailable) {
-        console.log('Shared Drive not available - returning empty file list');
+        console.log('Google Drive not available - returning empty file list');
         return [];
       }
 
@@ -142,7 +180,7 @@ export const useSharedDrive = () => {
       setUploadProgress(0);
 
       if (!isAvailable) {
-        throw new Error('Google Workspace Shared Drive is not available');
+        throw new Error('Google Drive is not available');
       }
 
       // File validation
@@ -186,7 +224,7 @@ export const useSharedDrive = () => {
     if (!isAvailable) {
       return { 
         results: [], 
-        errors: files.map(f => ({ file: f.name, error: 'Shared Drive not available' }))
+        errors: files.map(f => ({ file: f.name, error: 'Google Drive not available' }))
       };
     }
 
@@ -214,7 +252,7 @@ export const useSharedDrive = () => {
       setError(null);
 
       if (!isAvailable) {
-        throw new Error('Google Workspace Shared Drive is not available');
+        throw new Error('Google Drive is not available');
       }
 
       if (!isAuthenticated) {
@@ -247,7 +285,7 @@ export const useSharedDrive = () => {
   const getFileUrls = useCallback(async (fileId) => {
     try {
       if (!isAvailable) {
-        throw new Error('Google Workspace Shared Drive is not available');
+        throw new Error('Google Drive is not available');
       }
 
       if (!isAuthenticated) {
@@ -258,7 +296,6 @@ export const useSharedDrive = () => {
       }
 
       // For shared drives, we can use the webViewLink and webContentLink directly
-      // These are already provided in the file list
       return {
         viewLink: `https://drive.google.com/file/d/${fileId}/view`,
         downloadLink: `https://drive.google.com/file/d/${fileId}/view?usp=sharing`
@@ -279,7 +316,7 @@ export const useSharedDrive = () => {
       setError(null);
 
       if (!isAvailable) {
-        console.log('Shared Drive not available - cannot share folder');
+        console.log('Google Drive not available - cannot share folder');
         return null;
       }
 
@@ -308,14 +345,14 @@ export const useSharedDrive = () => {
   }, [isAvailable, isAuthenticated, authenticate]);
 
   /**
-   * Sign out from Google Workspace
+   * Sign out from Google Drive
    */
   const signOut = useCallback(async () => {
     try {
       await sharedDriveService.signOut();
       setIsAuthenticated(false);
       setCurrentUser(null);
-      console.log('✅ Signed out from Google Workspace');
+      console.log('✅ Signed out from Google Drive');
     } catch (err) {
       console.error('Sign out failed:', err);
       setError(`Sign out failed: ${err.message}`);
@@ -334,7 +371,7 @@ export const useSharedDrive = () => {
    */
   const retry = useCallback(async () => {
     setError(null);
-    await initializeSharedDrive();
+    await checkConfiguration();
   }, []);
 
   /**
@@ -356,6 +393,13 @@ export const useSharedDrive = () => {
     return fileSize <= 100 * 1024 * 1024; // 100MB limit
   }, []);
 
+  const formatFileSize = useCallback((bytes) => {
+    if (!bytes) return '0 B';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }, []);
+
   return {
     // State
     isInitialized,
@@ -365,6 +409,7 @@ export const useSharedDrive = () => {
     error,
     uploadProgress,
     currentUser,
+    configStatus,
 
     // Actions
     authenticate,
@@ -381,6 +426,6 @@ export const useSharedDrive = () => {
     // Utilities
     isFileTypeAllowed,
     isFileSizeValid,
-    formatFileSize: sharedDriveService.formatFileSize.bind(sharedDriveService)
+    formatFileSize
   };
 };
