@@ -10,10 +10,15 @@ import {
   Trash2, 
   Target,
   Building2,
-  Clock
+  Clock,
+  ExternalLink,
+  Eye,
+  Download,
+  FolderOpen
 } from 'lucide-react';
 import { formatDatePST, getWeekDatesStartingMonday } from '../../utils/dateUtils';
 import { getFileIcon } from '../../utils/helpers';
+import { useSharedDrive } from '../../hooks/useSharedDrive';
 
 const ClientDetail = ({ 
   client, 
@@ -26,12 +31,32 @@ const ClientDetail = ({
   const [progress, setProgress] = useState(client.progress || 0);
   const [notes, setNotes] = useState(client.notes || '');
   const [sessionNotes, setSessionNotes] = useState(client.sessionNotes || '');
-  const [showFileUpload, setShowFileUpload] = useState(false);
-  const [newFile, setNewFile] = useState({ name: '', type: 'document', description: '' });
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  const [clientFiles, setClientFiles] = useState([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const fileInputRef = useRef(null);
+  
+  // Google Workspace Shared Drive hook
+  const {
+    isInitialized,
+    isAuthenticated,
+    isAvailable,
+    loading: driveLoading,
+    error: driveError,
+    uploadProgress,
+    currentUser,
+    authenticate,
+    listClientFiles,
+    uploadFileToClient,
+    uploadMultipleFiles,
+    deleteClientFile,
+    getFileUrls,
+    shareClientFolder,
+    clearError,
+    isFileTypeAllowed,
+    isFileSizeValid,
+    formatFileSize
+  } = useSharedDrive();
   
   // Update local state when client data changes from real-time updates
   useEffect(() => {
@@ -39,7 +64,50 @@ const ClientDetail = ({
     setNotes(client.notes || '');
     setSessionNotes(client.sessionNotes || '');
   }, [client.id, client.progress, client.notes, client.sessionNotes]);
-  
+
+  // Load client files when Google Drive is authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadClientFiles();
+      // Auto-share folder with client if they have an email
+      if (client.email) {
+        shareClientFolder(client.id, client.name, client.email).catch(err => {
+          console.warn('Could not auto-share folder:', err);
+        });
+      }
+    }
+  }, [isAuthenticated, client.id, client.name]);
+
+  /**
+   * Load files from client's Google Workspace Shared Drive folder
+   */
+  const loadClientFiles = async () => {
+    try {
+      setIsLoadingFiles(true);
+      const files = await listClientFiles(client.id, client.name);
+      setClientFiles(files);
+      console.log(`📁 Loaded ${files.length} files for ${client.name} from shared drive`);
+    } catch (error) {
+      console.error('Failed to load client files:', error);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  /**
+   * Handle Google Drive authentication
+   */
+  const handleGoogleDriveAuth = async () => {
+    try {
+      const success = await authenticate();
+      if (success) {
+        await loadClientFiles();
+      }
+    } catch (error) {
+      console.error('Authentication failed:', error);
+    }
+  };
+
   const handleUpdate = async () => {
     try {
       await clientActions.updateProgress(client.id, {
@@ -53,92 +121,56 @@ const ClientDetail = ({
     }
   };
 
-  const handleFileUpload = async (e) => {
-    e.preventDefault();
-    if (!newFile.name.trim()) {
-      alert('Please enter a file name');
-      return;
-    }
-    
-    try {
-      const fileData = {
-        ...newFile,
-        size: Math.random() > 0.5 ? `${Math.floor(Math.random() * 10) + 1}.${Math.floor(Math.random() * 9)}MB` : `${Math.floor(Math.random() * 999) + 1}KB`,
-        downloadURL: null,
-        storageRef: null
-      };
-      
-      await clientActions.addFile(client.id, fileData);
-      
-      setNewFile({ name: '', type: 'document', description: '' });
-      setShowFileUpload(false);
-      alert(`File "${newFile.name}" added to ${client.name}'s record successfully!`);
-    } catch (error) {
-      alert('Error adding file: ' + error.message);
-    }
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
-    return Math.round(bytes / 1048576 * 10) / 10 + ' MB';
-  };
-
   const uploadFiles = async (files) => {
     if (files.length === 0) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    
-    try {
-      const uploadedFiles = [];
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        
-        setUploadProgress(Math.round(((i) / files.length) * 90));
-        
-        const timestamp = Date.now();
-        const fileName = `${timestamp}-${file.name}`;
-        
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        let fileType = 'document';
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(fileExtension)) {
-          fileType = 'image';
-        } else if (['xlsx', 'xls', 'csv'].includes(fileExtension)) {
-          fileType = 'spreadsheet';
-        } else if (['ai', 'psd', 'sketch', 'figma'].includes(fileExtension)) {
-          fileType = 'design';
-        } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(fileExtension)) {
-          fileType = 'archive';
-        } else if (['html', 'css', 'js', 'jsx', 'py', 'php', 'rb'].includes(fileExtension)) {
-          fileType = 'code';
-        }
+    if (!isAvailable) {
+      alert('Google Workspace Shared Drive is not available. Please check your configuration.');
+      return;
+    }
 
-        const fileMetadata = {
-          name: file.name,
-          type: fileType,
-          size: formatFileSize(file.size),
-          downloadURL: null,
-          storageRef: null,
-          description: '',
-          originalSize: file.size
-        };
-        
-        const savedFile = await clientActions.addFile(client.id, fileMetadata);
-        uploadedFiles.push(savedFile);
+    if (!isAuthenticated) {
+      alert('Please authenticate with Google Workspace first');
+      return;
+    }
+
+    try {
+      // Validate files before upload
+      const invalidFiles = [];
+      const validFiles = [];
+
+      for (const file of files) {
+        if (!isFileTypeAllowed(file.type)) {
+          invalidFiles.push(`${file.name} (unsupported file type)`);
+        } else if (!isFileSizeValid(file.size)) {
+          invalidFiles.push(`${file.name} (file too large)`);
+        } else {
+          validFiles.push(file);
+        }
+      }
+
+      if (invalidFiles.length > 0) {
+        alert(`Some files cannot be uploaded:\n${invalidFiles.join('\n')}`);
+      }
+
+      if (validFiles.length === 0) return;
+
+      // Upload valid files
+      const { results, errors } = await uploadMultipleFiles(client.id, client.name, validFiles);
+      
+      // Show results
+      let message = `Successfully uploaded ${results.length} file(s) to ${client.name}'s shared folder`;
+      if (errors.length > 0) {
+        message += `\n\nErrors:\n${errors.map(e => `${e.file}: ${e.error}`).join('\n')}`;
       }
       
-      setUploadProgress(100);
-      
-      const message = `Successfully uploaded ${files.length} file(s) to ${client.name}'s account!`;
       alert(message);
       
+      // Reload files list
+      await loadClientFiles();
+      
     } catch (error) {
-      alert(`Error uploading files: ${error.message}. Please try again.`);
-    } finally {
-      setIsUploading(false);
-      setTimeout(() => setUploadProgress(0), 2000);
+      alert(`Error uploading files: ${error.message}`);
     }
   };
 
@@ -183,17 +215,45 @@ const ClientDetail = ({
     e.target.value = '';
   };
 
-  const handleFileRemove = async (fileId) => {
-    const fileToRemove = client.files?.find(f => f.id === fileId);
-    const fileName = fileToRemove?.name || 'Unknown file';
-    
-    if (window.confirm(`Are you sure you want to remove "${fileName}"?`)) {
+  const handleFileRemove = async (file) => {
+    if (window.confirm(`Are you sure you want to remove "${file.name}" from the shared drive?`)) {
       try {
-        await clientActions.removeFile(client.id, fileId);
-        alert(`File "${fileName}" removed successfully!`);
+        const success = await deleteClientFile(file.id, file.name);
+        if (success) {
+          alert(`File "${file.name}" removed successfully from shared drive!`);
+          await loadClientFiles();
+        } else {
+          alert('Failed to remove file. Please try again.');
+        }
       } catch (error) {
         alert('Error removing file: ' + error.message);
       }
+    }
+  };
+
+  const handleFileView = async (file) => {
+    try {
+      const urls = await getFileUrls(file.id);
+      if (urls && urls.viewLink) {
+        window.open(urls.viewLink, '_blank');
+      } else {
+        alert('Unable to get file view link');
+      }
+    } catch (error) {
+      alert('Error opening file: ' + error.message);
+    }
+  };
+
+  const handleFileDownload = async (file) => {
+    try {
+      const urls = await getFileUrls(file.id);
+      if (urls && urls.downloadLink) {
+        window.open(urls.downloadLink, '_blank');
+      } else {
+        alert('Unable to get file download link');
+      }
+    } catch (error) {
+      alert('Error downloading file: ' + error.message);
     }
   };
 
@@ -238,7 +298,7 @@ const ClientDetail = ({
           </div>
           <div className="ml-3">
             <p className="text-sm text-[#292929]">
-              <strong>Coach Reference:</strong> This information is confidential and for coaching purposes only. Review the client's specific coaching approach before sessions.
+              <strong>Coach Reference:</strong> This information is confidential and for coaching purposes only. Files are stored in Google Workspace Shared Drive for team access and collaboration.
             </p>
           </div>
         </div>
@@ -326,176 +386,194 @@ const ClientDetail = ({
         </div>
       </div>
 
-      {/* Client Files Section with Drag & Drop */}
+      {/* Google Workspace Shared Drive Files Section */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-semibold flex items-center text-[#292929]">
-            <FileText className="mr-2" size={20} />
-            Client Work Files
+            <FolderOpen className="mr-2" size={20} />
+            Client Files (Google Workspace Shared Drive)
           </h3>
-          <button
-            onClick={() => setShowFileUpload(!showFileUpload)}
-            className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
-          >
-            <Plus size={16} />
-            <span>Add File</span>
-          </button>
+          
+          {!isAvailable || !isAuthenticated ? (
+            <button
+              onClick={handleGoogleDriveAuth}
+              className="bg-[#4285f4] text-white px-4 py-2 rounded-md hover:bg-[#3367d6] flex items-center space-x-2"
+              disabled={driveLoading}
+            >
+              {driveLoading ? (
+                <span>Connecting...</span>
+              ) : (
+                <>
+                  <span>Connect Shared Drive</span>
+                  <ExternalLink size={16} />
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
+            >
+              <Plus size={16} />
+              <span>Add Files</span>
+            </button>
+          )}
         </div>
 
-        {/* Drag & Drop Zone */}
-        <div 
-          className={`mb-6 p-8 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer ${
-            isDragging 
-              ? 'border-[#6D858E] bg-[#BED2D8]' 
-              : 'border-[#9B97A2] bg-[#F5F5F5] hover:border-[#6D858E]'
-          } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleFileDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.zip,.rar,.7z,.html,.css,.js,.jsx,.py,.php,.rb,.ai,.psd,.sketch"
-          />
-          <div className="text-center">
-            <Upload className={`mx-auto h-12 w-12 ${isDragging ? 'text-[#6D858E]' : 'text-[#9B97A2]'}`} />
-            <p className={`mt-2 text-sm font-medium ${isDragging ? 'text-[#6D858E]' : 'text-[#707070]'}`}>
-              {isUploading ? 'Uploading files...' : 
-               isDragging ? 'Drop files here!' : 
-               'Drag and drop files here, or click to browse'}
-            </p>
-            <p className="text-xs text-[#9B97A2] mt-1">
-              Supports: PDF, DOC, XLS, Images, ZIP, and more
-            </p>
-            {isUploading && (
-              <div className="mt-3">
-                <div className="w-full bg-[#F5F5F5] rounded-full h-2">
-                  <div 
-                    className="bg-[#6D858E] h-2 rounded-full transition-all duration-300" 
-                    style={{width: `${uploadProgress}%`}}
-                  ></div>
-                </div>
-                <p className="text-xs text-[#707070] mt-1">{uploadProgress}% uploaded</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {showFileUpload && (
-          <div className="mb-6 p-4 bg-[#F5F5F5] rounded-lg border">
-            <h4 className="font-semibold mb-3 text-[#292929]">Add New File Manually</h4>
-            <form onSubmit={handleFileUpload} className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  placeholder="File name (e.g., Design Template.pdf)"
-                  value={newFile.name}
-                  onChange={(e) => setNewFile({...newFile, name: e.target.value})}
-                  className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                  required
-                />
-                <select
-                  value={newFile.type}
-                  onChange={(e) => setNewFile({...newFile, type: e.target.value})}
-                  className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                >
-                  <option value="document">Document</option>
-                  <option value="image">Image</option>
-                  <option value="spreadsheet">Spreadsheet</option>
-                  <option value="design">Design File</option>
-                  <option value="archive">Archive/Zip</option>
-                  <option value="code">Code/Template</option>
-                </select>
-              </div>
-              <input
-                type="text"
-                placeholder="Description (optional)"
-                value={newFile.description}
-                onChange={(e) => setNewFile({...newFile, description: e.target.value})}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-              />
-              <div className="flex space-x-2">
-                <button
-                  type="submit"
-                  className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69]"
-                >
-                  Add File
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFileUpload(false)}
-                  className="bg-[#9B97A2] text-white px-4 py-2 rounded-md hover:bg-[#707070]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        {/* Error Display */}
+        {driveError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+              <span className="text-red-700">{driveError}</span>
+              <button
+                onClick={clearError}
+                className="ml-auto text-red-600 hover:text-red-800"
+              >
+                ×
+              </button>
+            </div>
           </div>
         )}
 
-        <div className="space-y-3">
-          {client.files && client.files.length > 0 ? (
-            client.files.map(file => (
-              <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-[#F5F5F5]">
-                <div className="flex items-center space-x-4">
-                  <div className="text-2xl">{getFileIcon(file.type)}</div>
-                  <div>
-                    <h4 className="font-medium text-[#292929]">{file.name}</h4>
-                    <div className="text-sm text-[#707070]">
-                      <span>Uploaded by {file.uploadedBy}</span>
-                      <span className="mx-2">•</span>
-                      <span>{file.uploadDate}</span>
-                      <span className="mx-2">•</span>
-                      <span>{file.size}</span>
-                    </div>
-                    {file.description && (
-                      <p className="text-sm text-[#9B97A2] mt-1">{file.description}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {file.downloadURL && (
-                    <a 
-                      href={file.downloadURL} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[#6D858E] hover:text-[#5A4E69] px-3 py-1 text-sm border border-[#6D858E] rounded hover:bg-[#BED2D8]"
-                    >
-                      View
-                    </a>
-                  )}
-                  {file.downloadURL && (
-                    <a 
-                      href={file.downloadURL} 
-                      download={file.name}
-                      className="text-[#6D858E] hover:text-[#5A4E69] px-3 py-1 text-sm border border-[#6D858E] rounded hover:bg-[#BED2D8]"
-                    >
-                      Download
-                    </a>
-                  )}
-                  <button 
-                    onClick={() => handleFileRemove(file.id)}
-                    className="text-red-600 hover:text-red-800 px-3 py-1 text-sm border border-red-600 rounded hover:bg-red-50"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-[#9B97A2]">
-              <FileText size={48} className="mx-auto mb-2 text-[#9B97A2]" />
-              <p>No files uploaded yet</p>
-              <p className="text-sm">Drag and drop files above or use the Add File button</p>
+        {!isAvailable ? (
+          <div className="text-center py-8 bg-[#F5F5F5] rounded-lg">
+            <FolderOpen className="mx-auto h-12 w-12 text-[#9B97A2] mb-4" />
+            <h4 className="text-lg font-medium text-[#292929] mb-2">Google Workspace Shared Drive</h4>
+            <p className="text-[#707070] mb-4">
+              Google Workspace Shared Drive integration is not available. Please check your configuration.
+            </p>
+            <div className="text-sm text-[#9B97A2] bg-white p-3 rounded border">
+              <p><strong>To enable Shared Drive:</strong></p>
+              <p>1. Set up the "ITG Client Files" shared drive in Google Admin</p>
+              <p>2. Add all coaches as managers</p>
+              <p>3. Ensure API credentials are configured</p>
             </div>
-          )}
-        </div>
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="text-center py-8 bg-[#F5F5F5] rounded-lg">
+            <FolderOpen className="mx-auto h-12 w-12 text-[#9B97A2] mb-4" />
+            <h4 className="text-lg font-medium text-[#292929] mb-2">Google Workspace Shared Drive</h4>
+            <p className="text-[#707070] mb-4">
+              Connect to Google Workspace to access the shared ITG Client Files drive
+            </p>
+            {currentUser && (
+              <p className="text-sm text-green-600 mb-2">
+                Ready to connect as: {currentUser.email}
+              </p>
+            )}
+            <button
+              onClick={handleGoogleDriveAuth}
+              className="bg-[#4285f4] text-white px-6 py-2 rounded-md hover:bg-[#3367d6]"
+              disabled={driveLoading}
+            >
+              {driveLoading ? 'Connecting...' : 'Connect to Shared Drive'}
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Drag & Drop Zone */}
+            <div 
+              className={`mb-6 p-8 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer ${
+                isDragging 
+                  ? 'border-[#6D858E] bg-[#BED2D8]' 
+                  : 'border-[#9B97A2] bg-[#F5F5F5] hover:border-[#6D858E]'
+              } ${driveLoading || !isAvailable ? 'opacity-50 pointer-events-none' : ''}`}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleFileDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.zip,.rar,.7z,.html,.css,.js,.jsx,.py,.php,.rb,.ai,.psd,.sketch"
+              />
+              <div className="text-center">
+                <Upload className={`mx-auto h-12 w-12 ${isDragging ? 'text-[#6D858E]' : 'text-[#9B97A2]'}`} />
+                <p className={`mt-2 text-sm font-medium ${isDragging ? 'text-[#6D858E]' : 'text-[#707070]'}`}>
+                  {!isAvailable ? 'Shared Drive not available - check configuration' :
+                   driveLoading ? 'Uploading files...' : 
+                   isDragging ? 'Drop files here!' : 
+                   'Drag and drop files here, or click to browse'}
+                </p>
+                <p className="text-xs text-[#9B97A2] mt-1">
+                  {isAvailable ? 'Files will be uploaded to Google Workspace Shared Drive' : 'Shared Drive integration disabled'}
+                </p>
+                {uploadProgress > 0 && (
+                  <div className="mt-3">
+                    <div className="w-full bg-[#F5F5F5] rounded-full h-2">
+                      <div 
+                        className="bg-[#6D858E] h-2 rounded-full transition-all duration-300" 
+                        style={{width: `${uploadProgress}%`}}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-[#707070] mt-1">{uploadProgress}% uploaded</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Files List */}
+            <div className="space-y-3">
+              {isLoadingFiles ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6D858E] mx-auto"></div>
+                  <p className="text-[#707070] mt-2">Loading files...</p>
+                </div>
+              ) : clientFiles.length > 0 ? (
+                clientFiles.map(file => (
+                  <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-[#F5F5F5]">
+                    <div className="flex items-center space-x-4">
+                      <div className="text-2xl">{getFileIcon(file.type)}</div>
+                      <div>
+                        <h4 className="font-medium text-[#292929]">{file.name}</h4>
+                        <div className="text-sm text-[#707070]">
+                          <span>Uploaded: {file.uploadDate}</span>
+                          <span className="mx-2">•</span>
+                          <span>{file.size}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleFileView(file)}
+                        className="text-[#6D858E] hover:text-[#5A4E69] px-3 py-1 text-sm border border-[#6D858E] rounded hover:bg-[#BED2D8] flex items-center space-x-1"
+                      >
+                        <Eye size={14} />
+                        <span>View</span>
+                      </button>
+                      <button 
+                        onClick={() => handleFileDownload(file)}
+                        className="text-[#6D858E] hover:text-[#5A4E69] px-3 py-1 text-sm border border-[#6D858E] rounded hover:bg-[#BED2D8] flex items-center space-x-1"
+                      >
+                        <Download size={14} />
+                        <span>Download</span>
+                      </button>
+                      <button 
+                        onClick={() => handleFileRemove(file)}
+                        className="text-red-600 hover:text-red-800 px-3 py-1 text-sm border border-red-600 rounded hover:bg-red-50 flex items-center space-x-1"
+                      >
+                        <Trash2 size={14} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-[#9B97A2]">
+                  <FileText size={48} className="mx-auto mb-2 text-[#9B97A2]" />
+                  <p>No files uploaded yet</p>
+                  <p className="text-sm">Drag and drop files above or use the Add Files button</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Weekly Schedule */}
