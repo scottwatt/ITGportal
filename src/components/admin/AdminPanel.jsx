@@ -1,4 +1,4 @@
-// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing
+// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing + Week View
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
@@ -13,9 +13,12 @@ import {
   Clock,
   Car,
   Users,
-  Assignment
+  Assignment,
+  Eye,
+  Grid
 } from 'lucide-react';
 import DragDropScheduler from '../schedule/DragDropScheduler';
+import WeeklyDragDropScheduler from '../schedule/WeeklyDragDropScheduler';
 import EnhancedCoachAvailabilityManager from './EnhancedCoachAvailabilityManager';
 import CalendarConfiguration from './CalendarConfiguration';
 import AdminMileageOverview from './AdminMileageOverview';
@@ -59,6 +62,7 @@ const AdminPanel = ({
   availabilityActions
 }) => {
   const [activeTab, setActiveTab] = useState('schedule');
+  const [scheduleView, setScheduleView] = useState('day'); // NEW: 'day' or 'week'
   const [clientFilter, setClientFilter] = useState('all');
   const [editingClient, setEditingClient] = useState(null);
   const [editingCoach, setEditingCoach] = useState(null);
@@ -488,39 +492,91 @@ const AdminPanel = ({
         </div>
 
         <div className="p-6">
-          {/* Daily Schedule Tab */}
+          {/* ENHANCED: Daily Schedule Tab with Day/Week Toggle */}
           {activeTab === 'schedule' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-[#292929]">Daily Schedule Management</h3>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  disabled={isDragActive}
-                  className={`px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#6D858E] ${
-                    isDragActive ? 'bg-[#F5F5F5] cursor-not-allowed' : ''
-                  }`}
-                  title={isDragActive ? 'Date locked during drag operation' : 'Select date'}
-                />
+                <div className="flex items-center space-x-4">
+                  <h3 className="text-xl font-semibold text-[#292929]">Schedule Management</h3>
+                  
+                  {/* NEW: Day/Week View Toggle */}
+                  <div className="flex space-x-1 bg-[#F5F5F5] rounded-lg p-1">
+                    <button
+                      onClick={() => setScheduleView('day')}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                        scheduleView === 'day' 
+                          ? 'bg-white text-[#6D858E] shadow-sm' 
+                          : 'text-[#707070] hover:text-[#292929]'
+                      }`}
+                    >
+                      <Eye size={16} />
+                      <span>Day View</span>
+                    </button>
+                    <button
+                      onClick={() => setScheduleView('week')}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                        scheduleView === 'week' 
+                          ? 'bg-white text-[#6D858E] shadow-sm' 
+                          : 'text-[#707070] hover:text-[#292929]'
+                      }`}
+                    >
+                      <Grid size={16} />
+                      <span>Week View</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Date selector - only show for day view */}
+                {scheduleView === 'day' && (
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={handleDateChange}
+                    disabled={isDragActive}
+                    className={`px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#6D858E] ${
+                      isDragActive ? 'bg-[#F5F5F5] cursor-not-allowed' : ''
+                    }`}
+                    title={isDragActive ? 'Date locked during drag operation' : 'Select date'}
+                  />
+                )}
               </div>
               
-              <DragDropScheduler 
-                selectedDate={selectedDate}
-                handleDragStart={handleDragStart}
-                handleDragOver={handleDragOver}
-                handleDragLeave={handleDragLeave}
-                handleDrop={handleDrop}
-                handleRemoveAssignment={handleRemoveAssignment}
-                dragOverSlot={dragOverSlot}
-                draggedClient={draggedClient}
-                dailySchedules={schedules}
-                clients={clients}
-                coaches={getAvailableCoachesForScheduling()}
-                timeSlots={timeSlots}
-                scheduleActions={scheduleActions}
-                availabilityActions={availabilityActions}
-              />
+              {/* Conditional rendering based on view */}
+              {scheduleView === 'day' ? (
+                <DragDropScheduler 
+                  selectedDate={selectedDate}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDragLeave={handleDragLeave}
+                  handleDrop={handleDrop}
+                  handleRemoveAssignment={handleRemoveAssignment}
+                  dragOverSlot={dragOverSlot}
+                  draggedClient={draggedClient}
+                  dailySchedules={schedules}
+                  clients={clients}
+                  coaches={getAvailableCoachesForScheduling()}
+                  timeSlots={timeSlots}
+                  scheduleActions={scheduleActions}
+                  availabilityActions={availabilityActions}
+                />
+              ) : (
+                <WeeklyDragDropScheduler 
+                  selectedDate={selectedDate}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDragLeave={handleDragLeave}
+                  handleDrop={handleDrop}
+                  handleRemoveAssignment={handleRemoveAssignment}
+                  dragOverSlot={dragOverSlot}
+                  draggedClient={draggedClient}
+                  dailySchedules={schedules}
+                  clients={clients}
+                  coaches={coaches} // Pass all coaches, WeeklyScheduler will filter
+                  timeSlots={timeSlots}
+                  scheduleActions={scheduleActions}
+                  availabilityActions={availabilityActions}
+                />
+              )}
             </div>
           )}
 
