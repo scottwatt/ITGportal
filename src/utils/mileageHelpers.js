@@ -1,4 +1,4 @@
-// src/utils/mileageHelpers.js - Utility functions for mileage tracking
+// src/utils/mileageHelpers.js - Utility functions for mileage tracking with exact precision
 
 // Format date for display
 export const formatMileageDate = (dateString) => {
@@ -17,7 +17,7 @@ export const formatMileageDate = (dateString) => {
   }
 };
 
-// Validate mileage record data
+// Validate mileage record data with exact precision support
 export const validateMileageRecord = (recordData) => {
   const errors = [];
   
@@ -61,14 +61,14 @@ export const validateMileageRecord = (recordData) => {
     }
   }
   
-  // Mileage validation
+  // Mileage validation - allow more precision for payment accuracy
   if (recordData.mileage) {
     const miles = parseFloat(recordData.mileage);
     if (miles > 1000) {
       errors.push('Mileage seems unusually high (over 1000 miles)');
     }
-    if (miles < 0.1) {
-      errors.push('Mileage must be at least 0.1 miles');
+    if (miles < 0.001) {
+      errors.push('Mileage must be at least 0.001 miles');
     }
   }
   
@@ -92,4 +92,42 @@ export const calculateMileage = async (startLocation, endLocation) => {
   // The actual calculation will be done by Google Maps in the component
   // if the user chooses to use it
   return null;
+};
+
+// Format mileage for display with exact precision
+export const formatMileageForDisplay = (mileage, precision = 3) => {
+  if (typeof mileage !== 'number' || isNaN(mileage)) {
+    return '0.000';
+  }
+  return mileage.toFixed(precision);
+};
+
+// Format mileage for payment calculations (always 3 decimal places)
+export const formatMileageForPayment = (mileage) => {
+  return formatMileageForDisplay(mileage, 3);
+};
+
+// Convert mileage string to exact number
+export const parseMileageToExact = (mileageString) => {
+  const parsed = parseFloat(mileageString);
+  if (isNaN(parsed)) {
+    return 0;
+  }
+  // Round to 3 decimal places to prevent floating point precision issues
+  return Math.round(parsed * 1000) / 1000;
+};
+
+// Calculate total mileage with exact precision
+export const calculateTotalMileage = (mileageRecords) => {
+  if (!Array.isArray(mileageRecords)) {
+    return 0;
+  }
+  
+  const total = mileageRecords.reduce((sum, record) => {
+    const mileage = typeof record.mileage === 'number' ? record.mileage : 0;
+    return sum + mileage;
+  }, 0);
+  
+  // Round to 3 decimal places for payment accuracy
+  return Math.round(total * 1000) / 1000;
 };

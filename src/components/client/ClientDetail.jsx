@@ -1,4 +1,6 @@
 // src/components/client/ClientDetail.jsx
+// FIXED: Google Drive authentication with proper user interaction handling + Goals Management
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
@@ -31,6 +33,7 @@ const ClientDetail = ({
   const [progress, setProgress] = useState(client.progress || 0);
   const [notes, setNotes] = useState(client.notes || '');
   const [sessionNotes, setSessionNotes] = useState(client.sessionNotes || '');
+  const [currentGoals, setCurrentGoals] = useState(client.currentGoals || ''); // ADDED: Goals state
   const [isDragging, setIsDragging] = useState(false);
   const [clientFiles, setClientFiles] = useState([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
@@ -63,9 +66,10 @@ const ClientDetail = ({
     setProgress(client.progress || 0);
     setNotes(client.notes || '');
     setSessionNotes(client.sessionNotes || '');
-  }, [client.id, client.progress, client.notes, client.sessionNotes]);
+    setCurrentGoals(client.currentGoals || ''); // ADDED: Update goals state
+  }, [client.id, client.progress, client.notes, client.sessionNotes, client.currentGoals]);
 
-  // Load client files when Google Drive is authenticated
+  // FIXED: Only load files when authenticated, never auto-authenticate
   useEffect(() => {
     if (isAuthenticated) {
       loadClientFiles();
@@ -89,33 +93,46 @@ const ClientDetail = ({
       console.log(`📁 Loaded ${files.length} files for ${client.name} from shared drive`);
     } catch (error) {
       console.error('Failed to load client files:', error);
+      // If authentication error, don't auto-retry
+      if (error.message.includes('Not authenticated')) {
+        console.log('Authentication required - user must click Connect button');
+      }
     } finally {
       setIsLoadingFiles(false);
     }
   };
 
   /**
-   * Handle Google Drive authentication
+   * FIXED: Handle Google Drive authentication with user interaction
    */
   const handleGoogleDriveAuth = async () => {
     try {
-      const success = await authenticate();
+      console.log('👤 User clicked Connect Google Drive button'); // Debug log
+      clearError(); // Clear any previous errors
+      
+      // CRITICAL FIX: Pass userInitiated=true to prevent popup blocker
+      const success = await authenticate(true); // ✅ Fixed: Added userInitiated flag
+      
       if (success) {
+        console.log('✅ Authentication successful, loading files...');
         await loadClientFiles();
       }
     } catch (error) {
       console.error('Authentication failed:', error);
+      // Don't clear the error here - let the useSharedDrive hook handle it
     }
   };
 
+  // UPDATED: Handle update with goals
   const handleUpdate = async () => {
     try {
       await clientActions.updateProgress(client.id, {
         progress: parseInt(progress),
         notes: notes.trim(),
-        sessionNotes: sessionNotes.trim()
+        sessionNotes: sessionNotes.trim(),
+        currentGoals: currentGoals.trim() // ADDED: Save goals
       });
-      alert('Client progress and notes updated successfully!');
+      alert('Client progress, notes, and goals updated successfully!');
     } catch (error) {
       alert('Error updating client. Please try again: ' + error.message);
     }
@@ -130,7 +147,7 @@ const ClientDetail = ({
     }
 
     if (!isAuthenticated) {
-      alert('Please authenticate with Google Workspace first');
+      alert('Please connect to Google Workspace first by clicking "Connect Shared Drive"');
       return;
     }
 
@@ -216,6 +233,11 @@ const ClientDetail = ({
   };
 
   const handleFileRemove = async (file) => {
+    if (!isAuthenticated) {
+      alert('Please connect to Google Workspace first');
+      return;
+    }
+
     if (window.confirm(`Are you sure you want to remove "${file.name}" from the shared drive?`)) {
       try {
         const success = await deleteClientFile(file.id, file.name);
@@ -232,6 +254,11 @@ const ClientDetail = ({
   };
 
   const handleFileView = async (file) => {
+    if (!isAuthenticated) {
+      alert('Please connect to Google Workspace first');
+      return;
+    }
+
     try {
       const urls = await getFileUrls(file.id);
       if (urls && urls.viewLink) {
@@ -245,6 +272,11 @@ const ClientDetail = ({
   };
 
   const handleFileDownload = async (file) => {
+    if (!isAuthenticated) {
+      alert('Please connect to Google Workspace first');
+      return;
+    }
+
     try {
       const urls = await getFileUrls(file.id);
       if (urls && urls.downloadLink) {
@@ -263,13 +295,33 @@ const ClientDetail = ({
     return weekDates.map(date => {
       const dateStr = date.toISOString().split('T')[0];
       const daySchedule = scheduleActions.getTodaysScheduleForClient(client.id, dateStr);
+      
+      // FIXED: Sort sessions by time slot order (8-10, 10-12, 1230-230)
+      const sortedSchedule = daySchedule.sort((a, b) => {
+        const timeSlotOrder = ['8-10', '10-12', '1230-230'];
+        const indexA = timeSlotOrder.indexOf(a.timeSlot);
+        const indexB = timeSlotOrder.indexOf(b.timeSlot);
+        
+        // If both time slots are in our order array, sort by their position
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        
+        // If only one is in our array, prioritize it
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        
+        // If neither is in our array, maintain original order
+        return 0;
+      });
+      
       return {
         date: dateStr,
         dayName: date.toLocaleDateString('en-US', { 
           timeZone: 'America/Los_Angeles',
           weekday: 'short' 
         }),
-        schedule: daySchedule
+        schedule: sortedSchedule
       };
     });
   };
@@ -333,6 +385,15 @@ const ClientDetail = ({
               <p className="text-[#292929]">{client.email}</p>
               <p className="text-[#292929]">{client.phone}</p>
             </div>
+            {/* ADDED: Current Goals Display */}
+            <div>
+              <label className="text-sm font-medium text-[#707070]">Current Goals:</label>
+              <div className="mt-2 p-3 bg-[#BED2D8] rounded-lg border-l-4 border-[#6D858E]">
+                <p className="text-[#292929]">
+                  {client.currentGoals || 'No current goals set. Use the Goals & Session Notes section below to add goals for this client.'}
+                </p>
+              </div>
+            </div>
             <div>
               <label className="text-sm font-medium text-[#707070]">Business Progress:</label>
               <input
@@ -352,10 +413,22 @@ const ClientDetail = ({
           </div>
         </div>
         
+        {/* UPDATED: Goals & Session Notes */}
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold mb-4 text-[#292929]">Session Notes</h3>
+          <h3 className="text-xl font-semibold mb-4 text-[#292929]">Goals & Session Notes</h3>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* ADDED: Current Goals Editor */}
+            <div>
+              <label className="text-sm font-medium text-[#707070]">Current Goals:</label>
+              <textarea
+                value={currentGoals}
+                onChange={(e) => setCurrentGoals(e.target.value)}
+                className="w-full mt-2 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                rows="3"
+                placeholder="Set client's current business goals and objectives..."
+              />
+            </div>
             <div>
               <label className="text-sm font-medium text-[#707070]">Current Session Notes:</label>
               <textarea
@@ -376,11 +449,12 @@ const ClientDetail = ({
                 placeholder="General coaching notes..."
               />
             </div>
+            {/* UPDATED: Button text */}
             <button
               onClick={handleUpdate}
               className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69]"
             >
-              Update Progress & Notes
+              Update Goals, Progress & Notes
             </button>
           </div>
         </div>
@@ -394,7 +468,12 @@ const ClientDetail = ({
             Client Files (Google Workspace Shared Drive)
           </h3>
           
-          {!isAvailable || !isAuthenticated ? (
+          {/* FIXED: Better button states and messaging */}
+          {!isAvailable ? (
+            <div className="text-red-600 text-sm">
+              Shared Drive not configured
+            </div>
+          ) : !isAuthenticated ? (
             <button
               onClick={handleGoogleDriveAuth}
               className="bg-[#4285f4] text-white px-4 py-2 rounded-md hover:bg-[#3367d6] flex items-center space-x-2"
@@ -410,13 +489,18 @@ const ClientDetail = ({
               )}
             </button>
           ) : (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
-            >
-              <Plus size={16} />
-              <span>Add Files</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <div className="text-sm text-green-600">
+                ✅ Connected as {currentUser?.email || 'Google Workspace'}
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
+              >
+                <Plus size={16} />
+                <span>Add Files</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -453,9 +537,9 @@ const ClientDetail = ({
         ) : !isAuthenticated ? (
           <div className="text-center py-8 bg-[#F5F5F5] rounded-lg">
             <FolderOpen className="mx-auto h-12 w-12 text-[#9B97A2] mb-4" />
-            <h4 className="text-lg font-medium text-[#292929] mb-2">Google Workspace Shared Drive</h4>
+            <h4 className="text-lg font-medium text-[#292929] mb-2">Connect to Google Workspace</h4>
             <p className="text-[#707070] mb-4">
-              Connect to Google Workspace to access the shared ITG Client Files drive
+              Click "Connect Shared Drive" above to access the ITG Client Files shared drive
             </p>
             {currentUser && (
               <p className="text-sm text-green-600 mb-2">

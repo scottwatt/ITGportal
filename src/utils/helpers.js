@@ -1,5 +1,5 @@
-// src/utils/helpers.js - Fixed with defensive programming
-import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS } from './constants';
+// src/utils/helpers.js - Fixed with defensive programming and exact mileage precision
+import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS, MILEAGE_FORMATS } from './constants';
 
 /**
  * Generate a temporary password for new users
@@ -302,4 +302,169 @@ export const safeFind = (array = [], predicate) => {
   }
   
   return array.find(predicate);
+};
+
+// MILEAGE PRECISION HELPERS
+
+/**
+ * Format mileage for display with exact precision
+ * @param {number} mileage - Mileage value
+ * @param {number} precision - Decimal places (defaults to 3 for exact billing)
+ * @returns {string} Formatted mileage string
+ */
+export const formatMileageForDisplay = (mileage, precision = MILEAGE_FORMATS.DISPLAY) => {
+  if (typeof mileage !== 'number' || isNaN(mileage)) {
+    return '0.000';
+  }
+  return mileage.toFixed(precision);
+};
+
+/**
+ * Format mileage for payment calculations (always exact precision)
+ * @param {number} mileage - Mileage value
+ * @returns {string} Formatted mileage for billing
+ */
+export const formatMileageForPayment = (mileage) => {
+  return formatMileageForDisplay(mileage, MILEAGE_FORMATS.PAYMENT);
+};
+
+/**
+ * Parse mileage string to exact number with proper precision
+ * @param {string|number} mileageInput - Mileage input value
+ * @returns {number} Parsed mileage with exact precision
+ */
+export const parseMileageToExact = (mileageInput) => {
+  let parsed;
+  
+  if (typeof mileageInput === 'string') {
+    parsed = parseFloat(mileageInput);
+  } else if (typeof mileageInput === 'number') {
+    parsed = mileageInput;
+  } else {
+    return 0;
+  }
+  
+  if (isNaN(parsed)) {
+    return 0;
+  }
+  
+  // Round to 3 decimal places to prevent floating point precision issues
+  return Math.round(parsed * 1000) / 1000;
+};
+
+/**
+ * Calculate total mileage with exact precision
+ * @param {Array} mileageRecords - Array of mileage records
+ * @returns {number} Total mileage with exact precision
+ */
+export const calculateTotalMileage = (mileageRecords = []) => {
+  if (!Array.isArray(mileageRecords)) {
+    return 0;
+  }
+  
+  const total = mileageRecords.reduce((sum, record) => {
+    const mileage = parseMileageToExact(record?.mileage || 0);
+    return sum + mileage;
+  }, 0);
+  
+  // Round to 3 decimal places for payment accuracy
+  return Math.round(total * 1000) / 1000;
+};
+
+/**
+ * Calculate monthly mileage totals with exact precision
+ * @param {Array} mileageRecords - Array of mileage records
+ * @param {number} year - Year to filter by
+ * @param {number} month - Month to filter by (1-12)
+ * @returns {Object} Monthly totals with exact precision
+ */
+export const calculateMonthlyMileageTotals = (mileageRecords = [], year, month) => {
+  if (!Array.isArray(mileageRecords)) {
+    return { miles: 0, recordCount: 0 };
+  }
+  
+  const monthlyRecords = mileageRecords.filter(record => {
+    if (!record?.date) return false;
+    
+    const recordDate = new Date(record.date);
+    return recordDate.getFullYear() === year && recordDate.getMonth() + 1 === month;
+  });
+  
+  const totalMiles = calculateTotalMileage(monthlyRecords);
+  
+  return {
+    miles: totalMiles,
+    recordCount: monthlyRecords.length
+  };
+};
+
+/**
+ * Get current month mileage for a specific coach
+ * @param {Array} mileageRecords - Array of mileage records
+ * @param {string} coachId - Coach ID to filter by
+ * @returns {Object} Current month totals
+ */
+export const getCurrentMonthMileageForCoach = (mileageRecords = [], coachId) => {
+  if (!Array.isArray(mileageRecords) || !coachId) {
+    return { miles: 0, recordCount: 0 };
+  }
+  
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  
+  const coachRecords = mileageRecords.filter(record => 
+    record?.coachId === coachId
+  );
+  
+  return calculateMonthlyMileageTotals(coachRecords, currentYear, currentMonth);
+};
+
+/**
+ * Validate mileage input with exact precision rules
+ * @param {string|number} mileageInput - Mileage input to validate
+ * @returns {Object} Validation result
+ */
+export const validateMileageInput = (mileageInput) => {
+  const parsed = parseMileageToExact(mileageInput);
+  
+  if (parsed <= 0) {
+    return { isValid: false, message: 'Mileage must be greater than 0' };
+  }
+  
+  if (parsed < 0.001) {
+    return { isValid: false, message: 'Mileage must be at least 0.001 miles for billing accuracy' };
+  }
+  
+  if (parsed > 1000) {
+    return { isValid: false, message: 'Mileage seems unusually high (over 1000 miles)' };
+  }
+  
+  return { isValid: true, message: '', value: parsed };
+};
+
+/**
+ * Format mileage for CSV export with exact precision
+ * @param {number} mileage - Mileage value
+ * @returns {string} CSV-formatted mileage
+ */
+export const formatMileageForCSV = (mileage) => {
+  return formatMileageForPayment(mileage);
+};
+
+/**
+ * Convert Google Maps distance to exact miles
+ * @param {number} metersDistance - Distance in meters from Google Maps
+ * @returns {number} Distance in miles with exact precision
+ */
+export const convertMetersToExactMiles = (metersDistance) => {
+  if (typeof metersDistance !== 'number' || isNaN(metersDistance)) {
+    return 0;
+  }
+  
+  // Convert meters to miles with exact precision (no rounding during calculation)
+  const miles = metersDistance * 0.000621371;
+  
+  // Return with 3 decimal places for billing accuracy
+  return parseMileageToExact(miles);
 };

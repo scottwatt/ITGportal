@@ -1,9 +1,10 @@
-// src/components/shared/Dashboard.jsx - Fixed with defensive programming
+// src/components/shared/Dashboard.jsx - Fixed with defensive programming and exact mileage display
 import React from 'react';
-import { Building2, User, Clock, TrendingUp } from 'lucide-react';
+import { Building2, User, Clock, TrendingUp, Car } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { getSchedulableClients, safeFilter } from '../../utils/helpers';
 import { getOrderedGroupedSchedule } from '../../utils/scheduleHelpers';
+import { MILEAGE_FORMATS } from '../../utils/constants';
 
 const Dashboard = ({
   userProfile,
@@ -11,7 +12,8 @@ const Dashboard = ({
   coaches = [], // Default to empty array
   schedules = [], // Default to empty array
   timeSlots = [], // Default to empty array
-  onClientSelect
+  onClientSelect,
+  mileageRecords = [] // Add mileage records prop
 }) => {
   const today = getPSTDate();
   
@@ -44,6 +46,28 @@ const Dashboard = ({
   const graceCoaches = safeFilter(coaches, c => c?.coachType === 'grace').length;
   const graceClientsCount = safeFilter(clients, c => c?.program === 'grace').length;
 
+  // Calculate monthly mileage for current user (if they have mileage access)
+  const getCurrentMonthMileage = () => {
+    if (!Array.isArray(mileageRecords) || !userProfile?.uid) return 0;
+    
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    const monthlyMiles = mileageRecords
+      .filter(record => {
+        if (record.coachId !== userProfile.uid) return false;
+        const recordDate = new Date(record.date);
+        return recordDate.getMonth() + 1 === currentMonth && recordDate.getFullYear() === currentYear;
+      })
+      .reduce((total, record) => total + (record.mileage || 0), 0);
+    
+    return monthlyMiles;
+  };
+
+  const currentMonthMiles = getCurrentMonthMileage();
+  const canTrackMileage = ['coach', 'admin', 'scheduler'].includes(userProfile?.role);
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
@@ -53,8 +77,8 @@ const Dashboard = ({
         <p className="text-[#BED2D8]">Supporting adults with disabilities in their development journey</p>
       </div>
       
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Stats Cards - Updated with mileage if applicable */}
+      <div className={`grid grid-cols-1 md:grid-cols-${canTrackMileage ? '5' : '4'} gap-6`}>
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center justify-between">
             <div>
@@ -101,6 +125,24 @@ const Dashboard = ({
             <TrendingUp className="text-[#5A4E69]" size={40} />
           </div>
         </div>
+
+        {/* Mileage Card - Only show for coaches, admins, and schedulers */}
+        {canTrackMileage && (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[#707070]">This Month Miles</p>
+                <p className="text-3xl font-bold text-[#5A4E69]">
+                  {currentMonthMiles.toFixed(MILEAGE_FORMATS.DISPLAY)}
+                </p>
+              </div>
+              <Car className="text-[#5A4E69]" size={40} />
+            </div>
+            <div className="mt-2 text-xs text-[#9B97A2]">
+              <div>Exact precision for billing</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Today's Schedule with proper grouping and ordering */}
@@ -177,6 +219,43 @@ const Dashboard = ({
           </div>
         )}
       </div>
+
+      {/* Quick Mileage Summary - Only for users who can track mileage */}
+      {canTrackMileage && mileageRecords.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 text-[#292929] flex items-center">
+            <Car className="mr-2 text-[#6D858E]" size={24} />
+            Recent Mileage Activity
+          </h3>
+          <div className="space-y-2">
+            {mileageRecords
+              .filter(record => record.coachId === userProfile.uid)
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .slice(0, 3)
+              .map(record => (
+                <div key={record.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                  <div>
+                    <p className="text-sm font-medium text-[#292929]">
+                      {record.startLocation} → {record.endLocation}
+                    </p>
+                    <p className="text-xs text-[#707070]">{record.purpose}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-[#5A4E69]">
+                      {record.mileage.toFixed(MILEAGE_FORMATS.DISPLAY)} mi
+                    </p>
+                    <p className="text-xs text-[#9B97A2]">
+                      {new Date(record.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+          </div>
+          {mileageRecords.filter(record => record.coachId === userProfile.uid).length === 0 && (
+            <p className="text-center text-[#9B97A2] py-4">No mileage records yet this month</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

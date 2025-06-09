@@ -1,21 +1,33 @@
-// src/components/client/ClientScheduleView.jsx - Updated with proper time ordering
-import React from 'react';
+// src/components/client/ClientScheduleView.jsx - Updated with task titles display
+import React, { useState, useEffect } from 'react';
 import { getWeekDatesStartingMonday } from '../../utils/dateUtils';
 import { getOrderedWeeklySchedule } from '../../utils/scheduleHelpers';
-import { TIME_SLOTS } from '../../utils/constants';
+import { TIME_SLOTS, TIME_BLOCKS } from '../../utils/constants';
 
-const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlots }) => {
+const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlots, taskActions, tasks }) => {
+  const [weeklyTasks, setWeeklyTasks] = useState({});
+  const [loadingTasks, setLoadingTasks] = useState(false);
+
   const clientData = clients.find(c => c.email === userProfile.email) || clients[0];
-  
-  if (!clientData) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-[#9B97A2]">No client data found. Please contact your coach.</p>
-      </div>
-    );
-  }
+
+  // Function to map 2-hour time slots to 30-minute task blocks
+  const getTaskBlocksForTimeSlot = (timeSlotId) => {
+    const blockMappings = {
+      '8-10': ['800', '830', '900', '930'],
+      '10-12': ['1000', '1030', '1100', '1130'], 
+      '1230-230': ['1230', '1300', '1330', '1400'],
+      // Add alternative formats in case the data uses different IDs
+      'morning': ['800', '830', '900', '930'],
+      'midmorning': ['1000', '1030', '1100', '1130'],
+      'afternoon': ['1230', '1300', '1330', '1400']
+    };
+    
+    return blockMappings[timeSlotId] || [];
+  };
 
   const getMyWeeklySchedule = () => {
+    if (!clientData) return [];
+    
     const weekDates = getWeekDatesStartingMonday();
     
     return weekDates.map(date => {
@@ -38,9 +50,69 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
   };
 
   const weeklySchedule = getMyWeeklySchedule();
-  
-  // UPDATED: Get properly ordered weekly schedule
   const orderedWeeklySchedule = getOrderedWeeklySchedule(weeklySchedule, coaches);
+
+  // Load tasks for the week - MOVED BEFORE EARLY RETURN
+  useEffect(() => {
+    const loadWeeklyTasks = async () => {
+      if (!taskActions || !clientData) {
+        return;
+      }
+      
+      setLoadingTasks(true);
+      try {
+        const tasksData = {};
+        
+        for (const day of weeklySchedule) {
+          if (day.sessions.length > 0) {
+            const dayTasks = await taskActions.getTasksForClientDate(clientData.id, day.date);
+            tasksData[day.date] = dayTasks;
+          }
+        }
+        
+        setWeeklyTasks(tasksData);
+      } catch (error) {
+        console.error('Error loading weekly tasks:', error);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+
+    loadWeeklyTasks();
+  }, [weeklySchedule.length, clientData?.id, taskActions]);
+
+  // Early return AFTER all hooks
+  if (!clientData) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-[#9B97A2]">No client data found. Please contact your coach.</p>
+      </div>
+    );
+  }
+
+  // Get tasks for specific date and time blocks
+  const getTasksForTimeSlot = (date, timeSlotId) => {
+    // Try to get tasks from loaded weekly tasks first
+    let dayTasks = weeklyTasks[date] || [];
+    
+    // If no tasks in weekly tasks, try to get from global tasks prop
+    if (dayTasks.length === 0 && tasks && clientData) {
+      dayTasks = tasks.filter(task => 
+        task.date === date && task.clientId === clientData.id
+      );
+    }
+    
+    const timeBlocks = getTaskBlocksForTimeSlot(timeSlotId);
+    
+    return timeBlocks.map(blockId => {
+      const task = dayTasks.find(t => t.timeBlock === blockId);
+      
+      return {
+        blockId,
+        task: task || null
+      };
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -75,18 +147,26 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
         </div>
       </div>
 
-      {/* UPDATED: Session Details with proper ordering */}
+      {/* Session Details with task breakdown */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-xl font-semibold mb-4 text-[#292929]">Session Details</h3>
+        {loadingTasks && (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#6D858E] mx-auto"></div>
+            <p className="text-sm text-[#707070] mt-2">Loading your tasks...</p>
+          </div>
+        )}
+        
         <div className="space-y-4">
           {orderedWeeklySchedule.flatMap(day => 
             day.timeSlotGroups ? day.timeSlotGroups.flatMap(timeSlotGroup =>
               timeSlotGroup.sessions.map(session => {
                 const timeSlotInfo = TIME_SLOTS.find(ts => ts.id === session.timeSlot);
+                const taskBlocks = getTasksForTimeSlot(day.date, session.timeSlot);
                 
                 return (
                   <div key={session.id} className="border rounded-lg p-4 hover:bg-[#F5F5F5]">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="font-semibold text-lg text-[#292929]">
                           {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { 
@@ -105,8 +185,42 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
                         </span>
                       </div>
                     </div>
-                    <div className="mt-3 text-sm text-[#707070]">
-                      <p>Focus: Continue working on your current business goals</p>
+                    
+                    {/* Task breakdown for the session */}
+                    <div className="bg-[#F5F5F5] p-4 rounded-lg">
+                      <h5 className="font-medium text-[#292929] mb-3">Your Tasks for This Session:</h5>
+                      
+                      {taskBlocks.some(({ task }) => task) ? (
+                        <div className="space-y-2">
+                          {taskBlocks
+                            .filter(({ task }) => task) // Only show blocks with actual tasks
+                            .map(({ blockId, task }) => (
+                            <div 
+                              key={blockId} 
+                              className="flex items-center justify-between p-3 bg-white rounded border border-[#6D858E] shadow-sm"
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-[#292929]">• {task.title}</p>
+                                {task.description && (
+                                  <p className="text-xs text-[#707070] mt-1">{task.description}</p>
+                                )}
+                              </div>
+                              <span className={`text-xs px-2 py-1 rounded ml-3 ${
+                                task.completed 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {task.completed ? 'Done' : 'Pending'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-[#9B97A2]">
+                          <p className="text-sm">No specific tasks scheduled for this session</p>
+                          <p className="text-xs mt-1">Work with your coach on your current business goals</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

@@ -79,7 +79,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
     return filtered;
   }, [allRecords, selectedCoach, searchTerm, coaches]);
 
-  // Calculate totals
+  // Calculate totals with exact precision
   const totals = useMemo(() => {
     const totalMiles = filteredRecords.reduce((sum, record) => sum + record.mileage, 0);
     const totalRecords = filteredRecords.length;
@@ -100,7 +100,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
 
   // Export to CSV (basic implementation)
   const exportToCSV = () => {
-    const headers = ['Date', 'Coach', 'Start Location', 'End Location', 'Purpose', 'Miles'];
+    const headers = ['Date', 'Coach', 'Start Location', 'End Location', 'Purpose', 'Miles (Exact)'];
     const csvData = [
       headers.join(','),
       ...filteredRecords.map(record => [
@@ -109,7 +109,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
         `"${record.startLocation}"`,
         `"${record.endLocation}"`,
         `"${record.purpose}"`,
-        record.mileage
+        record.mileage.toFixed(3) // Export with exact precision
       ].join(','))
     ].join('\n');
 
@@ -133,7 +133,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
               Admin Mileage Overview
             </h2>
             <p className="text-[#BED2D8]">
-              View and manage all coach mileage records for billing
+              View and manage all coach mileage records for billing (exact precision)
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -275,15 +275,15 @@ const AdminMileageOverview = ({ coaches = [] }) => {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards with Exact Precision */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="flex items-center">
             <Car className="text-blue-600 mr-3" size={24} />
             <div>
-              <p className="text-sm text-gray-600">Total Miles</p>
+              <p className="text-sm text-gray-600">Total Miles (Exact)</p>
               <p className="text-2xl font-bold text-blue-600">
-                {totals.totalMiles.toFixed(1)}
+                {totals.totalMiles.toFixed(3)}
               </p>
             </div>
           </div>
@@ -314,17 +314,17 @@ const AdminMileageOverview = ({ coaches = [] }) => {
         </div>
       </div>
 
-      {/* Coach Summary */}
+      {/* Coach Summary with Exact Precision */}
       {Object.keys(totals.byCoach).length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Summary by Coach</h3>
+          <h3 className="text-lg font-semibold mb-4">Summary by Coach (Exact Miles)</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(totals.byCoach).map(([coachName, summary]) => (
               <div key={coachName} className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900">{coachName}</h4>
                 <div className="mt-2 space-y-1">
                   <p className="text-sm text-gray-600">
-                    Miles: <span className="font-medium">{summary.miles.toFixed(1)}</span>
+                    Miles: <span className="font-medium">{summary.miles.toFixed(3)}</span>
                   </p>
                   <p className="text-sm text-gray-600">
                     Trips: <span className="font-medium">{summary.records}</span>
@@ -336,11 +336,11 @@ const AdminMileageOverview = ({ coaches = [] }) => {
         </div>
       )}
 
-      {/* Records Table */}
+      {/* Records Table with Exact Precision */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold">
-            Mileage Records
+            Mileage Records (Exact Precision)
             {filterType === 'month' && (
               <span className="text-sm font-normal text-gray-500 ml-2">
                 for {new Date(selectedYear, selectedMonth - 1, 1).toLocaleDateString('en-US', { 
@@ -390,7 +390,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
                     Purpose
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Miles
+                    Miles (Exact)
                   </th>
                 </tr>
               </thead>
@@ -415,7 +415,7 @@ const AdminMileageOverview = ({ coaches = [] }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {record.mileage.toFixed(1)}
+                      {record.mileage.toFixed(3)}
                     </td>
                   </tr>
                 ))}

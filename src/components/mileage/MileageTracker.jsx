@@ -124,7 +124,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
     setShowEndDropdown(false);
   }, []);
 
-  // UPDATED: Calculate mileage using Google Maps with better address handling
+  // UPDATED: Calculate mileage using Google Maps with exact precision
   const calculateGoogleMileage = useCallback(async () => {
     if (!mapsLoaded || !window.google) {
       alert('Google Maps is not available. Please enter mileage manually.');
@@ -180,9 +180,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
 
       const distance = result.rows[0].elements[0];
       if (distance.status === 'OK') {
-        const miles = Math.round(distance.distance.value * 0.000621371 * 100) / 100;
+        // Keep exact precision for payment accuracy - no rounding
+        const miles = distance.distance.value * 0.000621371;
         console.log('✅ Distance calculated:', miles, 'miles');
-        setFormData(prev => ({ ...prev, mileage: miles.toString() }));
+        setFormData(prev => ({ ...prev, mileage: miles.toFixed(3) }));
       } else {
         console.error('Distance calculation failed:', distance.status);
         alert('Could not calculate distance between these locations. Please check the addresses and try again.');
@@ -379,7 +380,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
           </div>
         </div>
 
-        {/* Monthly Summary */}
+        {/* Monthly Summary - EXACT PRECISION */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center">
@@ -387,7 +388,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
               <div>
                 <p className="text-sm text-gray-600">Total Miles</p>
                 <p className="text-xl font-bold text-blue-600">
-                  {monthlyTotals.miles.toFixed(1)}
+                  {monthlyTotals.miles.toFixed(3)}
                 </p>
               </div>
             </div>
@@ -438,16 +439,16 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Car size={16} className="inline mr-1" />
-                  Mileage
+                  Mileage (Exact)
                 </label>
                 <div className="flex">
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.001"
                     name="mileage"
                     value={formData.mileage}
                     onChange={handleInputChange}
-                    placeholder="0.0"
+                    placeholder="0.000"
                     className="flex-1 border border-gray-300 rounded-l px-3 py-2"
                     required
                   />
@@ -639,7 +640,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
                     Purpose
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Miles
+                    Miles (Exact)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -666,7 +667,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [] }) =>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {record.mileage.toFixed(1)}
+                      {record.mileage.toFixed(3)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">

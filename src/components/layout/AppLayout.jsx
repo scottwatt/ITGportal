@@ -262,6 +262,7 @@ const AppLayout = ({
                   onBackToClients={handleBackToClients}
                   clientActions={clientActions}
                   scheduleActions={scheduleActions}
+
                 />
               </div>
             </LazyComponentWrapper>
@@ -316,6 +317,10 @@ const AppLayout = ({
               schedules={schedules} 
               coaches={coaches} 
               timeSlots={TIME_SLOTS}
+              taskActions={taskActions}
+              tasks={tasks}
+
+
             />
           );
         case 'my-goals':

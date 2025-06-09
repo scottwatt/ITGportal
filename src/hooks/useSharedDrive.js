@@ -1,5 +1,5 @@
 // src/hooks/useSharedDrive.js
-// Fixed version with better error handling and graceful degradation
+// MINIMAL FIX: Only change the authenticate function to support userInitiated parameter
 
 import { useState, useEffect, useCallback } from 'react';
 import { sharedDriveService } from '../services/googleDrive/sharedDriveService';
@@ -94,12 +94,17 @@ export const useSharedDrive = () => {
   };
 
   /**
-   * Authenticate with Google Drive
+   * FIXED: Authenticate with Google Drive - now supports userInitiated parameter
    */
-  const authenticate = useCallback(async () => {
+  const authenticate = useCallback(async (userInitiated = false) => {
     try {
       setLoading(true);
       setError(null);
+
+      // CRITICAL: Check if user interaction is required
+      if (!userInitiated) {
+        throw new Error('Authentication requires user interaction. Please click the "Connect" button.');
+      }
 
       if (!isAvailable) {
         // Try to initialize first
@@ -112,8 +117,10 @@ export const useSharedDrive = () => {
         }
       }
 
-      console.log('👤 Starting Google Drive authentication...');
-      await sharedDriveService.authenticate();
+      console.log('👤 Starting user-initiated Google Drive authentication...');
+      
+      // CRITICAL FIX: Pass userInitiated parameter to prevent popup blocker
+      await sharedDriveService.authenticate(userInitiated);
       
       // Get user info
       const authInstance = window.gapi.auth2.getAuthInstance();
@@ -131,7 +138,7 @@ export const useSharedDrive = () => {
       return true;
     } catch (err) {
       console.error('❌ Authentication failed:', err);
-      setError(`Authentication failed: ${err.message}`);
+      setError(err.message); // Use original error message
       return false;
     } finally {
       setLoading(false);
@@ -152,10 +159,7 @@ export const useSharedDrive = () => {
       }
 
       if (!isAuthenticated) {
-        const authSuccess = await authenticate();
-        if (!authSuccess) {
-          return [];
-        }
+        throw new Error('Not authenticated. Please connect to Google Drive first.');
       }
 
       const files = await sharedDriveService.listClientFiles(clientId, clientName);
@@ -168,7 +172,7 @@ export const useSharedDrive = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAvailable, isAuthenticated, authenticate]);
+  }, [isAvailable, isAuthenticated]);
 
   /**
    * Upload file to client folder
@@ -189,10 +193,7 @@ export const useSharedDrive = () => {
       }
 
       if (!isAuthenticated) {
-        const authSuccess = await authenticate();
-        if (!authSuccess) {
-          throw new Error('Authentication required');
-        }
+        throw new Error('Not authenticated. Please connect to Google Drive first.');
       }
 
       console.log(`📤 Uploading ${file.name} to ${clientName}'s folder...`);
@@ -215,7 +216,7 @@ export const useSharedDrive = () => {
       setLoading(false);
       setTimeout(() => setUploadProgress(0), 2000);
     }
-  }, [isAvailable, isAuthenticated, authenticate]);
+  }, [isAvailable, isAuthenticated]);
 
   /**
    * Upload multiple files
@@ -256,10 +257,7 @@ export const useSharedDrive = () => {
       }
 
       if (!isAuthenticated) {
-        const authSuccess = await authenticate();
-        if (!authSuccess) {
-          throw new Error('Authentication required');
-        }
+        throw new Error('Not authenticated. Please connect to Google Drive first.');
       }
 
       console.log(`🗑️ Deleting ${fileName}...`);
@@ -277,7 +275,7 @@ export const useSharedDrive = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAvailable, isAuthenticated, authenticate]);
+  }, [isAvailable, isAuthenticated]);
 
   /**
    * Get file download/view URLs
@@ -289,10 +287,7 @@ export const useSharedDrive = () => {
       }
 
       if (!isAuthenticated) {
-        const authSuccess = await authenticate();
-        if (!authSuccess) {
-          throw new Error('Authentication required');
-        }
+        throw new Error('Not authenticated. Please connect to Google Drive first.');
       }
 
       // For shared drives, we can use the webViewLink and webContentLink directly
@@ -305,7 +300,7 @@ export const useSharedDrive = () => {
       setError(`Failed to get file links: ${err.message}`);
       return null;
     }
-  }, [isAvailable, isAuthenticated, authenticate]);
+  }, [isAvailable, isAuthenticated]);
 
   /**
    * Share client folder with client
@@ -321,10 +316,7 @@ export const useSharedDrive = () => {
       }
 
       if (!isAuthenticated) {
-        const authSuccess = await authenticate();
-        if (!authSuccess) {
-          throw new Error('Authentication required');
-        }
+        throw new Error('Not authenticated. Please connect to Google Drive first.');
       }
 
       console.log(`🤝 Sharing ${clientName}'s folder with ${clientEmail}...`);
@@ -342,7 +334,7 @@ export const useSharedDrive = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAvailable, isAuthenticated, authenticate]);
+  }, [isAvailable, isAuthenticated]);
 
   /**
    * Sign out from Google Drive
@@ -412,7 +404,7 @@ export const useSharedDrive = () => {
     configStatus,
 
     // Actions
-    authenticate,
+    authenticate, // Now properly supports userInitiated parameter
     listClientFiles,
     uploadFileToClient,
     uploadMultipleFiles,

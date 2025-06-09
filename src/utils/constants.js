@@ -1,4 +1,4 @@
-// src/utils/constants.js - Task priorities removed
+// src/utils/constants.js - Updated with exact mileage precision
 
 import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car } from 'lucide-react';
 
@@ -429,7 +429,7 @@ export const FILE_TYPE_MAPPINGS = {
   code: ['html', 'css', 'js', 'jsx', 'py', 'php', 'rb']
 };
 
-// Mileage tracking constants
+// Mileage tracking constants - UPDATED FOR EXACT PRECISION
 export const MILEAGE_PURPOSES = [
   { id: 'business', label: 'Business', deductible: true },
   { id: 'personal', label: 'Personal', deductible: false }
@@ -470,10 +470,21 @@ export const COMMON_PURPOSES = [
   'Other business-related travel'
 ];
 
-// Validation constants for mileage
+// Validation constants for mileage - UPDATED FOR EXACT PRECISION
 export const MILEAGE_VALIDATION = {
   MAX_MILES_PER_TRIP: 1000,
-  MIN_MILES_PER_TRIP: 0.1,
+  MIN_MILES_PER_TRIP: 0.001, // Increased precision for payment accuracy
   MAX_DAYS_BACK: 365, // 1 year
-  REQUIRED_FIELDS: ['date', 'startLocation', 'endLocation', 'purpose', 'mileage']
+  REQUIRED_FIELDS: ['date', 'startLocation', 'endLocation', 'purpose', 'mileage'],
+  PRECISION_DECIMALS: 3, // Show 3 decimal places for exact payment calculations
+  DECIMAL_STEP: 0.001, // Step for input fields
+  PAYMENT_PRECISION: 3 // Decimal places for payment calculations
+};
+
+// MILEAGE DISPLAY FORMATS
+export const MILEAGE_FORMATS = {
+  DISPLAY: 3, // 3 decimal places for display
+  PAYMENT: 3, // 3 decimal places for payment
+  INPUT_STEP: '0.001', // Step for form inputs
+  INPUT_PLACEHOLDER: '0.000' // Placeholder for form inputs
 };
