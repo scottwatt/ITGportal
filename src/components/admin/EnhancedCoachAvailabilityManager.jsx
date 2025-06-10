@@ -1,5 +1,5 @@
 // src/components/admin/EnhancedCoachAvailabilityManager.jsx - UPDATED with editing capabilities
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, User, AlertTriangle, CheckCircle, X, Plus, ChevronLeft, ChevronRight, Edit, Save } from 'lucide-react';
 import { formatDatePST, getPSTDate, formatDateForInput } from '../../utils/dateUtils';
 import { generateDateRange } from '../../services/firebase/coachAvailability';
@@ -11,7 +11,7 @@ const EnhancedCoachAvailabilityManager = ({
   schedules,
   selectedDate 
 }) => {
-  const [activeView, setActiveView] = useState('periods'); // 'daily', 'periods', 'yearly', 'bulk'
+  const [activeView, setActiveView] = useState('daily'); // 'daily', 'yearly', 'periods'
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [yearlyData, setYearlyData] = useState({});
@@ -729,16 +729,6 @@ const EnhancedCoachAvailabilityManager = ({
       <div className="flex justify-between items-center">
         <div className="flex space-x-1 bg-[#F5F5F5] rounded-lg p-1">
           <button
-            onClick={() => setActiveView('periods')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeView === 'periods' 
-                ? 'bg-white text-[#6D858E] shadow-sm' 
-                : 'text-[#707070] hover:text-[#292929]'
-            }`}
-          >
-            Time-Off Periods
-          </button>
-          <button
             onClick={() => setActiveView('daily')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeView === 'daily' 
@@ -758,15 +748,23 @@ const EnhancedCoachAvailabilityManager = ({
           >
             Yearly Summary
           </button>
+          <button
+            onClick={() => setActiveView('periods')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeView === 'periods' 
+                ? 'bg-white text-[#6D858E] shadow-sm' 
+                : 'text-[#707070] hover:text-[#292929]'
+            }`}
+          >
+            Time-Off Periods
+          </button>
         </div>
         
-        {(activeView === 'daily' || activeView === 'periods') && (
+        {activeView === 'daily' && (
           <div className="flex items-center space-x-4">
-            {activeView === 'daily' && (
-              <span className="text-sm text-[#707070]">
-                {formatDatePST(selectedDate)}
-              </span>
-            )}
+            <span className="text-sm text-[#707070]">
+              {formatDatePST(selectedDate)}
+            </span>
             {!showAddForm && (
               <button
                 onClick={() => setShowAddForm(!showAddForm)}

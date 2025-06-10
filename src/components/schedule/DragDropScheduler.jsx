@@ -1,4 +1,4 @@
-// src/components/schedule/DragDropScheduler.jsx - Enhanced with copy/paste schedule + Individual Client Schedules
+// src/components/schedule/DragDropScheduler.jsx - Enhanced with copy/paste schedule + Individual Client Schedules + Dynamic Availability Display
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle } from 'lucide-react';
 import { formatDatePST } from '../../utils/dateUtils';
@@ -336,10 +336,25 @@ Continue?`;
     return dates;
   };
 
-  // UPDATED: Render client card with availability info and greyed out state
+  // UPDATED: Render client card with detailed time slot availability
   const renderClientCard = (client, isFullyScheduled = false) => {
     const isSelected = selectedClient?.id === client.id;
     const isDisabled = isFullyScheduled;
+    
+    // Get detailed time slot information for this client on the selected date
+    const clientAvailableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+    const scheduledTimeSlots = dailySchedules
+      .filter(s => s.date === selectedDate && s.clientId === client.id)
+      .map(s => s.timeSlot);
+    
+    const availableTimeSlots = clientAvailableTimeSlots.filter(slot => !scheduledTimeSlots.includes(slot));
+    
+    // Time slot display info
+    const timeSlotLabels = {
+      '8-10': '8-10 AM',
+      '10-12': '10-12 PM', 
+      '1230-230': '12:30-2:30 PM'
+    };
     
     return (
       <div
@@ -353,7 +368,7 @@ Continue?`;
               : 'border-[#9B97A2] bg-white hover:border-[#6D858E] hover:shadow-md cursor-pointer'
         }`}
       >
-        <div className="flex items-center space-x-3">
+        <div className="flex items-start space-x-3">
           <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
             isDisabled 
               ? 'bg-gray-400' 
@@ -369,6 +384,7 @@ Continue?`;
               </span>
             )}
           </div>
+          
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-sm truncate text-[#292929]">{client.name}</div>
             <div className="text-xs text-[#707070] truncate">
@@ -377,12 +393,78 @@ Continue?`;
                client.program === 'bridges' ? 'Career Development' :
                client.businessName || 'Program Participant'}
             </div>
-            {/* Show working schedule info */}
-            <div className="text-xs text-[#9B97A2] mt-1">
-              <div>{formatWorkingDays(client.workingDays)}</div>
-              <div>{formatAvailableTimeSlots(client.availableTimeSlots)}</div>
+            
+            {/* NEW: Detailed Time Slot Availability */}
+            <div className="text-xs mt-2">
+              {/* Working Days Info */}
+              <div className="text-[#9B97A2] mb-1">
+                Works: {formatWorkingDays(client.workingDays)}
+              </div>
+              
+              {/* Time Slot Breakdown */}
+              <div className="space-y-1">
+                <div className="text-[#707070] font-medium">Today's Schedule:</div>
+                
+                {/* Available Time Slots */}
+                {availableTimeSlots.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-xs text-green-700 font-medium">Available:</span>
+                    {availableTimeSlots.map(slot => (
+                      <span 
+                        key={slot}
+                        className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded border"
+                      >
+                        {timeSlotLabels[slot]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Scheduled Time Slots */}
+                {scheduledTimeSlots.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-xs text-blue-700 font-medium">Scheduled:</span>
+                    {scheduledTimeSlots.map(slot => {
+                      const schedule = dailySchedules.find(s => 
+                        s.date === selectedDate && 
+                        s.clientId === client.id && 
+                        s.timeSlot === slot
+                      );
+                      const coach = activeCoaches.find(c => (c.uid || c.id) === schedule?.coachId);
+                      
+                      return (
+                        <span 
+                          key={slot}
+                          className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded border"
+                          title={`With ${coach?.name || 'Unknown Coach'}`}
+                        >
+                          {timeSlotLabels[slot]}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Unavailable Time Slots (client doesn't work these hours) */}
+                {timeSlots.some(slot => !clientAvailableTimeSlots.includes(slot.id)) && (
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-xs text-gray-600 font-medium">Not Available:</span>
+                    {timeSlots
+                      .filter(slot => !clientAvailableTimeSlots.includes(slot.id))
+                      .map(slot => (
+                        <span 
+                          key={slot.id}
+                          className="text-xs bg-gray-100 text-gray-600 px-1 py-0.5 rounded border"
+                        >
+                          {timeSlotLabels[slot.id]}
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+          
           <div className="flex flex-col items-end space-y-1">
             <span className={`text-xs px-2 py-1 rounded font-medium ${
               client.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
@@ -395,14 +477,20 @@ Continue?`;
                client.program === 'bridges' ? 'B' :
                'L'}
             </span>
-            {/* Show availability status */}
+            
+            {/* Summary Status */}
             <div className="text-xs text-center">
               {isFullyScheduled ? (
                 <span className="text-red-600 font-medium">Fully Scheduled</span>
+              ) : availableTimeSlots.length === 0 ? (
+                <span className="text-yellow-600 font-medium">No Available Slots</span>
               ) : (
-                <span className="text-green-600">{client.availableSlots}/{client.totalSlots} available today</span>
+                <span className="text-green-600 font-medium">
+                  {availableTimeSlots.length} slot{availableTimeSlots.length !== 1 ? 's' : ''} open
+                </span>
               )}
             </div>
+            
             {isSelected && !isDisabled && (
               <div className="text-xs text-[#6D858E] font-medium">
                 Click time slot ↑
@@ -413,6 +501,7 @@ Continue?`;
       </div>
     );
   };
+
   const renderCoachColumn = (coach) => {
     const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
     const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
@@ -545,7 +634,7 @@ Continue?`;
           // Show unavailable message for unavailable coaches
           <div className="w-80 p-4 bg-red-100 border-2 border-red-300 rounded-lg">
             <div className="text-center text-red-700">
-              <AlertCard size={24} className="mx-auto mb-2" />
+              <AlertTriangle size={24} className="mx-auto mb-2" />
               <p className="font-medium">Coach Unavailable</p>
               <p className="text-sm">{status}</p>
               {reason && <p className="text-xs mt-1">{reason}</p>}
@@ -648,9 +737,9 @@ Continue?`;
           </div>
           <div className="mt-3 text-sm text-[#292929]">
             <div className="font-medium">🔍 Smart Features:</div>
-            <div>• Only shows clients available for the selected day</div>
-            <div>• Prevents scheduling conflicts with individual client schedules</div>
-            <div>• Greys out fully scheduled clients instead of hiding them</div>
+            <div>• Color-coded time slots show what's available, scheduled, or unavailable</div>
+            <div>• Visual schedule breakdown prevents double-booking</div>
+            <div>• Instant feedback on remaining scheduling slots</div>
           </div>
         </div>
 
