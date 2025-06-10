@@ -1,6 +1,6 @@
-// src/utils/constants.js - Updated with exact mileage precision
+// src/utils/constants.js - Updated with flexible scheduling and internship support
 
-import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car } from 'lucide-react';
+import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car, Briefcase } from 'lucide-react';
 
 // User roles
 export const USER_ROLES = {
@@ -24,15 +24,54 @@ export const PROGRAMS = {
   GRACE: 'grace'
 };
 
-// EXISTING: Time slots for coaching sessions (2-hour blocks)
+// UPDATED: Expanded time slots for flexible scheduling including early hours and events
 export const TIME_SLOTS = [
+  { id: '7-9', label: '7:00 AM - 9:00 AM PST', start: '7:00 AM PST', end: '9:00 AM PST' },
   { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
+  { id: '9-11', label: '9:00 AM - 11:00 AM PST', start: '9:00 AM PST', end: '11:00 AM PST' },
   { id: '10-12', label: '10:00 AM - 12:00 PM PST', start: '10:00 AM PST', end: '12:00 PM PST' },
-  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' }
+  { id: '12-2', label: '12:00 PM - 2:00 PM PST', start: '12:00 PM PST', end: '2:00 PM PST' },
+  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' },
+  { id: '1-3', label: '1:00 PM - 3:00 PM PST', start: '1:00 PM PST', end: '3:00 PM PST' },
+  { id: '2-4', label: '2:00 PM - 4:00 PM PST', start: '2:00 PM PST', end: '4:00 PM PST' },
+  { id: '3-5', label: '3:00 PM - 5:00 PM PST', start: '3:00 PM PST', end: '5:00 PM PST' },
+  // Weekend/Event slots
+  { id: 'weekend-morning', label: 'Weekend Morning Event', start: '9:00 AM PST', end: '12:00 PM PST' },
+  { id: 'weekend-afternoon', label: 'Weekend Afternoon Event', start: '1:00 PM PST', end: '4:00 PM PST' },
+  { id: 'custom', label: 'Custom Time Slot', start: 'Custom', end: 'Custom' }
 ];
 
-// NEW: Time blocks for task scheduling (30-minute blocks)
+// NEW: Default time slots for different program types
+export const DEFAULT_TIME_SLOTS_BY_PROGRAM = {
+  'limitless': ['8-10', '10-12', '1230-230'],
+  'new-options': ['8-10', '10-12', '1230-230', '2-4'],
+  'bridges': ['8-10', '10-12', '1230-230', '2-4'], // Bridges may need internship slots
+  'grace': [] // Grace doesn't use individual scheduling
+};
+
+// NEW: Extended working days including weekends for events
+export const ALL_WORKING_DAYS = [
+  { id: 'monday', label: 'Monday', weekday: true },
+  { id: 'tuesday', label: 'Tuesday', weekday: true },
+  { id: 'wednesday', label: 'Wednesday', weekday: true },
+  { id: 'thursday', label: 'Thursday', weekday: true },
+  { id: 'friday', label: 'Friday', weekday: true },
+  { id: 'saturday', label: 'Saturday', weekday: false },
+  { id: 'sunday', label: 'Sunday', weekday: false }
+];
+
+// NEW: Default working days by program
+export const DEFAULT_WORKING_DAYS_BY_PROGRAM = {
+  'limitless': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+  'new-options': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+  'bridges': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], // May include weekends for internships
+  'grace': [] // Grace doesn't use individual scheduling
+};
+
+// UPDATED: Time blocks for task scheduling (expanded for early hours)
 export const TIME_BLOCKS = [
+  { id: '700', label: '7:00 AM', time: '7:00' },
+  { id: '730', label: '7:30 AM', time: '7:30' },
   { id: '800', label: '8:00 AM', time: '8:00' },
   { id: '830', label: '8:30 AM', time: '8:30' },
   { id: '900', label: '9:00 AM', time: '9:00' },
@@ -46,7 +85,12 @@ export const TIME_BLOCKS = [
   { id: '1300', label: '1:00 PM', time: '1:00' },
   { id: '1330', label: '1:30 PM', time: '1:30' },
   { id: '1400', label: '2:00 PM', time: '2:00' },
-  { id: '1430', label: '2:30 PM', time: '2:30' }
+  { id: '1430', label: '2:30 PM', time: '2:30' },
+  { id: '1500', label: '3:00 PM', time: '3:00' },
+  { id: '1530', label: '3:30 PM', time: '3:30' },
+  { id: '1600', label: '4:00 PM', time: '4:00' },
+  { id: '1630', label: '4:30 PM', time: '4:30' },
+  { id: '1700', label: '5:00 PM', time: '5:00' }
 ];
 
 // Business types for Limitless program
@@ -83,7 +127,38 @@ export const COACH_TYPES_DETAILED = [
   { id: 'grace', name: 'Grace Coach', programs: ['grace'] }
 ];
 
-//Navigation function to include mileage tracking
+// NEW: Internship status options for Bridges participants
+export const INTERNSHIP_STATUS = {
+  PLANNED: 'planned',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+};
+
+// NEW: Internship types/categories
+export const INTERNSHIP_TYPES = [
+  { id: 'office', label: 'Office/Administrative' },
+  { id: 'retail', label: 'Retail/Customer Service' },
+  { id: 'food_service', label: 'Food Service' },
+  { id: 'warehouse', label: 'Warehouse/Logistics' },
+  { id: 'healthcare', label: 'Healthcare Support' },
+  { id: 'education', label: 'Educational Support' },
+  { id: 'nonprofit', label: 'Nonprofit Organization' },
+  { id: 'manufacturing', label: 'Manufacturing' },
+  { id: 'technology', label: 'Technology' },
+  { id: 'other', label: 'Other' }
+];
+
+// NEW: Internship schedule patterns
+export const INTERNSHIP_SCHEDULES = [
+  { id: 'daily', label: 'Daily (30 days)', description: 'Monday-Friday for 6 weeks' },
+  { id: 'weekly_1', label: 'Once per week (30 weeks)', description: 'One day per week for 30 weeks' },
+  { id: 'weekly_2', label: 'Twice per week (15 weeks)', description: 'Two days per week for 15 weeks' },
+  { id: 'weekly_3', label: 'Three times per week (10 weeks)', description: 'Three days per week for 10 weeks' },
+  { id: 'custom', label: 'Custom Schedule', description: 'Flexible schedule totaling 30 business days' }
+];
+
+//Navigation function to include mileage tracking and internships
 export const getNavigationItemsForUser = (userProfile) => {
   if (!userProfile) return [];
 
@@ -103,13 +178,20 @@ export const getNavigationItemsForUser = (userProfile) => {
       ];
     } else {
       // Regular client (Limitless/New Options/Bridges)
-      return [
+      const items = [
         { id: 'dashboard', label: 'Dashboard', icon: Building2 },
         { id: 'my-schedule', label: 'My Schedule', icon: Calendar },
         { id: 'my-tasks', label: 'My Tasks', icon: Clock },
         { id: 'my-goals', label: 'My Goals', icon: ClipboardList },
         { id: 'resources', label: 'Resources', icon: BookOpen }
       ];
+      
+      // Add internships tab for Bridges clients
+      if (userProfile.program === 'bridges') {
+        items.splice(3, 0, { id: 'my-internships', label: 'My Internships', icon: Briefcase });
+      }
+      
+      return items;
     }
   }
 
@@ -172,7 +254,7 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: Car },
       { id: 'resources', label: 'Resources', icon: BookOpen },
       { id: 'admin', label: 'Admin Panel', icon: Settings },
     ];
@@ -247,13 +329,47 @@ export const canAccessClientTasks = (userProfile, clientData = null) => {
   return true;
 };
 
+// NEW: Helper function to check if client can access internships
+export const canAccessInternships = (userProfile, clientData = null) => {
+  if (!userProfile) return false;
+  
+  // Only clients can access their own internships
+  if (userProfile.role !== USER_ROLES.CLIENT) return false;
+  
+  // Only Bridges clients use internships
+  if (clientData && clientData.program === 'bridges') return true;
+  if (userProfile.program === 'bridges') return true;
+  
+  return false;
+};
+
+// NEW: Helper function to check if user can manage internships
+export const canManageInternships = (userProfile) => {
+  if (!userProfile) return false;
+  
+  const { role, coachType } = userProfile;
+  
+  // Admins and schedulers can manage
+  if (role === USER_ROLES.ADMIN || role === USER_ROLES.SCHEDULER) {
+    return true;
+  }
+  
+  // Success coaches can manage (they work with Bridges participants)
+  if (role === USER_ROLES.COACH && (coachType === COACH_TYPES.SUCCESS || !coachType)) {
+    return true;
+  }
+  
+  return false;
+};
+
 // Task-related constants
 export const TASK_TYPES = [
   { id: 'business-work', label: 'Business Work', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   { id: 'skill-building', label: 'Skill Building', color: 'bg-green-100 text-green-800 border-green-200' },
   { id: 'coaching', label: 'Coaching Session', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { id: 'internship', label: 'Internship Work', color: 'bg-orange-100 text-orange-800 border-orange-200' },
   { id: 'break', label: 'Break', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  { id: 'meeting', label: 'Meeting', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+  { id: 'meeting', label: 'Meeting', color: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
   { id: 'independent', label: 'Independent Work', color: 'bg-gray-100 text-gray-800 border-gray-200' },
   { id: 'assessment', label: 'Assessment', color: 'bg-red-100 text-red-800 border-red-200' }
 ];
@@ -344,6 +460,13 @@ export const RESOURCE_CATEGORIES = {
       'Business Banking Guide',
       'Grant Opportunities for Disabled Entrepreneurs',
       'Pricing Strategy Worksheets'
+    ],
+    'Internship Management': [
+      'Internship Site Development Guide',
+      'Job Coach Training Materials',
+      'Workplace Accommodation Resources',
+      'Internship Evaluation Tools',
+      'Transition Planning Resources'
     ]
   },
   CLIENT: {
@@ -364,6 +487,12 @@ export const RESOURCE_CATEGORIES = {
       'Managing Your Time',
       'Setting Daily Goals',
       'Celebrating Your Success'
+    ],
+    'Internship Success': [
+      'Preparing for Your Internship',
+      'Workplace Communication Skills',
+      'Time Management at Work',
+      'Building Professional Relationships'
     ]
   }
 };
@@ -414,6 +543,27 @@ export const DEFAULTS = {
     uid: '',
     role: 'coach',
     coachType: 'success'
+  },
+  INTERNSHIP: {
+    clientId: '',
+    companyName: '',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+    position: '',
+    type: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    workingDays: [],
+    timeSlots: [],
+    totalBusinessDays: 30,
+    completedDays: 0,
+    status: 'planned',
+    schedule: 'custom',
+    skills: [],
+    notes: '',
+    evaluations: []
   }
 };
 
@@ -429,7 +579,7 @@ export const FILE_TYPE_MAPPINGS = {
   code: ['html', 'css', 'js', 'jsx', 'py', 'php', 'rb']
 };
 
-// Mileage tracking constants - UPDATED FOR EXACT PRECISION
+// Mileage tracking constants
 export const MILEAGE_PURPOSES = [
   { id: 'business', label: 'Business', deductible: true },
   { id: 'personal', label: 'Personal', deductible: false }
@@ -439,6 +589,7 @@ export const MILEAGE_CATEGORIES = [
   { id: 'client_visit', label: 'Client Visit' },
   { id: 'office_meeting', label: 'Office Meeting' },
   { id: 'training', label: 'Training' },
+  { id: 'internship_visit', label: 'Internship Site Visit' },
   { id: 'errand', label: 'Work Errand' },
   { id: 'other', label: 'Other' }
 ];
@@ -467,24 +618,45 @@ export const COMMON_PURPOSES = [
   'Client drop off', 
   'Shopping',
   'Traveling to office',
+  'Internship site visit',
+  'Job coach support',
   'Other business-related travel'
 ];
 
-// Validation constants for mileage - UPDATED FOR EXACT PRECISION
+// Validation constants for mileage
 export const MILEAGE_VALIDATION = {
   MAX_MILES_PER_TRIP: 1000,
-  MIN_MILES_PER_TRIP: 0.001, // Increased precision for payment accuracy
-  MAX_DAYS_BACK: 365, // 1 year
+  MIN_MILES_PER_TRIP: 0.001,
+  MAX_DAYS_BACK: 365,
   REQUIRED_FIELDS: ['date', 'startLocation', 'endLocation', 'purpose', 'mileage'],
-  PRECISION_DECIMALS: 3, // Show 3 decimal places for exact payment calculations
-  DECIMAL_STEP: 0.001, // Step for input fields
-  PAYMENT_PRECISION: 3 // Decimal places for payment calculations
+  PRECISION_DECIMALS: 3,
+  DECIMAL_STEP: 0.001,
+  PAYMENT_PRECISION: 3
 };
 
 // MILEAGE DISPLAY FORMATS
 export const MILEAGE_FORMATS = {
-  DISPLAY: 3, // 3 decimal places for display
-  PAYMENT: 3, // 3 decimal places for payment
-  INPUT_STEP: '0.001', // Step for form inputs
-  INPUT_PLACEHOLDER: '0.000' // Placeholder for form inputs
+  DISPLAY: 3,
+  PAYMENT: 3,
+  INPUT_STEP: '0.001',
+  INPUT_PLACEHOLDER: '0.000'
+};
+
+// NEW: Validation constants for internships
+export const INTERNSHIP_VALIDATION = {
+  MIN_BUSINESS_DAYS: 1,
+  MAX_BUSINESS_DAYS: 50, // Allow some flexibility beyond 30
+  REQUIRED_FIELDS: ['companyName', 'position', 'type', 'startDate', 'schedule'],
+  MAX_DESCRIPTION_LENGTH: 1000,
+  MAX_NOTES_LENGTH: 2000
+};
+
+// NEW: Helper function to get flexible time slots based on program
+export const getTimeSlotsByProgram = (program) => {
+  return DEFAULT_TIME_SLOTS_BY_PROGRAM[program] || DEFAULT_TIME_SLOTS_BY_PROGRAM.limitless;
+};
+
+// NEW: Helper function to get working days based on program
+export const getWorkingDaysByProgram = (program) => {
+  return DEFAULT_WORKING_DAYS_BY_PROGRAM[program] || DEFAULT_WORKING_DAYS_BY_PROGRAM.limitless;
 };

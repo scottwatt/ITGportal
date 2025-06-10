@@ -1,5 +1,6 @@
-// src/utils/helpers.js - Fixed with defensive programming and exact mileage precision + Individual Client Schedules
-import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS, MILEAGE_FORMATS } from './constants';
+// src/utils/helpers.js - Updated with flexible scheduling support and internship helpers
+
+import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS, MILEAGE_FORMATS, TIME_SLOTS, DEFAULT_TIME_SLOTS_BY_PROGRAM, DEFAULT_WORKING_DAYS_BY_PROGRAM, ALL_WORKING_DAYS } from './constants';
 
 /**
  * Generate a temporary password for new users
@@ -155,8 +156,27 @@ export const getSchedulableClients = (clients = []) => {
 };
 
 /**
- * NEW: Get clients available for scheduling on a specific date
- * Takes into account individual client working schedules
+ * NEW: Get available time slots for a program type
+ * @param {string} program - Program ID
+ * @returns {Array} Available time slots for the program
+ */
+export const getAvailableTimeSlotsForProgram = (program) => {
+  const defaultSlots = DEFAULT_TIME_SLOTS_BY_PROGRAM[program] || DEFAULT_TIME_SLOTS_BY_PROGRAM.limitless;
+  return TIME_SLOTS.filter(slot => defaultSlots.includes(slot.id));
+};
+
+/**
+ * NEW: Get working days for a program type
+ * @param {string} program - Program ID
+ * @returns {Array} Default working days for the program
+ */
+export const getWorkingDaysForProgram = (program) => {
+  return DEFAULT_WORKING_DAYS_BY_PROGRAM[program] || DEFAULT_WORKING_DAYS_BY_PROGRAM.limitless;
+};
+
+/**
+ * UPDATED: Get clients available for scheduling on a specific date
+ * Now supports flexible time slots and weekend work for events
  * @param {Array} clients - All clients (can be undefined)
  * @param {string} date - Date string (YYYY-MM-DD)
  * @returns {Array} Clients available to work on the specified date
@@ -182,16 +202,17 @@ export const getClientsAvailableForDate = (clients = [], date) => {
   
   return getSchedulableClients(clients).filter(client => {
     // Check if client works on this day
-    const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const workingDays = client.workingDays || getWorkingDaysForProgram(client.program || 'limitless');
     return workingDays.includes(dayName);
   });
 };
 
 /**
- * NEW: Get clients available for a specific time slot on a date
+ * UPDATED: Get clients available for a specific time slot on a date
+ * Now supports flexible time slots including early hours and weekend events
  * @param {Array} clients - All clients
  * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} timeSlot - Time slot ID ('8-10', '10-12', '1230-230')
+ * @param {string} timeSlot - Time slot ID (flexible based on available slots)
  * @returns {Array} Clients available for the specific time slot
  */
 export const getClientsAvailableForTimeSlot = (clients = [], date, timeSlot) => {
@@ -207,7 +228,7 @@ export const getClientsAvailableForTimeSlot = (clients = [], date, timeSlot) => 
   
   return getClientsAvailableForDate(clients, date).filter(client => {
     // Check if client is available for this time slot
-    const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+    const availableTimeSlots = client.availableTimeSlots || getAvailableTimeSlotsForProgram(client.program || 'limitless').map(slot => slot.id);
     return availableTimeSlots.includes(timeSlot);
   });
 };
@@ -236,13 +257,13 @@ export const getClientAvailabilityForDate = (client, schedules = [], date) => {
     weekday: 'long' 
   }).toLowerCase();
   
-  const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  const workingDays = client.workingDays || getWorkingDaysForProgram(client.program || 'limitless');
   if (!workingDays.includes(dayName)) {
     return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
   }
   
-  // Get client's available time slots
-  const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+  // Get client's available time slots - use flexible slots based on their program
+  const availableTimeSlots = client.availableTimeSlots || getAvailableTimeSlotsForProgram(client.program || 'limitless').map(slot => slot.id);
   const totalSlots = availableTimeSlots.length;
   
   // Count how many of their available slots are already scheduled
@@ -267,7 +288,7 @@ export const getClientAvailabilityForDate = (client, schedules = [], date) => {
 };
 
 /**
- * NEW: Get unscheduled clients for a specific date (respects individual schedules)
+ * UPDATED: Get unscheduled clients for a specific date (respects individual schedules)
  * @param {Array} clients - All clients
  * @param {Array} schedules - All schedules 
  * @param {string} date - Date string (YYYY-MM-DD)
@@ -305,7 +326,7 @@ export const getFullyScheduledClientsForDate = (clients = [], schedules = [], da
 };
 
 /**
- * NEW: Get working days display string for client
+ * UPDATED: Get working days display string for client (supports weekends)
  * @param {Array} workingDays - Array of day names
  * @returns {string} Formatted working days string
  */
@@ -328,7 +349,7 @@ export const formatWorkingDays = (workingDays = []) => {
 };
 
 /**
- * NEW: Get time slots display string for client
+ * UPDATED: Get time slots display string for client (supports flexible slots)
  * @param {Array} availableTimeSlots - Array of time slot IDs
  * @returns {string} Formatted time slots string
  */
@@ -337,13 +358,42 @@ export const formatAvailableTimeSlots = (availableTimeSlots = []) => {
     return 'No time slots set';
   }
   
-  const timeSlotLabels = {
-    '8-10': '8-10 AM',
-    '10-12': '10-12 PM', 
-    '1230-230': '12:30-2:30 PM'
-  };
+  const timeSlotLabels = {};
+  TIME_SLOTS.forEach(slot => {
+    timeSlotLabels[slot.id] = slot.label.replace(' PST', '');
+  });
   
   return availableTimeSlots.map(slot => timeSlotLabels[slot] || slot).join(', ');
+};
+
+/**
+ * NEW: Check if a time slot is an early morning slot (before 8 AM)
+ * @param {string} timeSlotId - Time slot ID
+ * @returns {boolean} True if it's an early morning slot
+ */
+export const isEarlyMorningSlot = (timeSlotId) => {
+  return timeSlotId === '7-9' || timeSlotId.startsWith('7');
+};
+
+/**
+ * NEW: Check if a time slot is a weekend/event slot
+ * @param {string} timeSlotId - Time slot ID
+ * @returns {boolean} True if it's a weekend/event slot
+ */
+export const isWeekendEventSlot = (timeSlotId) => {
+  return timeSlotId.includes('weekend') || timeSlotId === 'custom';
+};
+
+/**
+ * NEW: Get time slot category for styling/grouping
+ * @param {string} timeSlotId - Time slot ID
+ * @returns {string} Category: 'early', 'regular', 'weekend', 'custom'
+ */
+export const getTimeSlotCategory = (timeSlotId) => {
+  if (isEarlyMorningSlot(timeSlotId)) return 'early';
+  if (isWeekendEventSlot(timeSlotId)) return 'weekend';
+  if (timeSlotId === 'custom') return 'custom';
+  return 'regular';
 };
 
 /**
@@ -659,4 +709,111 @@ export const convertMetersToExactMiles = (metersDistance) => {
   
   // Return with 3 decimal places for billing accuracy
   return parseMileageToExact(miles);
+};
+
+// NEW: INTERNSHIP HELPERS
+
+/**
+ * Calculate business days for internship scheduling
+ * @param {Date} startDate - Start date
+ * @param {Date} endDate - End date
+ * @param {Array} workingDays - Array of working day names
+ * @returns {number} Number of business days
+ */
+export const calculateInternshipBusinessDays = (startDate, endDate, workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']) => {
+  let count = 0;
+  const current = new Date(startDate);
+  
+  while (current <= endDate) {
+    const dayName = current.toLocaleDateString('en-US', { 
+      timeZone: 'America/Los_Angeles',
+      weekday: 'long' 
+    }).toLowerCase();
+    
+    if (workingDays.includes(dayName)) {
+      count++;
+    }
+    
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return count;
+};
+
+/**
+ * Calculate estimated internship completion date
+ * @param {Date} startDate - Start date
+ * @param {number} totalBusinessDays - Total business days needed
+ * @param {Array} workingDays - Array of working day names
+ * @returns {Date} Estimated completion date
+ */
+export const calculateInternshipEndDate = (startDate, totalBusinessDays = 30, workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']) => {
+  let count = 0;
+  const current = new Date(startDate);
+  
+  while (count < totalBusinessDays) {
+    const dayName = current.toLocaleDateString('en-US', { 
+      timeZone: 'America/Los_Angeles',
+      weekday: 'long' 
+    }).toLowerCase();
+    
+    if (workingDays.includes(dayName)) {
+      count++;
+    }
+    
+    if (count < totalBusinessDays) {
+      current.setDate(current.getDate() + 1);
+    }
+  }
+  
+  return current;
+};
+
+/**
+ * Format internship status for display
+ * @param {string} status - Internship status
+ * @returns {Object} Status display information
+ */
+export const formatInternshipStatus = (status) => {
+  const statusMap = {
+    'planned': { label: 'Planned', color: 'bg-blue-100 text-blue-800', icon: '📋' },
+    'in_progress': { label: 'In Progress', color: 'bg-green-100 text-green-800', icon: '🏃' },
+    'completed': { label: 'Completed', color: 'bg-purple-100 text-purple-800', icon: '✅' },
+    'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: '❌' }
+  };
+  
+  return statusMap[status] || { label: 'Unknown', color: 'bg-gray-100 text-gray-800', icon: '❓' };
+};
+
+/**
+ * Get next internship number for a client
+ * @param {Array} existingInternships - Client's existing internships
+ * @returns {number} Next internship number
+ */
+export const getNextInternshipNumber = (existingInternships = []) => {
+  if (!Array.isArray(existingInternships)) return 1;
+  return existingInternships.length + 1;
+};
+
+/**
+ * Check if client has completed required internships (3 for Bridges)
+ * @param {Array} internships - Client's internships
+ * @returns {Object} Completion status information
+ */
+export const checkInternshipRequirements = (internships = []) => {
+  if (!Array.isArray(internships)) {
+    return { completed: 0, required: 3, isComplete: false, remaining: 3 };
+  }
+  
+  const completed = internships.filter(i => i.status === 'completed').length;
+  const required = 3; // Bridges program requires 3 internships
+  const remaining = Math.max(0, required - completed);
+  
+  return {
+    completed,
+    required,
+    isComplete: completed >= required,
+    remaining,
+    totalDays: internships.reduce((sum, i) => sum + (i.completedDays || 0), 0)
+  };
 };
