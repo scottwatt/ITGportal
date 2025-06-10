@@ -1,4 +1,4 @@
-// src/hooks/useAppState.js - Fixed to prevent undefined array errors + Mileage Tracker - FIXED RE-RENDERS
+// src/hooks/useAppState.js - UPDATED with complete internship integration
 import { useState, useMemo } from 'react';
 import { useClients } from './useClients';
 import { useCoaches } from './useCoaches';
@@ -7,7 +7,8 @@ import { useCoachAvailability } from './useCoachAvailability';
 import { useGraceAttendance } from './useGraceAttendance';
 import { useTasks } from './useTasks';
 import { useMileageTracker } from './useMileageTracker';
-import { useAuth } from './useAuth'; // ADD THIS IMPORT to get current user
+import { useInternships } from './useInternships'; // ADD internships hook
+import { useAuth } from './useAuth';
 
 export const useAppState = (isAuthenticated) => {
   // UI State
@@ -26,6 +27,9 @@ export const useAppState = (isAuthenticated) => {
   const coachAvailabilityHook = useCoachAvailability(isAuthenticated);
   const graceAttendanceHook = useGraceAttendance(isAuthenticated); 
   const tasksHook = useTasks(isAuthenticated);
+  
+  // ADD: Internships hook for all internships (admins/coaches need to see all)
+  const internshipsHook = useInternships(null, isAuthenticated); // null = get all internships
   
   // FIXED: Memoize coach lookup to prevent re-renders
   const currentCoachId = useMemo(() => {
@@ -121,23 +125,19 @@ export const useAppState = (isAuthenticated) => {
     
     addFile: async (clientId, fileData) => {
       try {
-        // For now, we'll simulate file addition since the actual file upload
-        // would need Firebase Storage integration
         const newFile = {
           id: Date.now().toString(),
           ...fileData,
           uploadDate: new Date().toISOString().split('T')[0],
-          uploadedBy: 'Current User', // Would get from auth context
+          uploadedBy: 'Current User',
           uploadedAt: new Date()
         };
         
-        // Get current client
         const client = clientsHook.getClientById(clientId);
         if (!client) {
           throw new Error('Client not found');
         }
         
-        // Update client with new file
         const updatedFiles = [...(client.files || []), newFile];
         await clientsHook.updateClientProgress(clientId, {
           files: updatedFiles
@@ -152,13 +152,11 @@ export const useAppState = (isAuthenticated) => {
     
     removeFile: async (clientId, fileId) => {
       try {
-        // Get current client
         const client = clientsHook.getClientById(clientId);
         if (!client) {
           throw new Error('Client not found');
         }
         
-        // Remove file from array
         const updatedFiles = (client.files || []).filter(f => f.id !== fileId);
         await clientsHook.updateClientProgress(clientId, {
           files: updatedFiles
@@ -503,10 +501,117 @@ export const useAppState = (isAuthenticated) => {
     getTaskCompletionRate: tasksHook.getTaskCompletionRate
   };
 
+  // NEW: Complete internship actions
+  const internshipActions = useMemo(() => {
+    if (!internshipsHook.add) {
+      return null;
+    }
+
+    return {
+      add: async (internshipData) => {
+        try {
+          const result = await internshipsHook.add(internshipData);
+          return result;
+        } catch (error) {
+          console.error('Error adding internship:', error);
+          throw error;
+        }
+      },
+      
+      update: async (internshipId, updates) => {
+        try {
+          await internshipsHook.update(internshipId, updates);
+        } catch (error) {
+          console.error('Error updating internship:', error);
+          throw error;
+        }
+      },
+      
+      remove: async (internshipId) => {
+        try {
+          await internshipsHook.remove(internshipId);
+        } catch (error) {
+          console.error('Error deleting internship:', error);
+          throw error;
+        }
+      },
+      
+      start: async (internshipId, actualStartDate) => {
+        try {
+          await internshipsHook.start(internshipId, actualStartDate);
+        } catch (error) {
+          console.error('Error starting internship:', error);
+          throw error;
+        }
+      },
+      
+      complete: async (internshipId, completionDate, completionData = {}) => {
+        try {
+          await internshipsHook.complete(internshipId, completionDate, completionData);
+        } catch (error) {
+          console.error('Error completing internship:', error);
+          throw error;
+        }
+      },
+      
+      cancel: async (internshipId, reason) => {
+        try {
+          await internshipsHook.cancel(internshipId, reason);
+        } catch (error) {
+          console.error('Error cancelling internship:', error);
+          throw error;
+        }
+      },
+      
+      markDay: async (internshipId, date, dayData) => {
+        try {
+          await internshipsHook.markDay(internshipId, date, dayData);
+        } catch (error) {
+          console.error('Error marking internship day:', error);
+          throw error;
+        }
+      },
+      
+      addEvaluation: async (internshipId, evaluationData) => {
+        try {
+          await internshipsHook.addEvaluation(internshipId, evaluationData);
+        } catch (error) {
+          console.error('Error adding evaluation:', error);
+          throw error;
+        }
+      },
+      
+      getForClient: async (clientId) => {
+        try {
+          return await internshipsHook.getForClient(clientId);
+        } catch (error) {
+          console.error('Error getting internships for client:', error);
+          throw error;
+        }
+      },
+      
+      getClientStats: async (clientId) => {
+        try {
+          return await internshipsHook.getClientStats(clientId);
+        } catch (error) {
+          console.error('Error getting client internship stats:', error);
+          throw error;
+        }
+      },
+      
+      // Helper methods
+      getByStatus: internshipsHook.getByStatus,
+      getCurrent: internshipsHook.getCurrent,
+      getCompleted: internshipsHook.getCompleted,
+      getTotalDays: internshipsHook.getTotalDays,
+      getProgress: internshipsHook.getProgress
+    };
+  }, [internshipsHook]);
+
   // FIXED: Memoize mileage actions to prevent re-creation on every render
   const mileageActions = useMemo(() => {
     if (!mileageHook.addRecord) {
-      return null; // Return null if mileage hook isn't ready
+      return null;
     }
 
     return {
@@ -556,11 +661,10 @@ export const useAppState = (isAuthenticated) => {
     };
   }, [mileageHook]);
 
-  // Loading state - true if any critical data is still loading (excluding mileage)
+  // Loading state - true if any critical data is still loading
   const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || 
                   coachAvailabilityHook.loading || graceAttendanceHook.loading || 
-                  tasksHook.loading;
-                  // Note: mileageHook.loading is excluded so it doesn't block app startup
+                  tasksHook.loading || internshipsHook.loading;
 
   // Error state - collect all errors
   const errors = [
@@ -570,7 +674,8 @@ export const useAppState = (isAuthenticated) => {
     coachAvailabilityHook.error,
     graceAttendanceHook.error,
     tasksHook.error,
-    mileageHook.error
+    mileageHook.error,
+    internshipsHook.error
   ].filter(Boolean);
 
   // FIXED: Always ensure arrays are returned, even during loading/error states
@@ -581,6 +686,7 @@ export const useAppState = (isAuthenticated) => {
   const safeAttendanceRecords = Array.isArray(graceAttendanceHook.attendanceRecords) ? graceAttendanceHook.attendanceRecords : [];
   const safeTasks = Array.isArray(tasksHook.tasks) ? tasksHook.tasks : [];
   const safeMileageRecords = Array.isArray(mileageHook.records) ? mileageHook.records : [];
+  const safeInternships = Array.isArray(internshipsHook.internships) ? internshipsHook.internships : [];
 
   return {
     // UI State
@@ -600,6 +706,7 @@ export const useAppState = (isAuthenticated) => {
     attendanceRecords: safeAttendanceRecords,
     tasks: safeTasks,
     mileageRecords: safeMileageRecords,
+    internships: safeInternships, // ADD internships to state
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -615,7 +722,8 @@ export const useAppState = (isAuthenticated) => {
     availabilityActions,
     graceAttendanceActions,
     taskActions,
-    mileageActions, // FIXED: Now memoized
+    mileageActions,
+    internshipActions, // ADD internship actions
 
     // Utility functions
     utils: {
@@ -627,6 +735,16 @@ export const useAppState = (isAuthenticated) => {
       // Get Grace clients
       getGraceClients: () => {
         return safeClients.filter(client => client?.program === 'grace');
+      },
+      
+      // NEW: Get Bridges clients (for internship management)
+      getBridgesClients: () => {
+        return safeClients.filter(client => client?.program === 'bridges');
+      },
+      
+      // NEW: Get internships for client
+      getInternshipsForClient: (clientId) => {
+        return safeInternships.filter(internship => internship?.clientId === clientId);
       },
       
       // Get schedule statistics
@@ -652,6 +770,22 @@ export const useAppState = (isAuthenticated) => {
           totalGraceClients: graceClients.length,
           ...attendanceData,
           attendanceRate: attendanceData.total > 0 ? Math.round((attendanceData.present / attendanceData.total) * 100) : 0
+        };
+      },
+      
+      // NEW: Get internship statistics
+      getInternshipStats: () => {
+        const bridges = safeClients.filter(client => client?.program === 'bridges');
+        const totalInternships = safeInternships.length;
+        const activeInternships = safeInternships.filter(i => i.status === 'in_progress').length;
+        const completedInternships = safeInternships.filter(i => i.status === 'completed').length;
+        
+        return {
+          totalBridgesClients: bridges.length,
+          totalInternships,
+          activeInternships,
+          completedInternships,
+          completionRate: totalInternships > 0 ? Math.round((completedInternships / totalInternships) * 100) : 0
         };
       },
       
