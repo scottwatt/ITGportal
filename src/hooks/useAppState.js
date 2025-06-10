@@ -503,110 +503,193 @@ export const useAppState = (isAuthenticated) => {
 
   // NEW: Complete internship actions
   const internshipActions = useMemo(() => {
-    if (!internshipsHook.add) {
-      return null;
-    }
+  console.log('🔍 Creating internshipActions...', {
+    hasInternshipsHook: !!internshipsHook,
+    internshipsHookKeys: internshipsHook ? Object.keys(internshipsHook) : 'none',
+    hasAddFunction: !!internshipsHook?.add,
+    loading: internshipsHook?.loading,
+    error: internshipsHook?.error,
+    internshipsLength: internshipsHook?.internships?.length || 0
+  });
 
+  // FIXED: Always return an object, even if hook is not ready
+  if (!internshipsHook) {
+    console.warn('⚠️ internshipsHook not available yet, returning placeholder actions');
     return {
-      add: async (internshipData) => {
-        try {
-          const result = await internshipsHook.add(internshipData);
-          return result;
-        } catch (error) {
-          console.error('Error adding internship:', error);
-          throw error;
-        }
-      },
-      
-      update: async (internshipId, updates) => {
-        try {
-          await internshipsHook.update(internshipId, updates);
-        } catch (error) {
-          console.error('Error updating internship:', error);
-          throw error;
-        }
-      },
-      
-      remove: async (internshipId) => {
-        try {
-          await internshipsHook.remove(internshipId);
-        } catch (error) {
-          console.error('Error deleting internship:', error);
-          throw error;
-        }
-      },
-      
-      start: async (internshipId, actualStartDate) => {
-        try {
-          await internshipsHook.start(internshipId, actualStartDate);
-        } catch (error) {
-          console.error('Error starting internship:', error);
-          throw error;
-        }
-      },
-      
-      complete: async (internshipId, completionDate, completionData = {}) => {
-        try {
-          await internshipsHook.complete(internshipId, completionDate, completionData);
-        } catch (error) {
-          console.error('Error completing internship:', error);
-          throw error;
-        }
-      },
-      
-      cancel: async (internshipId, reason) => {
-        try {
-          await internshipsHook.cancel(internshipId, reason);
-        } catch (error) {
-          console.error('Error cancelling internship:', error);
-          throw error;
-        }
-      },
-      
-      markDay: async (internshipId, date, dayData) => {
-        try {
-          await internshipsHook.markDay(internshipId, date, dayData);
-        } catch (error) {
-          console.error('Error marking internship day:', error);
-          throw error;
-        }
-      },
-      
-      addEvaluation: async (internshipId, evaluationData) => {
-        try {
-          await internshipsHook.addEvaluation(internshipId, evaluationData);
-        } catch (error) {
-          console.error('Error adding evaluation:', error);
-          throw error;
-        }
-      },
-      
-      getForClient: async (clientId) => {
-        try {
-          return await internshipsHook.getForClient(clientId);
-        } catch (error) {
-          console.error('Error getting internships for client:', error);
-          throw error;
-        }
-      },
-      
-      getClientStats: async (clientId) => {
-        try {
-          return await internshipsHook.getClientStats(clientId);
-        } catch (error) {
-          console.error('Error getting client internship stats:', error);
-          throw error;
-        }
-      },
-      
-      // Helper methods
-      getByStatus: internshipsHook.getByStatus,
-      getCurrent: internshipsHook.getCurrent,
-      getCompleted: internshipsHook.getCompleted,
-      getTotalDays: internshipsHook.getTotalDays,
-      getProgress: internshipsHook.getProgress
+      add: async () => { throw new Error('Internship system not ready'); },
+      update: async () => { throw new Error('Internship system not ready'); },
+      remove: async () => { throw new Error('Internship system not ready'); },
+      start: async () => { throw new Error('Internship system not ready'); },
+      complete: async () => { throw new Error('Internship system not ready'); },
+      getForClient: async () => { throw new Error('Internship system not ready'); },
+      getClientStats: async () => { throw new Error('Internship system not ready'); }
     };
-  }, [internshipsHook]);
+  }
+
+  // FIXED: Check for individual functions instead of just .add
+  if (!internshipsHook.add || !internshipsHook.update || !internshipsHook.remove) {
+    console.warn('❌ internshipsHook missing required functions:', {
+      hasAdd: !!internshipsHook.add,
+      hasUpdate: !!internshipsHook.update,
+      hasRemove: !!internshipsHook.remove
+    });
+    
+    // Return placeholder actions that show helpful error messages
+    return {
+      add: async () => { 
+        alert('Internship management is still loading. Please wait a moment and try again.');
+        throw new Error('Internship hook not ready'); 
+      },
+      update: async () => { 
+        alert('Internship management is still loading. Please wait a moment and try again.');
+        throw new Error('Internship hook not ready'); 
+      },
+      remove: async () => { 
+        alert('Internship management is still loading. Please wait a moment and try again.');
+        throw new Error('Internship hook not ready'); 
+      },
+      start: async () => { 
+        alert('Internship management is still loading. Please wait a moment and try again.');
+        throw new Error('Internship hook not ready'); 
+      },
+      complete: async () => { 
+        alert('Internship management is still loading. Please wait a moment and try again.');
+        throw new Error('Internship hook not ready'); 
+      },
+      getForClient: async () => { 
+        throw new Error('Internship hook not ready'); 
+      },
+      getClientStats: async () => { 
+        throw new Error('Internship hook not ready'); 
+      }
+    };
+  }
+
+  const actions = {
+    add: async (internshipData) => {
+      try {
+        console.log('➕ Adding internship via actions:', internshipData);
+        const result = await internshipsHook.add(internshipData);
+        console.log('✅ Internship added successfully:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Error adding internship:', error);
+        throw error;
+      }
+    },
+    
+    update: async (internshipId, updates) => {
+      try {
+        console.log('📝 Updating internship via actions:', internshipId, updates);
+        await internshipsHook.update(internshipId, updates);
+        console.log('✅ Internship updated successfully');
+      } catch (error) {
+        console.error('❌ Error updating internship:', error);
+        throw error;
+      }
+    },
+    
+    remove: async (internshipId) => {
+      try {
+        console.log('🗑️ Removing internship via actions:', internshipId);
+        await internshipsHook.remove(internshipId);
+        console.log('✅ Internship removed successfully');
+      } catch (error) {
+        console.error('❌ Error removing internship:', error);
+        throw error;
+      }
+    },
+    
+    start: async (internshipId, actualStartDate) => {
+      try {
+        console.log('🚀 Starting internship via actions:', internshipId, actualStartDate);
+        await internshipsHook.start(internshipId, actualStartDate);
+        console.log('✅ Internship started successfully');
+      } catch (error) {
+        console.error('❌ Error starting internship:', error);
+        throw error;
+      }
+    },
+    
+    complete: async (internshipId, completionDate, completionData = {}) => {
+      try {
+        console.log('🎯 Completing internship via actions:', internshipId, completionDate);
+        await internshipsHook.complete(internshipId, completionDate, completionData);
+        console.log('✅ Internship completed successfully');
+      } catch (error) {
+        console.error('❌ Error completing internship:', error);
+        throw error;
+      }
+    },
+    
+    cancel: async (internshipId, reason) => {
+      try {
+        console.log('❌ Cancelling internship via actions:', internshipId, reason);
+        await internshipsHook.cancel(internshipId, reason);
+        console.log('✅ Internship cancelled successfully');
+      } catch (error) {
+        console.error('❌ Error cancelling internship:', error);
+        throw error;
+      }
+    },
+    
+    markDay: async (internshipId, date, dayData) => {
+      try {
+        console.log('📅 Marking internship day via actions:', internshipId, date);
+        await internshipsHook.markDay(internshipId, date, dayData);
+        console.log('✅ Internship day marked successfully');
+      } catch (error) {
+        console.error('❌ Error marking internship day:', error);
+        throw error;
+      }
+    },
+    
+    addEvaluation: async (internshipId, evaluationData) => {
+      try {
+        console.log('📝 Adding evaluation via actions:', internshipId);
+        await internshipsHook.addEvaluation(internshipId, evaluationData);
+        console.log('✅ Evaluation added successfully');
+      } catch (error) {
+        console.error('❌ Error adding evaluation:', error);
+        throw error;
+      }
+    },
+    
+    getForClient: async (clientId) => {
+      try {
+        console.log('📋 Getting internships for client via actions:', clientId);
+        const result = await internshipsHook.getForClient(clientId);
+        console.log('✅ Client internships retrieved:', result.length);
+        return result;
+      } catch (error) {
+        console.error('❌ Error getting client internships:', error);
+        throw error;
+      }
+    },
+    
+    getClientStats: async (clientId) => {
+      try {
+        console.log('📊 Getting client stats via actions:', clientId);
+        const result = await internshipsHook.getClientStats(clientId);
+        console.log('✅ Client stats retrieved:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Error getting client stats:', error);
+        throw error;
+      }
+    },
+    
+    // Helper methods from hook
+    getByStatus: internshipsHook.getByStatus,
+    getCurrent: internshipsHook.getCurrent,
+    getCompleted: internshipsHook.getCompleted,
+    getTotalDays: internshipsHook.getTotalDays,
+    getProgress: internshipsHook.getProgress
+  };
+
+  console.log('✅ internshipActions created successfully with functions:', Object.keys(actions));
+  return actions;
+}, [internshipsHook]);
 
   // FIXED: Memoize mileage actions to prevent re-creation on every render
   const mileageActions = useMemo(() => {

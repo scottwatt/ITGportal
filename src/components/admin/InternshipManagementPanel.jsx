@@ -1,5 +1,6 @@
-// src/components/admin/InternshipManagementPanel.jsx - Complete internship management for coaches/admins
-import React, { useState, useEffect } from 'react';
+// src/components/admin/InternshipManagementPanel.jsx - FIXED infinite loop issue
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Briefcase, 
   Plus, 
@@ -48,16 +49,20 @@ const InternshipManagementPanel = ({
   const [editingInternship, setEditingInternship] = useState(null);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Get Bridges clients only
-  const bridgesClients = clients.filter(client => client.program === 'bridges');
+  // FIXED: Memoize bridgesClients to prevent infinite re-renders
+  const bridgesClients = useMemo(() => {
+    return clients.filter(client => client.program === 'bridges');
+  }, [clients]);
 
-  // Load overall stats
+  // FIXED: Calculate stats with stable dependencies
   useEffect(() => {
-    loadOverallStats();
-  }, [internships, bridgesClients]);
+    console.log('🔄 Calculating internship stats from props...', { 
+      totalInternships: internships.length, 
+      bridgesClients: bridgesClients.length 
+    });
 
-  const loadOverallStats = () => {
     const totalInternships = internships.length;
     const activeInternships = internships.filter(i => i.status === INTERNSHIP_STATUS.IN_PROGRESS).length;
     const completedInternships = internships.filter(i => i.status === INTERNSHIP_STATUS.COMPLETED).length;
@@ -79,12 +84,12 @@ const InternshipManagementPanel = ({
         completedCount: completed,
         inProgressCount: inProgress,
         totalDaysCompleted: totalDays,
-        isOnTrack: completed >= 1 || inProgress > 0, // Has at least 1 completed or active
+        isOnTrack: completed >= 1 || inProgress > 0,
         needsAttention: clientInternships.length === 0 || (completed === 0 && inProgress === 0)
       };
     });
 
-    setStats({
+    const newStats = {
       totalBridgesClients: bridgesClients.length,
       totalInternships,
       activeInternships,
@@ -95,31 +100,21 @@ const InternshipManagementPanel = ({
       averageDaysPerInternship: totalInternships > 0 ? Math.round(totalDaysCompleted / totalInternships) : 0,
       completionRate: totalInternships > 0 ? Math.round((completedInternships / totalInternships) * 100) : 0,
       clientStats
-    });
-  };
+    };
 
-  // Filter internships based on current filters
-  const getFilteredInternships = () => {
-    let filtered = internships;
-
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(i => i.status === filterStatus);
-    }
-
-    if (filterType !== 'all') {
-      filtered = filtered.filter(i => i.type === filterType);
-    }
-
-    return filtered;
-  };
+    console.log('✅ Stats calculated:', newStats);
+    setStats(newStats);
+  }, [internships, bridgesClients]); // FIXED: Now bridgesClients is stable
 
   const handleAddInternship = (client = null) => {
+    console.log('➕ Adding internship for client:', client?.name || 'No specific client');
     setSelectedClient(client);
     setEditingInternship(null);
     setShowForm(true);
   };
 
   const handleEditInternship = (internship) => {
+    console.log('📝 Editing internship:', internship.id);
     const client = clients.find(c => c.id === internship.clientId);
     setSelectedClient(client);
     setEditingInternship(internship);
@@ -127,36 +122,63 @@ const InternshipManagementPanel = ({
   };
 
   const handleDeleteInternship = async (internship) => {
+    if (!internshipActions?.remove) {
+      alert('Internship management not available');
+      return;
+    }
+
     if (window.confirm(`Are you sure you want to delete the internship at ${internship.companyName}?`)) {
       try {
+        setLoading(true);
         await internshipActions.remove(internship.id);
         alert('Internship deleted successfully');
       } catch (error) {
+        console.error('❌ Error deleting internship:', error);
         alert('Error deleting internship: ' + error.message);
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   const handleStartInternship = async (internship) => {
+    if (!internshipActions?.start) {
+      alert('Internship management not available');
+      return;
+    }
+
     if (window.confirm(`Start the internship at ${internship.companyName}?`)) {
       try {
+        setLoading(true);
         const today = new Date().toISOString().split('T')[0];
         await internshipActions.start(internship.id, today);
         alert('Internship started successfully');
       } catch (error) {
+        console.error('❌ Error starting internship:', error);
         alert('Error starting internship: ' + error.message);
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   const handleCompleteInternship = async (internship) => {
+    if (!internshipActions?.complete) {
+      alert('Internship management not available');
+      return;
+    }
+
     if (window.confirm(`Mark the internship at ${internship.companyName} as completed?`)) {
       try {
+        setLoading(true);
         const today = new Date().toISOString().split('T')[0];
         await internshipActions.complete(internship.id, today);
         alert('Internship completed successfully');
       } catch (error) {
+        console.error('❌ Error completing internship:', error);
         alert('Error completing internship: ' + error.message);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -191,7 +213,30 @@ const InternshipManagementPanel = ({
     }
   };
 
-  const filteredInternships = getFilteredInternships();
+  // FIXED: Memoize filtered internships to prevent unnecessary recalculations
+  const filteredInternships = useMemo(() => {
+    let filtered = internships;
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(i => i.status === filterStatus);
+    }
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter(i => i.type === filterType);
+    }
+
+    return filtered;
+  }, [internships, filterStatus, filterType]);
+
+  // Show loading state only for actions, not initial load
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5A4E69] mx-auto"></div>
+        <p className="text-[#707070] mt-2">Processing internship action...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -660,6 +705,14 @@ const InternshipManagementPanel = ({
                     <Briefcase size={48} className="mx-auto mb-4" />
                     <h4 className="text-lg font-medium mb-2">No Internships Found</h4>
                     <p>No internships match the current filters.</p>
+                    {bridgesClients.length > 0 && (
+                      <button
+                        onClick={() => handleAddInternship()}
+                        className="mt-4 bg-[#5A4E69] text-white px-6 py-2 rounded-md hover:bg-[#292929]"
+                      >
+                        Add First Internship
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -764,18 +817,28 @@ const InternshipManagementPanel = ({
             </div>
 
             <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-              <ClientInternshipsTab
-                client={selectedClient}
-                userProfile={userProfile}
-                internshipActions={internshipActions}
-                canEdit={canManageInternships(userProfile)}
-              />
+              {internshipActions ? (
+                <ClientInternshipsTab
+                  client={selectedClient}
+                  userProfile={userProfile}
+                  internshipActions={internshipActions}
+                  canEdit={canManageInternships(userProfile)}
+                />
+              ) : (
+                <div className="p-6 text-center">
+                  <p className="text-[#707070]">Internship management not available</p>
+                  <button
+                    onClick={() => setSelectedClient(null)}
+                    className="mt-4 bg-[#6D858E] text-white px-4 py-2 rounded"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-
-      {/* Internship Form would go here - you can reuse the form from ClientInternshipsTab */}
     </div>
   );
 };

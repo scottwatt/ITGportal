@@ -1,4 +1,4 @@
-// src/hooks/useInternships.js - UPDATED with better error handling and all internships support
+// src/hooks/useInternships.js - FIXED with better error handling and fallback logic
 
 import { useState, useEffect } from 'react';
 import { 
@@ -14,7 +14,7 @@ import {
   cancelInternship,
   getClientInternshipStats,
   subscribeToClientInternships,
-  subscribeToInternships // ADD this import for all internships
+  subscribeToInternships
 } from '../services/firebase/internships';
 
 export const useInternships = (clientId = null, isAuthenticated = false) => {
@@ -22,41 +22,77 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Set up real-time subscription
+  // Set up real-time subscription with better error handling
   useEffect(() => {
     if (!isAuthenticated) {
       setInternships([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
+    console.log('🔄 Setting up internships subscription...', { clientId });
+    
     let unsubscribe;
+    let timeoutId;
 
-    if (clientId) {
-      // Subscribe to specific client's internships
-      unsubscribe = subscribeToClientInternships(clientId, (internshipsData) => {
-        setInternships(internshipsData);
-        setLoading(false);
-        setError(null);
-      });
-    } else {
-      // Subscribe to ALL internships (for admins/coaches)
-      unsubscribe = subscribeToInternships((internshipsData) => {
-        setInternships(internshipsData);
-        setLoading(false);
-        setError(null);
-      });
+    // Set a timeout to catch hanging subscriptions
+    timeoutId = setTimeout(() => {
+      console.warn('⚠️ Internships subscription timeout - falling back to empty state');
+      setLoading(false);
+      setError('Subscription timeout - please refresh the page');
+    }, 10000); // 10 second timeout
+
+    try {
+      if (clientId) {
+        // Subscribe to specific client's internships
+        console.log('📋 Subscribing to client internships:', clientId);
+        unsubscribe = subscribeToClientInternships(clientId, (internshipsData) => {
+          console.log('✅ Client internships loaded:', internshipsData.length);
+          clearTimeout(timeoutId);
+          setInternships(internshipsData);
+          setLoading(false);
+          setError(null);
+        });
+      } else {
+        // Subscribe to ALL internships (for admins/coaches)
+        console.log('📋 Subscribing to all internships');
+        unsubscribe = subscribeToInternships((internshipsData) => {
+          console.log('✅ All internships loaded:', internshipsData.length);
+          clearTimeout(timeoutId);
+          setInternships(internshipsData);
+          setLoading(false);
+          setError(null);
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error setting up internships subscription:', error);
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setError(error.message);
+      setInternships([]);
     }
 
-    return () => unsubscribe && unsubscribe();
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (unsubscribe) {
+        console.log('🔌 Unsubscribing from internships');
+        unsubscribe();
+      }
+    };
   }, [isAuthenticated, clientId]);
 
   const addNewInternship = async (internshipData) => {
     try {
       setError(null);
+      console.log('➕ Adding new internship:', internshipData);
       const result = await addInternship(internshipData);
+      console.log('✅ Internship added successfully:', result.id);
       return result;
     } catch (error) {
+      console.error('❌ Error adding internship:', error);
       setError(error.message);
       throw error;
     }
@@ -65,8 +101,11 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
   const updateInternshipData = async (internshipId, updates) => {
     try {
       setError(null);
+      console.log('📝 Updating internship:', internshipId, updates);
       await updateInternship(internshipId, updates);
+      console.log('✅ Internship updated successfully');
     } catch (error) {
+      console.error('❌ Error updating internship:', error);
       setError(error.message);
       throw error;
     }
@@ -75,8 +114,11 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
   const removeInternshipData = async (internshipId) => {
     try {
       setError(null);
+      console.log('🗑️ Removing internship:', internshipId);
       await removeInternship(internshipId);
+      console.log('✅ Internship removed successfully');
     } catch (error) {
+      console.error('❌ Error removing internship:', error);
       setError(error.message);
       throw error;
     }
@@ -85,8 +127,12 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
   const getInternshipsForClientData = async (clientId) => {
     try {
       setError(null);
-      return await getInternshipsForClient(clientId);
+      console.log('📋 Getting internships for client:', clientId);
+      const result = await getInternshipsForClient(clientId);
+      console.log('✅ Client internships retrieved:', result.length);
+      return result;
     } catch (error) {
+      console.error('❌ Error getting client internships:', error);
       setError(error.message);
       throw error;
     }
@@ -200,17 +246,14 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
     return Math.round((completed / total) * 100);
   };
 
-  // NEW: Get internships by client
   const getInternshipsForSpecificClient = (clientId) => {
     return internships.filter(internship => internship.clientId === clientId);
   };
 
-  // NEW: Get all active internships
   const getAllActiveInternships = () => {
     return internships.filter(internship => internship.status === 'in_progress');
   };
 
-  // NEW: Get internships needing attention
   const getInternshipsNeedingAttention = () => {
     return internships.filter(internship => {
       if (internship.status !== 'in_progress') return false;
@@ -219,7 +262,6 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
       const totalDays = internship.totalBusinessDays || 30;
       const progress = daysCompleted / totalDays;
       
-      // Flag internships that are overdue or have low progress
       return progress < 0.1 || daysCompleted === 0;
     });
   };
