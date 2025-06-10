@@ -1,4 +1,4 @@
-// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing + Week View
+// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing + Week View + Individual Client Schedules
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
@@ -23,7 +23,7 @@ import EnhancedCoachAvailabilityManager from './EnhancedCoachAvailabilityManager
 import CalendarConfiguration from './CalendarConfiguration';
 import AdminMileageOverview from './AdminMileageOverview';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
-import { generateTempPassword, cleanFormData } from '../../utils/helpers';
+import { generateTempPassword, cleanFormData, formatWorkingDays, formatAvailableTimeSlots } from '../../utils/helpers';
 import { isCalendarAPIReady } from '../../services/googleCalendar/calendarService';
 
 const PasswordInfoSection = () => (
@@ -85,7 +85,9 @@ const AdminPanel = ({
     name: '', email: '', phone: '', jobGoal: '', businessName: '', 
     equipment: '', strengths: '', challenges: '', coachingApproach: '', 
     businessDescription: '', currentGoals: '', program: 'limitless',
-    dailyTaskCoachId: '' // NEW: For task coach assignment
+    dailyTaskCoachId: '', // NEW: For task coach assignment
+    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], // NEW: Working days
+    availableTimeSlots: ['8-10', '10-12', '1230-230'] // NEW: Available time slots
   });
  
   const [newCoach, setNewCoach] = useState({
@@ -271,6 +273,38 @@ const AdminPanel = ({
     );
   };
 
+  // NEW: Handle working days change for client
+  const handleWorkingDaysChange = (day, isChecked) => {
+    const currentWorkingDays = newClient.workingDays || [];
+    if (isChecked) {
+      setNewClient({
+        ...newClient,
+        workingDays: [...currentWorkingDays, day]
+      });
+    } else {
+      setNewClient({
+        ...newClient,
+        workingDays: currentWorkingDays.filter(d => d !== day)
+      });
+    }
+  };
+
+  // NEW: Handle time slots change for client
+  const handleTimeSlotChange = (timeSlot, isChecked) => {
+    const currentTimeSlots = newClient.availableTimeSlots || [];
+    if (isChecked) {
+      setNewClient({
+        ...newClient,
+        availableTimeSlots: [...currentTimeSlots, timeSlot]
+      });
+    } else {
+      setNewClient({
+        ...newClient,
+        availableTimeSlots: currentTimeSlots.filter(ts => ts !== timeSlot)
+      });
+    }
+  };
+
   const handleAddClient = async (e) => {
     e.preventDefault();
     try {
@@ -279,7 +313,9 @@ const AdminPanel = ({
         name: '', email: '', phone: '', jobGoal: '', businessName: '', 
         equipment: '', strengths: '', challenges: '', coachingApproach: '', 
         businessDescription: '', currentGoals: '', program: 'limitless',
-        dailyTaskCoachId: ''
+        dailyTaskCoachId: '',
+        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        availableTimeSlots: ['8-10', '10-12', '1230-230']
       });
       
       alert(`Client added successfully!\n\nLogin credentials for ${newClient.name}:\nEmail: ${newClient.email}\nPassword: ITGclient123\n\nThis is the standard password for all clients. Please share these credentials with the client and ask them to change their password on first login.`);
@@ -728,7 +764,7 @@ const AdminPanel = ({
             />
           )}
 
-          {/* ENHANCED: Clients Tab with simplified Grace fields */}
+          {/* ENHANCED: Clients Tab with simplified Grace fields + Individual Schedules */}
           {activeTab === 'clients' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -751,7 +787,7 @@ const AdminPanel = ({
                 </div>
               </div>
 
-              {/* ENHANCED: Add Client Form with simplified Grace fields */}
+              {/* ENHANCED: Add Client Form with individual schedules */}
               <div className="bg-[#F5F5F5] p-6 rounded-lg">
                 <h4 className="text-lg font-semibold mb-4 text-[#292929]">Add New Client</h4>
                 <form onSubmit={handleAddClient} className="space-y-4">
@@ -808,7 +844,7 @@ const AdminPanel = ({
                       />
                     </div>
                   ) : (
-                    // FULL FIELDS: All other programs get full business information
+                    // FULL FIELDS: All other programs get full business information + schedules
                     <>
                       {/* Task Coach Assignment for non-Grace clients */}
                       <div>
@@ -824,6 +860,42 @@ const AdminPanel = ({
                             </option>
                           ))}
                         </select>
+                      </div>
+
+                      {/* NEW: Working Days Selection */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-[#292929]">Working Days:</label>
+                        <div className="grid grid-cols-7 gap-2">
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                            <label key={day} className="flex items-center space-x-1 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={newClient.workingDays?.includes(day) || false}
+                                onChange={(e) => handleWorkingDaysChange(day, e.target.checked)}
+                                className="rounded"
+                              />
+                              <span className="capitalize">{day.slice(0, 3)}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* NEW: Available Time Slots Selection */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-[#292929]">Available Time Slots:</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {timeSlots.map(slot => (
+                            <label key={slot.id} className="flex items-center space-x-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={newClient.availableTimeSlots?.includes(slot.id) || false}
+                                onChange={(e) => handleTimeSlotChange(slot.id, e.target.checked)}
+                                className="rounded"
+                              />
+                              <span>{slot.label}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
 
                       {/* Show business fields only for Limitless program */}
@@ -948,7 +1020,7 @@ const AdminPanel = ({
                 </form>
               </div>
 
-              {/* Current Clients */}
+              {/* Current Clients with Schedule Info */}
               <div>
                 <h4 className="text-lg font-semibold mb-4 text-[#292929]">
                   Current Clients 
@@ -986,6 +1058,13 @@ const AdminPanel = ({
                             <p className="text-xs text-[#6D858E] mt-1">
                               Task Coach: {taskCoach ? taskCoach.name : 'Not assigned'}
                             </p>
+                          )}
+                          {/* NEW: Show working schedule */}
+                          {client.program !== 'grace' && (
+                            <div className="text-xs text-[#9B97A2] mt-1">
+                              <div>Works: {formatWorkingDays(client.workingDays)}</div>
+                              <div>Times: {formatAvailableTimeSlots(client.availableTimeSlots)}</div>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center space-x-2">
@@ -1213,7 +1292,7 @@ const AdminPanel = ({
         </div>
       </div>
 
-      {/* ENHANCED CLIENT EDIT MODAL with ALL fields */}
+      {/* ENHANCED CLIENT EDIT MODAL with individual schedules */}
       {editingClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
@@ -1306,6 +1385,56 @@ const AdminPanel = ({
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* NEW: Working Days Editor */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Working Days</label>
+                      <div className="grid grid-cols-7 gap-2">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                          <label key={day} className="flex items-center space-x-1 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editingClient.workingDays?.includes(day) || false}
+                              onChange={(e) => {
+                                const currentDays = editingClient.workingDays || [];
+                                if (e.target.checked) {
+                                  setEditingClient({...editingClient, workingDays: [...currentDays, day]});
+                                } else {
+                                  setEditingClient({...editingClient, workingDays: currentDays.filter(d => d !== day)});
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <span className="capitalize">{day.slice(0, 3)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* NEW: Available Time Slots Editor */}
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Available Time Slots</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {timeSlots.map(slot => (
+                          <label key={slot.id} className="flex items-center space-x-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editingClient.availableTimeSlots?.includes(slot.id) || false}
+                              onChange={(e) => {
+                                const currentSlots = editingClient.availableTimeSlots || [];
+                                if (e.target.checked) {
+                                  setEditingClient({...editingClient, availableTimeSlots: [...currentSlots, slot.id]});
+                                } else {
+                                  setEditingClient({...editingClient, availableTimeSlots: currentSlots.filter(s => s !== slot.id)});
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <span>{slot.label}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Business Information for Limitless */}
