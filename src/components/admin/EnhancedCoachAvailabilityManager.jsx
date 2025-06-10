@@ -1,7 +1,7 @@
-// src/components/admin/EnhancedCoachAvailabilityManager.jsx
+// src/components/admin/EnhancedCoachAvailabilityManager.jsx - UPDATED with editing capabilities
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, AlertTriangle, CheckCircle, X, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatDatePST, getPSTDate } from '../../utils/dateUtils';
+import { Calendar, User, AlertTriangle, CheckCircle, X, Plus, ChevronLeft, ChevronRight, Edit, Save } from 'lucide-react';
+import { formatDatePST, getPSTDate, formatDateForInput } from '../../utils/dateUtils';
 import { generateDateRange } from '../../services/firebase/coachAvailability';
 
 const EnhancedCoachAvailabilityManager = ({ 
@@ -11,10 +11,13 @@ const EnhancedCoachAvailabilityManager = ({
   schedules,
   selectedDate 
 }) => {
-  const [activeView, setActiveView] = useState('daily'); // 'daily', 'yearly', 'bulk'
+  const [activeView, setActiveView] = useState('periods'); // 'daily', 'periods', 'yearly', 'bulk'
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [yearlyData, setYearlyData] = useState({});
+  const [editingPeriod, setEditingPeriod] = useState(null); // For editing entire periods
+  const [editingRecord, setEditingRecord] = useState(null); // For editing individual day records (daily view)
+  const [timeOffPeriods, setTimeOffPeriods] = useState([]); // All time-off periods
   const [newAvailability, setNewAvailability] = useState({
     coachId: '',
     startDate: selectedDate || getPSTDate(),
@@ -40,6 +43,11 @@ const EnhancedCoachAvailabilityManager = ({
     loadYearlyData();
   }, [currentYear]);
 
+  // NEW: Load all time-off periods
+  useEffect(() => {
+    loadTimeOffPeriods();
+  }, [coaches, availabilityActions]);
+
   const loadYearlyData = async () => {
     try {
       const data = {};
@@ -55,149 +63,346 @@ const EnhancedCoachAvailabilityManager = ({
     }
   };
 
-  // Extract from EnhancedCoachAvailabilityManager.jsx
-// Debug version of handleSetAvailability function
+  // NEW: Load all time-off periods for all coaches
+  const loadTimeOffPeriods = async () => {
+    try {
+      const allPeriods = [];
+      const today = getPSTDate();
+      
+      for (const coach of coaches) {
+        const coachId = coach.uid || coach.id;
+        
+        // Get periods from 30 days ago to 180 days in the future
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 180);
+        
+        const periods = await getCoachTimeOffPeriods(coachId, startDate, endDate);
+        allPeriods.push(...periods.map(period => ({
+          ...period,
+          coach,
+          coachId,
+          isPast: period.endDate < today,
+          isCurrent: period.startDate <= today && period.endDate >= today,
+          isFuture: period.startDate > today
+        })));
+      }
+      
+      // Sort by start date
+      allPeriods.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+      setTimeOffPeriods(allPeriods);
+      
+    } catch (error) {
+      console.error('Error loading time-off periods:', error);
+    }
+  };
 
-const handleSetAvailability = async (e) => {
-  e.preventDefault();
-  
-  if (!newAvailability.coachId || !newAvailability.startDate || !newAvailability.endDate) {
-    alert('Please select a coach, start date, and end date');
-    return;
-  }
-
-  const startDate = new Date(newAvailability.startDate + 'T12:00:00');
-  const endDate = new Date(newAvailability.endDate + 'T12:00:00');
-  
-  if (startDate > endDate) {
-    alert('End date must be after start date');
-    return;
-  }
-
-  try {
-    const coach = coaches.find(c => (c.uid || c.id) === newAvailability.coachId);
-    const dates = generateDateRange(newAvailability.startDate, newAvailability.endDate);
+  // NEW: Get time-off periods for a coach by grouping consecutive days
+  const getCoachTimeOffPeriods = async (coachId, startDate, endDate) => {
+    const periods = [];
+    const dates = generateDateRange(
+      formatDateForInput(startDate), 
+      formatDateForInput(endDate)
+    );
     
-    console.log('Setting availability for:', {
-      coach: coach?.name,
-      coachId: newAvailability.coachId,
-      dates,
-      status: newAvailability.status,
-      reason: newAvailability.reason
+    let currentPeriod = null;
+    
+    for (const date of dates) {
+      const status = availabilityActions.getCoachStatusForDate(coachId, date);
+      const reason = availabilityActions.getCoachReasonForDate(coachId, date);
+      
+      if (status !== 'available') {
+        if (!currentPeriod || currentPeriod.status !== status || currentPeriod.reason !== reason) {
+          // Start new period
+          if (currentPeriod) {
+            periods.push(currentPeriod);
+          }
+          currentPeriod = {
+            id: `${coachId}-${date}-${status}`,
+            startDate: date,
+            endDate: date,
+            status,
+            reason: reason || '',
+            totalDays: 1
+          };
+        } else {
+          // Extend current period
+          currentPeriod.endDate = date;
+          currentPeriod.totalDays++;
+        }
+      } else {
+        // Available day - end current period if exists
+        if (currentPeriod) {
+          periods.push(currentPeriod);
+          currentPeriod = null;
+        }
+      }
+    }
+    
+    // Add final period if exists
+    if (currentPeriod) {
+      periods.push(currentPeriod);
+    }
+    
+    return periods;
+  };
+
+  // Get all availability records for the selected date (for daily view)
+  const getAvailabilityRecordsForDate = (date) => {
+    return coaches.map(coach => {
+      const coachId = coach.uid || coach.id;
+      const status = availabilityActions.getCoachStatusForDate(coachId, date);
+      const reason = availabilityActions.getCoachReasonForDate(coachId, date);
+      
+      return {
+        coachId,
+        coach,
+        date,
+        status,
+        reason,
+        hasRecord: status !== 'available'
+      };
+    }).filter(record => record.hasRecord);
+  };
+
+  // Edit functions for daily view individual records
+  const handleStartEdit = (record) => {
+    setEditingRecord({
+      ...record,
+      originalDate: record.date,
+      originalStatus: record.status,
+      originalReason: record.reason
     });
-    
-    // Count affected schedules across all dates
-    let totalAffectedSchedules = 0;
-    const affectedSchedulesByDate = {};
-    
-    if (newAvailability.status !== 'available') {
-      for (const date of dates) {
-        const affectedSchedules = schedules.filter(s => 
-          s.coachId === newAvailability.coachId && s.date === date
-        );
-        if (affectedSchedules.length > 0) {
-          affectedSchedulesByDate[date] = affectedSchedules;
-          totalAffectedSchedules += affectedSchedules.length;
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRecord(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+
+    try {
+      const { coachId, date, status, reason, originalDate } = editingRecord;
+      
+      if (date !== originalDate) {
+        await availabilityActions.removeCoachAvailability(coachId, originalDate);
+        if (status !== 'available') {
+          await availabilityActions.setCoachAvailability(coachId, date, status, reason);
+        }
+      } else {
+        if (status === 'available') {
+          await availabilityActions.removeCoachAvailability(coachId, date);
+        } else {
+          await availabilityActions.setCoachAvailability(coachId, date, status, reason);
         }
       }
       
-      if (totalAffectedSchedules > 0) {
-        const dateRange = dates.length === 1 ? 
-          formatDatePST(dates[0]) : 
-          `${formatDatePST(dates[0])} to ${formatDatePST(dates[dates.length - 1])}`;
-          
-        const confirmMessage = `${coach?.name} has ${totalAffectedSchedules} client(s) scheduled from ${dateRange}.\n\nSetting them as ${newAvailability.status} will unassign these clients. Continue?`;
+      setEditingRecord(null);
+      alert('Availability record updated successfully!');
+      
+    } catch (error) {
+      console.error('Error updating availability:', error);
+      alert(`Error updating availability: ${error.message}`);
+    }
+  };
+
+  const handleDeleteRecord = async (coachId, date, coachName) => {
+    if (window.confirm(`Remove time off for ${coachName} on ${formatDatePST(date)}? They will be set back to available.`)) {
+      try {
+        await availabilityActions.removeCoachAvailability(coachId, date);
+        alert(`${coachName} is now available on ${formatDatePST(date)}`);
+      } catch (error) {
+        alert(`Error removing availability: ${error.message}`);
+      }
+    }
+  };
+  const handleStartEditPeriod = (period) => {
+    setEditingPeriod({
+      ...period,
+      originalStartDate: period.startDate,
+      originalEndDate: period.endDate,
+      originalStatus: period.status,
+      originalReason: period.reason
+    });
+  };
+
+  // NEW: Cancel editing period
+  const handleCancelEditPeriod = () => {
+    setEditingPeriod(null);
+  };
+
+  // NEW: Save edited period
+  const handleSaveEditPeriod = async () => {
+    if (!editingPeriod) return;
+
+    try {
+      const { 
+        coachId, 
+        startDate, 
+        endDate, 
+        status, 
+        reason, 
+        originalStartDate, 
+        originalEndDate 
+      } = editingPeriod;
+      
+      // Remove the original period dates
+      const originalDates = generateDateRange(originalStartDate, originalEndDate);
+      for (const date of originalDates) {
+        await availabilityActions.removeCoachAvailability(coachId, date);
+      }
+      
+      // Set new period if not marking as available
+      if (status !== 'available') {
+        const newDates = generateDateRange(startDate, endDate);
         
-        if (!window.confirm(confirmMessage)) {
-          return;
-        }
-        
-        // Unassign clients for all affected dates
-        console.log('Unassigning clients from affected schedules...');
-        for (const [date, scheduleList] of Object.entries(affectedSchedulesByDate)) {
-          for (const schedule of scheduleList) {
-            await scheduleActions.remove(schedule.id);
-            console.log('Removed schedule:', schedule.id, 'for date:', date);
+        if (availabilityActions.setCoachAvailabilityBulk) {
+          await availabilityActions.setCoachAvailabilityBulk(coachId, newDates, status, reason);
+        } else {
+          for (const date of newDates) {
+            await availabilityActions.setCoachAvailability(coachId, date, status, reason);
           }
         }
       }
+      
+      setEditingPeriod(null);
+      loadTimeOffPeriods(); // Reload periods
+      alert('Time-off period updated successfully!');
+      
+    } catch (error) {
+      console.error('Error updating period:', error);
+      alert(`Error updating period: ${error.message}`);
     }
+  };
+
+  // NEW: Delete entire period
+  const handleDeletePeriod = async (period) => {
+    const { coach, startDate, endDate, status } = period;
+    const statusDisplay = getStatusDisplay(status);
+    const dateRange = startDate === endDate ? 
+      formatDatePST(startDate) : 
+      `${formatDatePST(startDate)} to ${formatDatePST(endDate)}`;
     
-    // Set availability for all dates
-    console.log('Setting availability...');
-    console.log('availabilityActions.setCoachAvailabilityBulk exists:', !!availabilityActions.setCoachAvailabilityBulk);
+    if (window.confirm(`Remove ${statusDisplay.label.toLowerCase()} for ${coach.name} from ${dateRange}? They will be set back to available for all these dates.`)) {
+      try {
+        const dates = generateDateRange(startDate, endDate);
+        for (const date of dates) {
+          await availabilityActions.removeCoachAvailability(period.coachId, date);
+        }
+        loadTimeOffPeriods(); // Reload periods
+        alert(`${coach.name} is now available from ${dateRange}`);
+      } catch (error) {
+        alert(`Error removing time-off period: ${error.message}`);
+      }
+    }
+  };
+
+  const handleSetAvailability = async (e) => {
+    e.preventDefault();
     
-    if (availabilityActions.setCoachAvailabilityBulk) {
-      console.log('Using bulk availability function');
-      const result = await availabilityActions.setCoachAvailabilityBulk(
-        newAvailability.coachId,
-        dates,
-        newAvailability.status,
-        newAvailability.reason
-      );
-      console.log('Bulk availability result:', result);
-    } else {
-      console.log('Using individual availability calls as fallback');
-      // Fallback to individual calls
-      for (const date of dates) {
-        console.log('Setting availability for date:', date);
-        const result = await availabilityActions.setCoachAvailability(
+    if (!newAvailability.coachId || !newAvailability.startDate || !newAvailability.endDate) {
+      alert('Please select a coach, start date, and end date');
+      return;
+    }
+
+    const startDate = new Date(newAvailability.startDate + 'T12:00:00');
+    const endDate = new Date(newAvailability.endDate + 'T12:00:00');
+    
+    if (startDate > endDate) {
+      alert('End date must be after start date');
+      return;
+    }
+
+    try {
+      const coach = coaches.find(c => (c.uid || c.id) === newAvailability.coachId);
+      const dates = generateDateRange(newAvailability.startDate, newAvailability.endDate);
+      
+      // Count affected schedules across all dates
+      let totalAffectedSchedules = 0;
+      const affectedSchedulesByDate = {};
+      
+      if (newAvailability.status !== 'available') {
+        for (const date of dates) {
+          const affectedSchedules = schedules.filter(s => 
+            s.coachId === newAvailability.coachId && s.date === date
+          );
+          if (affectedSchedules.length > 0) {
+            affectedSchedulesByDate[date] = affectedSchedules;
+            totalAffectedSchedules += affectedSchedules.length;
+          }
+        }
+        
+        if (totalAffectedSchedules > 0) {
+          const dateRange = dates.length === 1 ? 
+            formatDatePST(dates[0]) : 
+            `${formatDatePST(dates[0])} to ${formatDatePST(dates[dates.length - 1])}`;
+            
+          const confirmMessage = `${coach?.name} has ${totalAffectedSchedules} client(s) scheduled from ${dateRange}.\n\nSetting them as ${newAvailability.status} will unassign these clients. Continue?`;
+          
+          if (!window.confirm(confirmMessage)) {
+            return;
+          }
+          
+          // Unassign clients for all affected dates
+          for (const [date, scheduleList] of Object.entries(affectedSchedulesByDate)) {
+            for (const schedule of scheduleList) {
+              await scheduleActions.remove(schedule.id);
+            }
+          }
+        }
+      }
+      
+      // Set availability for all dates
+      if (availabilityActions.setCoachAvailabilityBulk) {
+        await availabilityActions.setCoachAvailabilityBulk(
           newAvailability.coachId,
-          date,
+          dates,
           newAvailability.status,
           newAvailability.reason
         );
-        console.log('Individual availability result for', date, ':', result);
+      } else {
+        // Fallback to individual calls
+        for (const date of dates) {
+          await availabilityActions.setCoachAvailability(
+            newAvailability.coachId,
+            date,
+            newAvailability.status,
+            newAvailability.reason
+          );
+        }
       }
-    }
-    
-    // Reset form
-    setNewAvailability({
-      coachId: '',
-      startDate: selectedDate || getPSTDate(),
-      endDate: selectedDate || getPSTDate(),
-      status: 'off',
-      reason: ''
-    });
-    setShowAddForm(false);
-    
-    const statusLabel = getStatusDisplay(newAvailability.status).label;
-    const dateRange = dates.length === 1 ? 
-      formatDatePST(dates[0]) : 
-      `${formatDatePST(dates[0])} to ${formatDatePST(dates[dates.length - 1])}`;
-    
-    alert(`${coach?.name} set as ${statusLabel} from ${dateRange}`);
-    
-    // Reload yearly data if we're in yearly view
-    if (activeView === 'yearly') {
-      console.log('Reloading yearly data...');
-      loadYearlyData();
-    }
-    
-    // Debug: Check if the availability records have been updated
-    console.log('Current availability records:', availabilityActions);
-    
-    // Force a check of the coach's availability for one of the dates
-    if (dates.length > 0) {
-      const testDate = dates[0];
-      const isAvailable = availabilityActions.isCoachAvailable(newAvailability.coachId, testDate);
-      const status = availabilityActions.getCoachStatusForDate(newAvailability.coachId, testDate);
-      const reason = availabilityActions.getCoachReasonForDate(newAvailability.coachId, testDate);
       
-      console.log('Availability check after setting:', {
-        date: testDate,
-        coachId: newAvailability.coachId,
-        isAvailable,
-        status,
-        reason
+      // Reset form
+      setNewAvailability({
+        coachId: '',
+        startDate: selectedDate || getPSTDate(),
+        endDate: selectedDate || getPSTDate(),
+        status: 'off',
+        reason: ''
       });
+      setShowAddForm(false);
+      
+      const statusLabel = getStatusDisplay(newAvailability.status).label;
+      const dateRange = dates.length === 1 ? 
+        formatDatePST(dates[0]) : 
+        `${formatDatePST(dates[0])} to ${formatDatePST(dates[dates.length - 1])}`;
+      
+      alert(`${coach?.name} set as ${statusLabel} from ${dateRange}`);
+      
+      // Reload data based on current view
+      if (activeView === 'yearly') {
+        loadYearlyData();
+      } else if (activeView === 'periods') {
+        loadTimeOffPeriods();
+      }
+      
+    } catch (error) {
+      console.error('Error setting availability:', error);
+      alert(`Error setting availability: ${error.message}`);
     }
-    
-  } catch (error) {
-    console.error('Error setting availability:', error);
-    alert(`Error setting availability: ${error.message}`);
-  }
-};
+  };
 
   const handleRemoveAvailability = async (coachId, date) => {
     const coach = coaches.find(c => (c.uid || c.id) === coachId);
@@ -229,7 +434,214 @@ const handleSetAvailability = async (e) => {
   const availableCoaches = coachesWithAvailability.filter(c => c.isAvailable);
   const unavailableCoaches = coachesWithAvailability.filter(c => !c.isAvailable);
 
-  // Yearly view component
+  // NEW: Render periods view
+  const renderPeriodsView = () => {
+    const currentPeriods = timeOffPeriods.filter(p => p.isCurrent);
+    const futurePeriods = timeOffPeriods.filter(p => p.isFuture);
+    const pastPeriods = timeOffPeriods.filter(p => p.isPast).slice(-10); // Show last 10 past periods
+    
+    return (
+      <div className="space-y-6">
+        {/* Current/Active Periods */}
+        {currentPeriods.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-orange-500">
+            <h5 className="text-lg font-semibold mb-4 text-orange-600 flex items-center">
+              <AlertTriangle className="mr-2" size={20} />
+              Currently Off ({currentPeriods.length})
+            </h5>
+            <div className="space-y-3">
+              {currentPeriods.map(period => renderPeriodCard(period, true))}
+            </div>
+          </div>
+        )}
+
+        {/* Future Periods */}
+        {futurePeriods.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+            <h5 className="text-lg font-semibold mb-4 text-blue-600 flex items-center">
+              <Calendar className="mr-2" size={20} />
+              Upcoming Time Off ({futurePeriods.length})
+            </h5>
+            <div className="space-y-3">
+              {futurePeriods.map(period => renderPeriodCard(period, false))}
+            </div>
+          </div>
+        )}
+
+        {/* Past Periods (Recent) */}
+        {pastPeriods.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-gray-400">
+            <h5 className="text-lg font-semibold mb-4 text-gray-600 flex items-center">
+              <CheckCircle className="mr-2" size={20} />
+              Recent Past Time Off (Last 10)
+            </h5>
+            <div className="space-y-3">
+              {pastPeriods.map(period => renderPeriodCard(period, false, true))}
+            </div>
+          </div>
+        )}
+
+        {timeOffPeriods.length === 0 && (
+          <div className="bg-white p-6 rounded-lg shadow-md text-center">
+            <Calendar size={48} className="mx-auto mb-4 text-[#9B97A2]" />
+            <h3 className="text-lg font-semibold text-[#292929] mb-2">No Time-Off Periods Found</h3>
+            <p className="text-[#707070]">No scheduled time off in the next 6 months.</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // NEW: Render individual period card
+  const renderPeriodCard = (period, isCurrent = false, isPast = false) => {
+    const statusDisplay = getStatusDisplay(period.status);
+    const Icon = statusDisplay.icon;
+    const isEditing = editingPeriod?.id === period.id;
+    const dateRange = period.startDate === period.endDate ? 
+      formatDatePST(period.startDate) : 
+      `${formatDatePST(period.startDate)} to ${formatDatePST(period.endDate)}`;
+    
+    return (
+      <div key={period.id} className={`p-4 border rounded-lg ${
+        isCurrent ? 'border-orange-200 bg-orange-50' :
+        isPast ? 'border-gray-200 bg-gray-50' :
+        'border-blue-200 bg-blue-50'
+      }`}>
+        {isEditing ? (
+          // Edit Mode
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <h6 className="font-semibold text-[#292929]">{period.coach.name}</h6>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSaveEditPeriod}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center space-x-1"
+                >
+                  <Save size={14} />
+                  <span>Save Changes</span>
+                </button>
+                <button
+                  onClick={handleCancelEditPeriod}
+                  className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 flex items-center space-x-1"
+                >
+                  <X size={14} />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={editingPeriod.startDate}
+                  onChange={(e) => setEditingPeriod({...editingPeriod, startDate: e.target.value})}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={editingPeriod.endDate}
+                  onChange={(e) => setEditingPeriod({...editingPeriod, endDate: e.target.value})}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  value={editingPeriod.status}
+                  onChange={(e) => setEditingPeriod({...editingPeriod, status: e.target.value})}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                >
+                  <option value="available">Available</option>
+                  {statusOptions.filter(opt => opt.value !== 'available').map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason</label>
+                <input
+                  type="text"
+                  value={editingPeriod.reason}
+                  onChange={(e) => setEditingPeriod({...editingPeriod, reason: e.target.value})}
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Optional reason..."
+                />
+              </div>
+            </div>
+            
+            {/* Preview of changes */}
+            <div className="bg-white p-3 rounded border">
+              <p className="text-sm text-[#292929]">
+                <strong>Preview:</strong> {editingPeriod.status === 'available' ? 
+                  'Will be set as available (removes time off)' :
+                  `${getStatusDisplay(editingPeriod.status).label} from ${
+                    editingPeriod.startDate === editingPeriod.endDate ? 
+                    formatDatePST(editingPeriod.startDate) :
+                    `${formatDatePST(editingPeriod.startDate)} to ${formatDatePST(editingPeriod.endDate)}`
+                  }`
+                }
+              </p>
+              <p className="text-xs text-[#707070]">
+                Duration: {generateDateRange(editingPeriod.startDate, editingPeriod.endDate).length} day(s)
+              </p>
+            </div>
+          </div>
+        ) : (
+          // View Mode
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <h6 className="font-semibold text-[#292929]">{period.coach.name}</h6>
+                <div className="flex items-center space-x-2">
+                  <Icon size={16} className={statusDisplay.color} />
+                  <span className={`text-sm font-medium ${statusDisplay.color}`}>
+                    {statusDisplay.label}
+                  </span>
+                </div>
+                {isCurrent && (
+                  <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded-full font-medium">
+                    CURRENT
+                  </span>
+                )}
+              </div>
+              
+              <div className="text-sm text-[#707070] space-y-1">
+                <div><strong>Dates:</strong> {dateRange}</div>
+                <div><strong>Duration:</strong> {period.totalDays} day{period.totalDays !== 1 ? 's' : ''}</div>
+                {period.reason && <div><strong>Reason:</strong> {period.reason}</div>}
+              </div>
+            </div>
+            
+            {!isPast && (
+              <div className="flex space-x-2 ml-4">
+                <button
+                  onClick={() => handleStartEditPeriod(period)}
+                  className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69] flex items-center space-x-1"
+                >
+                  <Edit size={14} />
+                  <span>Edit Period</span>
+                </button>
+                <button
+                  onClick={() => handleDeletePeriod(period)}
+                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
+                >
+                  <X size={14} />
+                  <span>Remove</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
   const renderYearlyView = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -317,6 +729,16 @@ const handleSetAvailability = async (e) => {
       <div className="flex justify-between items-center">
         <div className="flex space-x-1 bg-[#F5F5F5] rounded-lg p-1">
           <button
+            onClick={() => setActiveView('periods')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeView === 'periods' 
+                ? 'bg-white text-[#6D858E] shadow-sm' 
+                : 'text-[#707070] hover:text-[#292929]'
+            }`}
+          >
+            Time-Off Periods
+          </button>
+          <button
             onClick={() => setActiveView('daily')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeView === 'daily' 
@@ -338,26 +760,34 @@ const handleSetAvailability = async (e) => {
           </button>
         </div>
         
-        {activeView === 'daily' && (
+        {(activeView === 'daily' || activeView === 'periods') && (
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-[#707070]">
-              {formatDatePST(selectedDate)}
-            </span>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
-            >
-              <Plus size={16} />
-              <span>Set Time Off</span>
-            </button>
+            {activeView === 'daily' && (
+              <span className="text-sm text-[#707070]">
+                {formatDatePST(selectedDate)}
+              </span>
+            )}
+            {!showAddForm && (
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69] flex items-center space-x-2"
+              >
+                <Plus size={16} />
+                <span>Set Time Off</span>
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* Content based on active view */}
-      {activeView === 'yearly' ? renderYearlyView() : (
-        <>
-          {/* Enhanced Add/Edit Availability Form */}
+      {activeView === 'yearly' && renderYearlyView()}
+      
+      {activeView === 'periods' && renderPeriodsView()}
+      
+      {activeView === 'daily' && (
+        <div>
+          {/* Add/Edit Availability Form */}
           {showAddForm && (
             <div className="bg-[#F5F5F5] p-6 rounded-lg border">
               <h4 className="font-semibold mb-4 text-[#292929]">Set Coach Time Off</h4>
@@ -469,7 +899,121 @@ const handleSetAvailability = async (e) => {
             </div>
           )}
 
-          {/* Daily availability view (existing content) */}
+          {/* NEW: Current Time Off Records with Edit Capabilities */}
+          {getAvailabilityRecordsForDate(selectedDate).length > 0 && (
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h4 className="text-lg font-semibold mb-4 text-[#292929] flex items-center">
+                <Calendar className="mr-2" size={20} />
+                Time Off Records for {formatDatePST(selectedDate)}
+              </h4>
+              <div className="space-y-3">
+                {getAvailabilityRecordsForDate(selectedDate).map(record => {
+                  const statusDisplay = getStatusDisplay(record.status);
+                  const Icon = statusDisplay.icon;
+                  const isEditing = editingRecord?.coachId === record.coachId && editingRecord?.originalDate === record.date;
+                  
+                  return (
+                    <div key={`${record.coachId}-${record.date}`} className="p-4 border border-orange-200 rounded-lg bg-orange-50">
+                      {isEditing ? (
+                        // Edit Mode
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <h5 className="font-semibold text-[#292929]">{record.coach.name}</h5>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={handleSaveEdit}
+                                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 flex items-center space-x-1"
+                              >
+                                <Save size={14} />
+                                <span>Save</span>
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600 flex items-center space-x-1"
+                              >
+                                <X size={14} />
+                                <span>Cancel</span>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Date</label>
+                              <input
+                                type="date"
+                                value={editingRecord.date}
+                                onChange={(e) => setEditingRecord({...editingRecord, date: e.target.value})}
+                                className="w-full px-2 py-1 border rounded text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Status</label>
+                              <select
+                                value={editingRecord.status}
+                                onChange={(e) => setEditingRecord({...editingRecord, status: e.target.value})}
+                                className="w-full px-2 py-1 border rounded text-sm"
+                              >
+                                <option value="available">Available</option>
+                                {statusOptions.filter(opt => opt.value !== 'available').map(option => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Reason</label>
+                              <input
+                                type="text"
+                                value={editingRecord.reason}
+                                onChange={(e) => setEditingRecord({...editingRecord, reason: e.target.value})}
+                                className="w-full px-2 py-1 border rounded text-sm"
+                                placeholder="Optional reason..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        // View Mode
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h5 className="font-semibold text-[#292929]">{record.coach.name}</h5>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Icon size={16} className={statusDisplay.color} />
+                              <span className={`text-sm font-medium ${statusDisplay.color}`}>
+                                {statusDisplay.label}
+                              </span>
+                            </div>
+                            {record.reason && (
+                              <p className="text-sm text-[#707070] mt-1">{record.reason}</p>
+                            )}
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleStartEdit(record)}
+                              className="bg-[#6D858E] text-white px-3 py-1 rounded text-sm hover:bg-[#5A4E69] flex items-center space-x-1"
+                            >
+                              <Edit size={14} />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRecord(record.coachId, record.date, record.coach.name)}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
+                            >
+                              <X size={14} />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Available Coaches */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h4 className="text-lg font-semibold mb-4 text-green-600 flex items-center">
@@ -562,7 +1106,7 @@ const handleSetAvailability = async (e) => {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

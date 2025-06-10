@@ -377,7 +377,7 @@ Continue?`;
                client.program === 'bridges' ? 'Career Development' :
                client.businessName || 'Program Participant'}
             </div>
-            {/* NEW: Show working schedule info */}
+            {/* Show working schedule info */}
             <div className="text-xs text-[#9B97A2] mt-1">
               <div>{formatWorkingDays(client.workingDays)}</div>
               <div>{formatAvailableTimeSlots(client.availableTimeSlots)}</div>
@@ -395,12 +395,12 @@ Continue?`;
                client.program === 'bridges' ? 'B' :
                'L'}
             </span>
-            {/* NEW: Show availability status */}
+            {/* Show availability status */}
             <div className="text-xs text-center">
               {isFullyScheduled ? (
                 <span className="text-red-600 font-medium">Fully Scheduled</span>
               ) : (
-                <span className="text-green-600">{client.availableSlots}/{client.totalSlots} available</span>
+                <span className="text-green-600">{client.availableSlots}/{client.totalSlots} available today</span>
               )}
             </div>
             {isSelected && !isDisabled && (
@@ -413,7 +413,6 @@ Continue?`;
       </div>
     );
   };
-
   const renderCoachColumn = (coach) => {
     const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
     const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
