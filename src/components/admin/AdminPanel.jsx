@@ -1,4 +1,5 @@
-// src/components/admin/AdminPanel.jsx - Enhanced with Daily Task Coach Assignment + Improved Client Editing + Week View + Individual Client Schedules
+// src/components/admin/AdminPanel.jsx - UPDATED with complete internship management tab
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   Calendar, 
@@ -15,13 +16,15 @@ import {
   Users,
   Assignment,
   Eye,
-  Grid
+  Grid,
+  Briefcase  // ADD Briefcase icon for internships
 } from 'lucide-react';
 import DragDropScheduler from '../schedule/DragDropScheduler';
 import WeeklyDragDropScheduler from '../schedule/WeeklyDragDropScheduler';
 import EnhancedCoachAvailabilityManager from './EnhancedCoachAvailabilityManager';
 import CalendarConfiguration from './CalendarConfiguration';
 import AdminMileageOverview from './AdminMileageOverview';
+import InternshipManagementPanel from './InternshipManagementPanel'; // ADD internship panel
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { generateTempPassword, cleanFormData, formatWorkingDays, formatAvailableTimeSlots } from '../../utils/helpers';
 import { isCalendarAPIReady } from '../../services/googleCalendar/calendarService';
@@ -59,16 +62,20 @@ const AdminPanel = ({
   clientActions,
   coachActions,
   scheduleActions,
-  availabilityActions
+  availabilityActions,
+  // ADD internship props
+  internships = [],
+  internshipActions,
+  userProfile
 }) => {
   const [activeTab, setActiveTab] = useState('schedule');
-  const [scheduleView, setScheduleView] = useState('day'); // NEW: 'day' or 'week'
+  const [scheduleView, setScheduleView] = useState('day');
   const [clientFilter, setClientFilter] = useState('all');
   const [editingClient, setEditingClient] = useState(null);
   const [editingCoach, setEditingCoach] = useState(null);
   const [showTaskAssignments, setShowTaskAssignments] = useState(false);
   
-  // MOVED DRAG STATE HERE TO PREVENT PARENT RE-RENDERS FROM AFFECTING THIS COMPONENT
+  // DRAG STATE
   const [draggedClient, setDraggedClient] = useState(null);
   const [dragOverSlot, setDragOverSlot] = useState(null);
   
@@ -85,9 +92,9 @@ const AdminPanel = ({
     name: '', email: '', phone: '', jobGoal: '', businessName: '', 
     equipment: '', strengths: '', challenges: '', coachingApproach: '', 
     businessDescription: '', currentGoals: '', program: 'limitless',
-    dailyTaskCoachId: '', // NEW: For task coach assignment
-    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], // NEW: Working days
-    availableTimeSlots: ['8-10', '10-12', '1230-230'] // NEW: Available time slots
+    dailyTaskCoachId: '',
+    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+    availableTimeSlots: ['8-10', '10-12', '1230-230']
   });
  
   const [newCoach, setNewCoach] = useState({
@@ -100,13 +107,9 @@ const AdminPanel = ({
   });
 
   const [isDragActive, setIsDragActive] = useState(false);
-  
-  // Store the date when drag starts to prevent issues with date changes during drag
   const dragDateRef = useRef(null);
-  
   const selectedDateRef = useRef(selectedDate);
   
-  // Keep selectedDateRef in sync with selectedDate
   useEffect(() => {
     selectedDateRef.current = selectedDate;
   }, [selectedDate]);
@@ -211,14 +214,11 @@ const AdminPanel = ({
   const handleDateChange = (e) => {
     const newDate = e.target.value;
     
-    // Only allow date changes when not dragging
     if (isDragActive) {
       return;
     }
     
     setSelectedDate(newDate);
-    
-    // Clear any existing drag state when date changes
     setDraggedClient(null);
     setDragOverSlot(null);
   };
@@ -244,13 +244,12 @@ const AdminPanel = ({
       (c.coachType || 'success') === 'success'
     );
     
-    // Filter out coaches who are not available on the selected date
     return successCoaches.filter(coach => 
       availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate)
     );
   };
 
-  // NEW: Handle task coach assignment
+  // Task coach assignment functions
   const handleAssignTaskCoach = async (clientId, coachId) => {
     try {
       await clientActions.update(clientId, { dailyTaskCoachId: coachId });
@@ -260,12 +259,10 @@ const AdminPanel = ({
     }
   };
 
-  // NEW: Get assigned clients for a coach
   const getAssignedClients = (coachId) => {
     return clients.filter(client => client.dailyTaskCoachId === coachId);
   };
 
-  // NEW: Get success coaches for task assignment
   const getSuccessCoaches = () => {
     return coaches.filter(c => 
       c.role === 'coach' && 
@@ -273,7 +270,7 @@ const AdminPanel = ({
     );
   };
 
-  // NEW: Handle working days change for client
+  // Working days and time slots change handlers
   const handleWorkingDaysChange = (day, isChecked) => {
     const currentWorkingDays = newClient.workingDays || [];
     if (isChecked) {
@@ -289,7 +286,6 @@ const AdminPanel = ({
     }
   };
 
-  // NEW: Handle time slots change for client
   const handleTimeSlotChange = (timeSlot, isChecked) => {
     const currentTimeSlots = newClient.availableTimeSlots || [];
     if (isChecked) {
@@ -412,13 +408,17 @@ const AdminPanel = ({
   // Get Grace clients count for display
   const graceClients = clients.filter(client => client.program === 'grace');
 
-  // UPDATED: Tabs array with Task Assignments
+  // Get Bridges clients count for internship display
+  const bridgesClients = clients.filter(client => client.program === 'bridges');
+
+  // UPDATED: Tabs array with Internship Management
   const tabs = [
     { id: 'schedule', label: 'Daily Schedule', icon: Calendar },
     { id: 'availability', label: 'Coach Availability', icon: Clock },
     { id: 'clients', label: 'Clients', icon: User },
     { id: 'staff', label: 'Staff', icon: UserPlus },
     { id: 'task-assignments', label: 'Task Assignments', icon: Users },
+    { id: 'internships', label: 'Internship Management', icon: Briefcase }, // ADD internship tab
     { id: 'mileage-overview', label: 'Mileage Overview', icon: Car }
   ];
 
@@ -428,8 +428,8 @@ const AdminPanel = ({
 
       <PasswordInfoSection />
       
-      {/* Summary Cards with Grace calendar status */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      {/* Summary Cards with internships */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="text-center py-4">
             <p className="text-3xl font-bold text-[#6D858E]">{clients.length}</p>
@@ -437,7 +437,7 @@ const AdminPanel = ({
             <div className="mt-2 text-sm text-[#9B97A2]">
               <div>Limitless: {clients.filter(c => (c.program || 'limitless') === 'limitless').length}</div>
               <div>New Options: {clients.filter(c => c.program === 'new-options').length}</div>
-              <div>Bridges: {clients.filter(c => c.program === 'bridges').length}</div>
+              <div>Bridges: {bridgesClients.length}</div>
               <div>Grace: {graceClients.length}</div>
             </div>
           </div>
@@ -474,18 +474,33 @@ const AdminPanel = ({
           </div>
         </div>
 
-        {/* Grace Participants Card */}
+        {/* Bridges Participants Card */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <div className="text-center py-4">
             <p className="text-3xl font-bold text-[#5A4E69]">
-              {graceClients.length}
+              {bridgesClients.length}
             </p>
-            <p className="text-[#292929]">Grace Participants</p>
+            <p className="text-[#292929]">Bridges Participants</p>
             <div className="mt-2 text-sm text-[#9B97A2]">
-              <div>Managed separately</div>
-              <div>Grace coaches handle</div>
-              <div>attendance tracking</div>
-              <div>on their dashboard</div>
+              <div>Career Development</div>
+              <div>& Internship Program</div>
+              <div>See Internships tab</div>
+              <div>for management</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Internships Overview Card */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="text-center py-4">
+            <p className="text-3xl font-bold text-[#5A4E69]">
+              {internships.filter(i => i.status === 'in_progress').length}
+            </p>
+            <p className="text-[#292929]">Active Internships</p>
+            <div className="mt-2 text-sm text-[#9B97A2]">
+              <div>Total: {internships.length}</div>
+              <div>Completed: {internships.filter(i => i.status === 'completed').length}</div>
+              <div>Planned: {internships.filter(i => i.status === 'planned').length}</div>
             </div>
           </div>
         </div>
@@ -528,14 +543,13 @@ const AdminPanel = ({
         </div>
 
         <div className="p-6">
-          {/* ENHANCED: Daily Schedule Tab with Day/Week Toggle */}
+          {/* Daily Schedule Tab */}
           {activeTab === 'schedule' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-4">
                   <h3 className="text-xl font-semibold text-[#292929]">Schedule Management</h3>
                   
-                  {/* NEW: Day/Week View Toggle */}
                   <div className="flex space-x-1 bg-[#F5F5F5] rounded-lg p-1">
                     <button
                       onClick={() => setScheduleView('day')}
@@ -562,7 +576,6 @@ const AdminPanel = ({
                   </div>
                 </div>
                 
-                {/* Date selector - only show for day view */}
                 {scheduleView === 'day' && (
                   <input
                     type="date"
@@ -577,7 +590,6 @@ const AdminPanel = ({
                 )}
               </div>
               
-              {/* Conditional rendering based on view */}
               {scheduleView === 'day' ? (
                 <DragDropScheduler 
                   selectedDate={selectedDate}
@@ -607,7 +619,7 @@ const AdminPanel = ({
                   draggedClient={draggedClient}
                   dailySchedules={schedules}
                   clients={clients}
-                  coaches={coaches} // Pass all coaches, WeeklyScheduler will filter
+                  coaches={coaches}
                   timeSlots={timeSlots}
                   scheduleActions={scheduleActions}
                   availabilityActions={availabilityActions}
@@ -616,7 +628,7 @@ const AdminPanel = ({
             </div>
           )}
 
-          {/* Enhanced Coach Availability Tab */}
+          {/* Coach Availability Tab */}
           {activeTab === 'availability' && (
             <EnhancedCoachAvailabilityManager
               coaches={coaches.filter(c => c.role === 'coach')}
@@ -627,7 +639,7 @@ const AdminPanel = ({
             />
           )}
 
-          {/* NEW: Task Assignments Tab */}
+          {/* Task Assignments Tab */}
           {activeTab === 'task-assignments' && (
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
@@ -635,7 +647,6 @@ const AdminPanel = ({
                 <p className="text-[#BED2D8]">Assign coaches to manage daily tasks for specific clients</p>
               </div>
 
-              {/* Success Coaches and their assigned clients */}
               <div className="space-y-6">
                 {getSuccessCoaches().map(coach => {
                   const assignedClients = getAssignedClients(coach.uid || coach.id);
@@ -654,10 +665,9 @@ const AdminPanel = ({
                         </span>
                       </div>
 
-                      {/* Assigned Clients */}
-                      <div className="mb-4">
-                        <h5 className="font-medium text-[#292929] mb-2">Currently Assigned Clients:</h5>
-                        {assignedClients.length > 0 ? (
+                      {assignedClients.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="font-medium text-[#292929] mb-2">Currently Assigned Clients:</h5>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {assignedClients.map(client => (
                               <div key={client.id} className="bg-[#BED2D8] p-3 rounded flex justify-between items-center">
@@ -680,12 +690,9 @@ const AdminPanel = ({
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-[#9B97A2] italic">No clients assigned for daily task management</p>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
-                      {/* Available Clients to Assign */}
                       <div>
                         <h5 className="font-medium text-[#292929] mb-2">Available Clients to Assign:</h5>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -722,7 +729,6 @@ const AdminPanel = ({
                 })}
               </div>
 
-              {/* Unassigned Clients */}
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
                 <h4 className="font-semibold text-yellow-800 mb-2">⚠️ Unassigned Clients</h4>
                 <div className="space-y-2">
@@ -757,6 +763,17 @@ const AdminPanel = ({
             </div>
           )}
 
+          {/* NEW: Internship Management Tab */}
+          {activeTab === 'internships' && (
+            <InternshipManagementPanel
+              clients={clients}
+              internships={internships}
+              userProfile={userProfile}
+              internshipActions={internshipActions}
+              canEdit={true}
+            />
+          )}
+
           {/* Mileage Overview Tab */}
           {activeTab === 'mileage-overview' && (
             <AdminMileageOverview 
@@ -764,7 +781,7 @@ const AdminPanel = ({
             />
           )}
 
-          {/* ENHANCED: Clients Tab with simplified Grace fields + Individual Schedules */}
+          {/* Clients Tab */}
           {activeTab === 'clients' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -787,7 +804,7 @@ const AdminPanel = ({
                 </div>
               </div>
 
-              {/* ENHANCED: Add Client Form with individual schedules */}
+              {/* Add Client Form */}
               <div className="bg-[#F5F5F5] p-6 rounded-lg">
                 <h4 className="text-lg font-semibold mb-4 text-[#292929]">Add New Client</h4>
                 <form onSubmit={handleAddClient} className="space-y-4">
@@ -862,7 +879,7 @@ const AdminPanel = ({
                         </select>
                       </div>
 
-                      {/* NEW: Working Days Selection */}
+                      {/* Working Days Selection */}
                       <div>
                         <label className="block text-sm font-medium mb-2 text-[#292929]">Working Days:</label>
                         <div className="grid grid-cols-7 gap-2">
@@ -880,7 +897,7 @@ const AdminPanel = ({
                         </div>
                       </div>
 
-                      {/* NEW: Available Time Slots Selection */}
+                      {/* Available Time Slots Selection */}
                       <div>
                         <label className="block text-sm font-medium mb-2 text-[#292929]">Available Time Slots:</label>
                         <div className="grid grid-cols-3 gap-2">
@@ -1059,7 +1076,7 @@ const AdminPanel = ({
                               Task Coach: {taskCoach ? taskCoach.name : 'Not assigned'}
                             </p>
                           )}
-                          {/* NEW: Show working schedule */}
+                          {/* Show working schedule */}
                           {client.program !== 'grace' && (
                             <div className="text-xs text-[#9B97A2] mt-1">
                               <div>Works: {formatWorkingDays(client.workingDays)}</div>
@@ -1120,7 +1137,7 @@ const AdminPanel = ({
             </div>
           )}
 
-          {/* Staff Tab - unchanged */}
+          {/* Staff Tab */}
           {activeTab === 'staff' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1292,7 +1309,7 @@ const AdminPanel = ({
         </div>
       </div>
 
-      {/* ENHANCED CLIENT EDIT MODAL with individual schedules */}
+      {/* Client Edit Modal - ENHANCED with individual schedules */}
       {editingClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
@@ -1387,7 +1404,7 @@ const AdminPanel = ({
                       </select>
                     </div>
 
-                    {/* NEW: Working Days Editor */}
+                    {/* Working Days Editor */}
                     <div>
                       <label className="block text-sm font-medium mb-1">Working Days</label>
                       <div className="grid grid-cols-7 gap-2">
@@ -1412,7 +1429,7 @@ const AdminPanel = ({
                       </div>
                     </div>
 
-                    {/* NEW: Available Time Slots Editor */}
+                    {/* Available Time Slots Editor */}
                     <div>
                       <label className="block text-sm font-medium mb-1">Available Time Slots</label>
                       <div className="grid grid-cols-3 gap-2">
@@ -1635,7 +1652,7 @@ const AdminPanel = ({
         </div>
       )}
 
-      {/* COACH EDIT MODAL - unchanged */}
+      {/* Coach Edit Modal */}
       {editingCoach && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">

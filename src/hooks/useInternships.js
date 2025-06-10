@@ -1,4 +1,4 @@
-// src/hooks/useInternships.js - Hook for managing internship data
+// src/hooks/useInternships.js - UPDATED with better error handling and all internships support
 
 import { useState, useEffect } from 'react';
 import { 
@@ -13,7 +13,8 @@ import {
   completeInternship,
   cancelInternship,
   getClientInternshipStats,
-  subscribeToClientInternships
+  subscribeToClientInternships,
+  subscribeToInternships // ADD this import for all internships
 } from '../services/firebase/internships';
 
 export const useInternships = (clientId = null, isAuthenticated = false) => {
@@ -21,20 +22,33 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Set up real-time subscription for client internships
+  // Set up real-time subscription
   useEffect(() => {
-    if (!isAuthenticated || !clientId) {
+    if (!isAuthenticated) {
       setInternships([]);
       setLoading(false);
       return;
     }
 
-    const unsubscribe = subscribeToClientInternships(clientId, (internshipsData) => {
-      setInternships(internshipsData);
-      setLoading(false);
-    });
+    let unsubscribe;
 
-    return () => unsubscribe();
+    if (clientId) {
+      // Subscribe to specific client's internships
+      unsubscribe = subscribeToClientInternships(clientId, (internshipsData) => {
+        setInternships(internshipsData);
+        setLoading(false);
+        setError(null);
+      });
+    } else {
+      // Subscribe to ALL internships (for admins/coaches)
+      unsubscribe = subscribeToInternships((internshipsData) => {
+        setInternships(internshipsData);
+        setLoading(false);
+        setError(null);
+      });
+    }
+
+    return () => unsubscribe && unsubscribe();
   }, [isAuthenticated, clientId]);
 
   const addNewInternship = async (internshipData) => {
@@ -153,16 +167,28 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
     return internships.filter(internship => internship.status === status);
   };
 
-  const getCurrentInternship = () => {
-    return internships.find(internship => internship.status === 'in_progress');
+  const getCurrentInternship = (clientId = null) => {
+    let filtered = internships.filter(internship => internship.status === 'in_progress');
+    if (clientId) {
+      filtered = filtered.filter(internship => internship.clientId === clientId);
+    }
+    return filtered[0] || null;
   };
 
-  const getCompletedInternships = () => {
-    return internships.filter(internship => internship.status === 'completed');
+  const getCompletedInternships = (clientId = null) => {
+    let filtered = internships.filter(internship => internship.status === 'completed');
+    if (clientId) {
+      filtered = filtered.filter(internship => internship.clientId === clientId);
+    }
+    return filtered;
   };
 
-  const getTotalCompletedDays = () => {
-    return internships.reduce((total, internship) => total + (internship.completedDays || 0), 0);
+  const getTotalCompletedDays = (clientId = null) => {
+    let filtered = internships;
+    if (clientId) {
+      filtered = internships.filter(internship => internship.clientId === clientId);
+    }
+    return filtered.reduce((total, internship) => total + (internship.completedDays || 0), 0);
   };
 
   const getInternshipProgress = (internshipId) => {
@@ -172,6 +198,30 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
     const completed = internship.completedDays || 0;
     const total = internship.totalBusinessDays || 30;
     return Math.round((completed / total) * 100);
+  };
+
+  // NEW: Get internships by client
+  const getInternshipsForSpecificClient = (clientId) => {
+    return internships.filter(internship => internship.clientId === clientId);
+  };
+
+  // NEW: Get all active internships
+  const getAllActiveInternships = () => {
+    return internships.filter(internship => internship.status === 'in_progress');
+  };
+
+  // NEW: Get internships needing attention
+  const getInternshipsNeedingAttention = () => {
+    return internships.filter(internship => {
+      if (internship.status !== 'in_progress') return false;
+      
+      const daysCompleted = internship.completedDays || 0;
+      const totalDays = internship.totalBusinessDays || 30;
+      const progress = daysCompleted / totalDays;
+      
+      // Flag internships that are overdue or have low progress
+      return progress < 0.1 || daysCompleted === 0;
+    });
   };
 
   return {
@@ -197,6 +247,9 @@ export const useInternships = (clientId = null, isAuthenticated = false) => {
     getCurrent: getCurrentInternship,
     getCompleted: getCompletedInternships,
     getTotalDays: getTotalCompletedDays,
-    getProgress: getInternshipProgress
+    getProgress: getInternshipProgress,
+    getForSpecificClient: getInternshipsForSpecificClient,
+    getAllActive: getAllActiveInternships,
+    getNeedingAttention: getInternshipsNeedingAttention
   };
 };
