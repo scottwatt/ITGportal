@@ -1,4 +1,4 @@
-// src/services/firebase/clients.js - Updated with dailyTaskCoachId support
+// src/services/firebase/clients.js - Updated with dailyTaskCoachId support + Individual Client Schedules
 import { 
   collection, 
   doc, 
@@ -24,7 +24,7 @@ import { createUserWithRestAPI, sendPasswordResetWithRestAPI } from './authRest'
 
 /**
  * Add a new client with Firebase Auth account using REST API
- * ENHANCED: Support for dailyTaskCoachId and simplified Grace participant fields
+ * ENHANCED: Support for dailyTaskCoachId, simplified Grace participant fields, and individual client schedules
  * @param {Object} clientData - Client data
  * @returns {Promise<Object>} Result with success flag and temp password
  */
@@ -62,10 +62,13 @@ export const addNewClient = async (clientData) => {
         status: 'Active',
         progress: 0,
         tempPassword: tempPassword,
-        authAccountCreated: true
+        authAccountCreated: true,
+        // Grace clients don't need individual schedules since they use group attendance
+        workingDays: [],
+        availableTimeSlots: []
       };
     } else {
-      // FULL: All other programs get complete business information
+      // FULL: All other programs get complete business information + individual schedules
       newClient = {
         ...cleanedData,
         uid: uid,
@@ -78,7 +81,10 @@ export const addNewClient = async (clientData) => {
         tempPassword: tempPassword,
         authAccountCreated: true,
         // ENHANCED: Support for daily task coach assignment
-        dailyTaskCoachId: cleanedData.dailyTaskCoachId || ''
+        dailyTaskCoachId: cleanedData.dailyTaskCoachId || '',
+        // NEW: Individual client schedule - defaults to full schedule
+        workingDays: cleanedData.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        availableTimeSlots: cleanedData.availableTimeSlots || ['8-10', '10-12', '1230-230']
       };
     }
     
@@ -98,6 +104,7 @@ export const addNewClient = async (clientData) => {
 🔑 Password: ${tempPassword}
 🆔 UID: ${uid}
 ${newClient.dailyTaskCoachId ? `👤 Daily Task Coach: Assigned` : ''}
+📅 Working Schedule: ${newClient.workingDays.length > 0 ? newClient.workingDays.join(', ') : 'Not set'}
 
 The client can now log in with these credentials.`
     };
@@ -131,15 +138,25 @@ export const createClientLoginAccount = async (client) => {
     
     console.log('Firebase Auth account created with UID:', uid);
     
-    // Update client document with auth info
+    // Update client document with auth info and default schedule if not set
     console.log('Updating client document with UID...');
-    await updateDoc(doc(db, 'clients', client.id), {
+    const updateData = {
       uid: uid,
       role: 'client',
       tempPassword: tempPassword,
       authAccountCreated: true,
       updatedAt: serverTimestamp()
-    });
+    };
+    
+    // Add default schedule if not already set
+    if (!client.workingDays) {
+      updateData.workingDays = client.program === 'grace' ? [] : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    }
+    if (!client.availableTimeSlots) {
+      updateData.availableTimeSlots = client.program === 'grace' ? [] : ['8-10', '10-12', '1230-230'];
+    }
+    
+    await updateDoc(doc(db, 'clients', client.id), updateData);
     
     console.log('Client document updated successfully');
     
@@ -203,7 +220,7 @@ If no email is received, check spam folder or contact IT support.`
 };
 
 /**
- * ENHANCED: Update client information with support for all fields including dailyTaskCoachId
+ * ENHANCED: Update client information with support for all fields including schedule management
  * @param {string} clientId - Client document ID
  * @param {Object} updates - Updates to apply
  * @returns {Promise<void>}
@@ -226,6 +243,8 @@ export const updateClient = async (clientId, updates) => {
         currentGoals: finalUpdates.currentGoals,
         progress: finalUpdates.progress,
         notes: finalUpdates.notes,
+        workingDays: [], // Grace clients don't have individual schedules
+        availableTimeSlots: [],
         updatedAt: serverTimestamp()
       };
       
@@ -237,6 +256,14 @@ export const updateClient = async (clientId, updates) => {
         ...finalUpdates,
         updatedAt: serverTimestamp()
       };
+      
+      // Ensure schedule fields are properly formatted arrays
+      if (finalUpdates.workingDays && !Array.isArray(finalUpdates.workingDays)) {
+        finalUpdates.workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+      }
+      if (finalUpdates.availableTimeSlots && !Array.isArray(finalUpdates.availableTimeSlots)) {
+        finalUpdates.availableTimeSlots = ['8-10', '10-12', '1230-230'];
+      }
     }
     
     await updateDoc(clientRef, finalUpdates);
@@ -266,6 +293,26 @@ export const updateClientProgress = async (clientId, progressData) => {
     await updateDoc(doc(db, 'clients', clientId), updates);
   } catch (error) {
     throw new Error(`Failed to update client progress: ${error.message}`);
+  }
+};
+
+/**
+ * NEW: Update client working schedule
+ * @param {string} clientId - Client document ID
+ * @param {Array} workingDays - Array of working day names
+ * @param {Array} availableTimeSlots - Array of available time slot IDs
+ * @returns {Promise<void>}
+ */
+export const updateClientSchedule = async (clientId, workingDays, availableTimeSlots) => {
+  try {
+    const clientRef = doc(db, 'clients', clientId);
+    await updateDoc(clientRef, {
+      workingDays: workingDays || [],
+      availableTimeSlots: availableTimeSlots || [],
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    throw new Error(`Failed to update client schedule: ${error.message}`);
   }
 };
 
@@ -546,8 +593,86 @@ export const assignDailyTaskCoach = async (clientId, coachId) => {
 };
 
 /**
+ * NEW: Get clients available for a specific date and time slot
+ * @param {Array} allClients - All clients array
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {string} timeSlot - Time slot ID (optional - if provided, only clients available for that slot)
+ * @returns {Array} Available clients for the date/time
+ */
+export const getClientsAvailableForDateTime = (allClients, date, timeSlot = null) => {
+  const dateObj = new Date(date + 'T12:00:00');
+  const dayName = dateObj.toLocaleDateString('en-US', { 
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long' 
+  }).toLowerCase();
+  
+  return allClients.filter(client => {
+    // Skip Grace clients (they don't use individual scheduling)
+    if (client.program === 'grace') return false;
+    
+    // Check if client works on this day
+    const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    if (!workingDays.includes(dayName)) return false;
+    
+    // If timeSlot is specified, check if client is available for that time slot
+    if (timeSlot) {
+      const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+      if (!availableTimeSlots.includes(timeSlot)) return false;
+    }
+    
+    return true;
+  });
+};
+
+/**
+ * NEW: Check if client has available time slots on a specific date
+ * @param {Object} client - Client object
+ * @param {Array} schedules - All schedules 
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @returns {Object} Availability info with available/total slots and isFullyScheduled flag
+ */
+export const getClientAvailabilityForDate = (client, schedules, date) => {
+  // Grace clients don't use individual scheduling
+  if (client.program === 'grace') {
+    return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
+  }
+  
+  // Check if client works on this day
+  const dateObj = new Date(date + 'T12:00:00');
+  const dayName = dateObj.toLocaleDateString('en-US', { 
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long' 
+  }).toLowerCase();
+  
+  const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  if (!workingDays.includes(dayName)) {
+    return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
+  }
+  
+  // Get client's available time slots
+  const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+  const totalSlots = availableTimeSlots.length;
+  
+  // Count how many of their available slots are already scheduled
+  const clientSchedules = schedules.filter(s => 
+    s.clientId === client.id && 
+    s.date === date &&
+    availableTimeSlots.includes(s.timeSlot)
+  );
+  const scheduledSlots = clientSchedules.length;
+  const availableSlots = totalSlots - scheduledSlots;
+  
+  return {
+    availableSlots,
+    totalSlots,
+    scheduledSlots,
+    isFullyScheduled: availableSlots === 0 && totalSlots > 0
+  };
+};
+
+/**
  * Set up real-time listener for clients
- * ENHANCED: Includes dailyTaskCoachId field
+ * ENHANCED: Includes dailyTaskCoachId field and schedule fields
  * @param {Function} callback - Callback function to handle clients data
  * @returns {Function} Unsubscribe function
  */
@@ -555,10 +680,28 @@ export const subscribeToClients = (callback) => {
   return onSnapshot(
     collection(db, 'clients'), 
     (snapshot) => {
-      const clientsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const clientsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        
+        // Ensure schedule fields exist for non-Grace clients
+        if (data.program !== 'grace') {
+          if (!data.workingDays) {
+            data.workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+          }
+          if (!data.availableTimeSlots) {
+            data.availableTimeSlots = ['8-10', '10-12', '1230-230'];
+          }
+        } else {
+          // Grace clients don't need individual schedules
+          data.workingDays = [];
+          data.availableTimeSlots = [];
+        }
+        
+        return {
+          id: doc.id,
+          ...data
+        };
+      });
       callback(clientsData);
     },
     (error) => {

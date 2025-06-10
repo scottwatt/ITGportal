@@ -1,8 +1,16 @@
-// src/components/schedule/DragDropScheduler.jsx - Enhanced with copy/paste schedule
+// src/components/schedule/DragDropScheduler.jsx - Enhanced with copy/paste schedule + Individual Client Schedules
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle } from 'lucide-react';
 import { formatDatePST } from '../../utils/dateUtils';
-import { getSchedulableClients, getClientInitials, getProgramBadge } from '../../utils/helpers';
+import { 
+  getSchedulableClients, 
+  getClientInitials, 
+  getProgramBadge,
+  getClientsAvailableForDate,
+  getClientAvailabilityForDate,
+  formatWorkingDays,
+  formatAvailableTimeSlots
+} from '../../utils/helpers';
 import { AlertCard } from '../ui/Card';
 
 const DragDropScheduler = ({ 
@@ -37,17 +45,43 @@ const DragDropScheduler = ({
     (c.coachType || 'success') === 'success'
   );
 
+  // UPDATED: Get clients based on individual schedules for selected date
+  const getClientsForSelectedDate = () => {
+    return getClientsAvailableForDate(clients, selectedDate);
+  };
+
+  // UPDATED: Get unscheduled and partially scheduled clients (with availability info)
   const getUnscheduledClients = () => {
-    const schedulableClients = getSchedulableClients(clients);
-    return schedulableClients.filter(client => {
-      const sessionsForClient = dailySchedules.filter(s => 
-        s.date === selectedDate && s.clientId === client.id
-      );
-      return sessionsForClient.length < timeSlots.length;
-    });
+    const availableClients = getClientsForSelectedDate();
+    
+    return availableClients.map(client => {
+      const availability = getClientAvailabilityForDate(client, dailySchedules, selectedDate);
+      return {
+        ...client,
+        ...availability
+      };
+    }).filter(client => client.availableSlots > 0); // Only clients with available slots
+  };
+
+  // NEW: Get fully scheduled clients (for greying out)
+  const getFullyScheduledClients = () => {
+    const availableClients = getClientsForSelectedDate();
+    
+    return availableClients.map(client => {
+      const availability = getClientAvailabilityForDate(client, dailySchedules, selectedDate);
+      return {
+        ...client,
+        ...availability
+      };
+    }).filter(client => client.isFullyScheduled);
   };
 
   const handleClientClick = (client) => {
+    // Don't allow selection of fully scheduled clients
+    if (client.isFullyScheduled) {
+      return;
+    }
+    
     if (selectedClient?.id === client.id) {
       // Deselect if clicking the same client
       setSelectedClient(null);
@@ -67,6 +101,13 @@ const DragDropScheduler = ({
       const status = availabilityActions.getCoachStatusForDate(coachId, selectedDate);
       const reason = availabilityActions.getCoachReasonForDate(coachId, selectedDate);
       alert(`This coach is not available on ${selectedDate}. Status: ${status}${reason ? ` (${reason})` : ''}`);
+      return;
+    }
+
+    // NEW: Check if client is available for this specific time slot
+    const clientAvailableTimeSlots = selectedClient.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+    if (!clientAvailableTimeSlots.includes(timeSlotId)) {
+      alert(`${selectedClient.name} is not available for the ${timeSlotId} time slot. Their available times are: ${formatAvailableTimeSlots(clientAvailableTimeSlots)}`);
       return;
     }
 
@@ -157,6 +198,35 @@ const DragDropScheduler = ({
         const validAssignments = [];
 
         copiedSchedule.schedules.forEach(schedule => {
+          const client = clients.find(c => c.id === schedule.clientId);
+          
+          // NEW: Check if client is available for this date and time slot
+          if (!client) {
+            conflicts.push({
+              ...schedule,
+              reason: `Client no longer exists`
+            });
+            return;
+          }
+          
+          const clientAvailableForDate = getClientsAvailableForDate([client], targetDate);
+          if (clientAvailableForDate.length === 0) {
+            conflicts.push({
+              ...schedule,
+              reason: `${client.name} doesn't work on ${new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' })}s`
+            });
+            return;
+          }
+          
+          const clientAvailableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+          if (!clientAvailableTimeSlots.includes(schedule.timeSlot)) {
+            conflicts.push({
+              ...schedule,
+              reason: `${client.name} is not available for ${schedule.timeSlot} time slot`
+            });
+            return;
+          }
+          
           // Check if coach is available on target date
           const isCoachAvailable = availabilityActions.isCoachAvailable(schedule.coachId, targetDate);
           
@@ -266,22 +336,30 @@ Continue?`;
     return dates;
   };
 
-  const renderClientCard = (client) => {
+  // UPDATED: Render client card with availability info and greyed out state
+  const renderClientCard = (client, isFullyScheduled = false) => {
     const isSelected = selectedClient?.id === client.id;
+    const isDisabled = isFullyScheduled;
     
     return (
       <div
         key={client.id}
-        onClick={() => handleClientClick(client)}
-        className={`p-3 rounded-lg cursor-pointer transition-all duration-200 border-2 ${
-          isSelected 
-            ? 'border-[#6D858E] bg-[#BED2D8] shadow-lg scale-105' 
-            : 'border-[#9B97A2] bg-white hover:border-[#6D858E] hover:shadow-md'
+        onClick={() => !isDisabled && handleClientClick(client)}
+        className={`p-3 rounded-lg transition-all duration-200 border-2 ${
+          isDisabled 
+            ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60' 
+            : isSelected 
+              ? 'border-[#6D858E] bg-[#BED2D8] shadow-lg scale-105 cursor-pointer' 
+              : 'border-[#9B97A2] bg-white hover:border-[#6D858E] hover:shadow-md cursor-pointer'
         }`}
       >
         <div className="flex items-center space-x-3">
           <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-            isSelected ? 'bg-[#6D858E]' : 'bg-[#9B97A2]'
+            isDisabled 
+              ? 'bg-gray-400' 
+              : isSelected 
+                ? 'bg-[#6D858E]' 
+                : 'bg-[#9B97A2]'
           }`}>
             {isSelected ? (
               <CheckCircle className="text-white" size={20} />
@@ -299,6 +377,11 @@ Continue?`;
                client.program === 'bridges' ? 'Career Development' :
                client.businessName || 'Program Participant'}
             </div>
+            {/* NEW: Show working schedule info */}
+            <div className="text-xs text-[#9B97A2] mt-1">
+              <div>{formatWorkingDays(client.workingDays)}</div>
+              <div>{formatAvailableTimeSlots(client.availableTimeSlots)}</div>
+            </div>
           </div>
           <div className="flex flex-col items-end space-y-1">
             <span className={`text-xs px-2 py-1 rounded font-medium ${
@@ -312,7 +395,15 @@ Continue?`;
                client.program === 'bridges' ? 'B' :
                'L'}
             </span>
-            {isSelected && (
+            {/* NEW: Show availability status */}
+            <div className="text-xs text-center">
+              {isFullyScheduled ? (
+                <span className="text-red-600 font-medium">Fully Scheduled</span>
+              ) : (
+                <span className="text-green-600">{client.availableSlots}/{client.totalSlots} available</span>
+              )}
+            </div>
+            {isSelected && !isDisabled && (
               <div className="text-xs text-[#6D858E] font-medium">
                 Click time slot ↑
               </div>
@@ -358,8 +449,8 @@ Continue?`;
               s.coachId === (coach.uid || coach.id)
             );
             
-            const canAssign = isAssigning && selectedClient;
-            const isClickable = canAssign;
+            const canAssign = isAssigning && selectedClient && !selectedClient.isFullyScheduled;
+            const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
             
             return (
               <div
@@ -379,6 +470,11 @@ Continue?`;
                   {isClickable && (
                     <div className="text-xs text-[#6D858E] font-medium mt-1">
                       Click to assign {selectedClient.name}
+                    </div>
+                  )}
+                  {canAssign && !isClickable && selectedClient && (
+                    <div className="text-xs text-red-600 font-medium mt-1">
+                      {selectedClient.name} not available for this time
                     </div>
                   )}
                 </div>
@@ -462,6 +558,7 @@ Continue?`;
   };
 
   const unscheduledClients = getUnscheduledClients();
+  const fullyScheduledClients = getFullyScheduledClients();
   const displayDate = formatDatePST(selectedDate);
   const todaySchedules = dailySchedules.filter(s => s.date === selectedDate);
   const hasScheduleToday = todaySchedules.length > 0;
@@ -529,7 +626,7 @@ Continue?`;
 
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h3 className="text-xl font-semibold mb-6 text-[#292929]">
-          Easy Scheduler for {displayDate}
+          Smart Scheduler for {displayDate}
           {isAssigning && selectedClient && (
             <span className="ml-4 text-sm text-[#6D858E] bg-[#BED2D8] px-3 py-1 rounded-full">
               Assigning: {selectedClient.name} - Click a time slot above
@@ -550,6 +647,12 @@ Continue?`;
               <div>The client will be instantly assigned to that coach and time</div>
             </div>
           </div>
+          <div className="mt-3 text-sm text-[#292929]">
+            <div className="font-medium">🔍 Smart Features:</div>
+            <div>• Only shows clients available for the selected day</div>
+            <div>• Prevents scheduling conflicts with individual client schedules</div>
+            <div>• Greys out fully scheduled clients instead of hiding them</div>
+          </div>
         </div>
 
         {/* Schedule Grid */}
@@ -568,9 +671,9 @@ Continue?`;
         {/* Available Clients */}
         <div className="border-t pt-6">
           <h4 className="text-lg font-semibold mb-4 text-[#292929]">
-            Available Clients - Click to Select
+            Clients Available for {displayDate}
             <span className="text-sm text-[#9B97A2] ml-2">
-              ({unscheduledClients.length} available)
+              ({unscheduledClients.length} with slots available, {fullyScheduledClients.length} fully scheduled)
             </span>
           </h4>
 
@@ -580,7 +683,10 @@ Continue?`;
                 <CheckCircle size={20} />
                 <div>
                   <div className="font-medium">{selectedClient.name} is selected</div>
-                  <div className="text-sm text-[#BED2D8]">Click any time slot above to assign, or click another client to change selection</div>
+                  <div className="text-sm text-[#BED2D8]">
+                    Available for: {formatAvailableTimeSlots(selectedClient.availableTimeSlots)} | 
+                    {selectedClient.availableSlots} of {selectedClient.totalSlots} slots remaining
+                  </div>
                 </div>
                 <button 
                   onClick={() => {
@@ -594,15 +700,33 @@ Continue?`;
               </div>
             </div>
           )}
-          
-          {unscheduledClients.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {unscheduledClients.map(renderClientCard)}
+
+          {/* Clients with Available Slots */}
+          {unscheduledClients.length > 0 && (
+            <div className="mb-6">
+              <h5 className="font-medium text-[#292929] mb-3">Available for Scheduling:</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {unscheduledClients.map(client => renderClientCard(client, false))}
+              </div>
             </div>
-          ) : (
+          )}
+
+          {/* Fully Scheduled Clients (Greyed Out) */}
+          {fullyScheduledClients.length > 0 && (
+            <div className="mb-6">
+              <h5 className="font-medium text-[#707070] mb-3">Fully Scheduled (All Available Slots Filled):</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {fullyScheduledClients.map(client => renderClientCard(client, true))}
+              </div>
+            </div>
+          )}
+
+          {/* No clients available message */}
+          {unscheduledClients.length === 0 && fullyScheduledClients.length === 0 && (
             <div className="text-center py-12 text-[#9B97A2]">
               <User size={48} className="mx-auto mb-4" />
-              <p className="text-lg font-medium">All schedulable clients are assigned!</p>
+              <p className="text-lg font-medium">No clients work on {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' })}s!</p>
+              <p className="text-sm mt-2">Check individual client schedules in the Admin Panel to see their working days.</p>
             </div>
           )}
         </div>

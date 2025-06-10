@@ -1,4 +1,4 @@
-// src/utils/helpers.js - Fixed with defensive programming and exact mileage precision
+// src/utils/helpers.js - Fixed with defensive programming and exact mileage precision + Individual Client Schedules
 import { PASSWORD_CHARS, FILE_TYPE_MAPPINGS, FILE_ICONS, MILEAGE_FORMATS } from './constants';
 
 /**
@@ -136,7 +136,7 @@ export const getJobGoalPlaceholder = (programId) => {
 };
 
 /**
- * Filter schedulable clients (excludes Grace program)
+ * UPDATED: Filter schedulable clients (excludes Grace program)
  * FIXED: Add defensive programming to prevent filter errors
  * @param {Array} clients - All clients (can be undefined)
  * @returns {Array} Schedulable clients
@@ -152,6 +152,198 @@ export const getSchedulableClients = (clients = []) => {
     const program = client?.program || 'limitless';
     return ['limitless', 'new-options', 'bridges'].includes(program);
   });
+};
+
+/**
+ * NEW: Get clients available for scheduling on a specific date
+ * Takes into account individual client working schedules
+ * @param {Array} clients - All clients (can be undefined)
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @returns {Array} Clients available to work on the specified date
+ */
+export const getClientsAvailableForDate = (clients = [], date) => {
+  // Return empty array if clients is not an array
+  if (!Array.isArray(clients)) {
+    console.warn('getClientsAvailableForDate: clients is not an array, returning empty array');
+    return [];
+  }
+  
+  if (!date) {
+    console.warn('getClientsAvailableForDate: date is required');
+    return [];
+  }
+  
+  // Get day name from date
+  const dateObj = new Date(date + 'T12:00:00');
+  const dayName = dateObj.toLocaleDateString('en-US', { 
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long' 
+  }).toLowerCase();
+  
+  return getSchedulableClients(clients).filter(client => {
+    // Check if client works on this day
+    const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    return workingDays.includes(dayName);
+  });
+};
+
+/**
+ * NEW: Get clients available for a specific time slot on a date
+ * @param {Array} clients - All clients
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {string} timeSlot - Time slot ID ('8-10', '10-12', '1230-230')
+ * @returns {Array} Clients available for the specific time slot
+ */
+export const getClientsAvailableForTimeSlot = (clients = [], date, timeSlot) => {
+  if (!Array.isArray(clients)) {
+    console.warn('getClientsAvailableForTimeSlot: clients is not an array, returning empty array');
+    return [];
+  }
+  
+  if (!date || !timeSlot) {
+    console.warn('getClientsAvailableForTimeSlot: date and timeSlot are required');
+    return [];
+  }
+  
+  return getClientsAvailableForDate(clients, date).filter(client => {
+    // Check if client is available for this time slot
+    const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+    return availableTimeSlots.includes(timeSlot);
+  });
+};
+
+/**
+ * NEW: Check if client has available slots remaining on a date
+ * @param {Object} client - Client object
+ * @param {Array} schedules - All schedules
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @returns {Object} Availability information
+ */
+export const getClientAvailabilityForDate = (client, schedules = [], date) => {
+  if (!client || !date) {
+    return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
+  }
+  
+  // Grace clients don't use individual scheduling
+  if (client.program === 'grace') {
+    return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
+  }
+  
+  // Check if client works on this day
+  const dateObj = new Date(date + 'T12:00:00');
+  const dayName = dateObj.toLocaleDateString('en-US', { 
+    timeZone: 'America/Los_Angeles',
+    weekday: 'long' 
+  }).toLowerCase();
+  
+  const workingDays = client.workingDays || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  if (!workingDays.includes(dayName)) {
+    return { availableSlots: 0, totalSlots: 0, scheduledSlots: 0, isFullyScheduled: false };
+  }
+  
+  // Get client's available time slots
+  const availableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+  const totalSlots = availableTimeSlots.length;
+  
+  // Count how many of their available slots are already scheduled
+  if (!Array.isArray(schedules)) {
+    schedules = [];
+  }
+  
+  const clientSchedules = schedules.filter(s => 
+    s.clientId === client.id && 
+    s.date === date &&
+    availableTimeSlots.includes(s.timeSlot)
+  );
+  const scheduledSlots = clientSchedules.length;
+  const availableSlots = totalSlots - scheduledSlots;
+  
+  return {
+    availableSlots,
+    totalSlots,
+    scheduledSlots,
+    isFullyScheduled: availableSlots === 0 && totalSlots > 0
+  };
+};
+
+/**
+ * NEW: Get unscheduled clients for a specific date (respects individual schedules)
+ * @param {Array} clients - All clients
+ * @param {Array} schedules - All schedules 
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @returns {Array} Clients with available slots on the date
+ */
+export const getUnscheduledClientsForDate = (clients = [], schedules = [], date) => {
+  const availableClients = getClientsAvailableForDate(clients, date);
+  
+  return availableClients.map(client => {
+    const availability = getClientAvailabilityForDate(client, schedules, date);
+    return {
+      ...client,
+      ...availability
+    };
+  }).filter(client => client.availableSlots > 0); // Only return clients with available slots
+};
+
+/**
+ * NEW: Get fully scheduled clients for a date (for greying out)
+ * @param {Array} clients - All clients
+ * @param {Array} schedules - All schedules
+ * @param {string} date - Date string (YYYY-MM-DD)  
+ * @returns {Array} Clients that are fully scheduled for their available slots
+ */
+export const getFullyScheduledClientsForDate = (clients = [], schedules = [], date) => {
+  const availableClients = getClientsAvailableForDate(clients, date);
+  
+  return availableClients.map(client => {
+    const availability = getClientAvailabilityForDate(client, schedules, date);
+    return {
+      ...client,
+      ...availability
+    };
+  }).filter(client => client.isFullyScheduled);
+};
+
+/**
+ * NEW: Get working days display string for client
+ * @param {Array} workingDays - Array of day names
+ * @returns {string} Formatted working days string
+ */
+export const formatWorkingDays = (workingDays = []) => {
+  if (!Array.isArray(workingDays) || workingDays.length === 0) {
+    return 'No working days set';
+  }
+  
+  const dayAbbreviations = {
+    'monday': 'Mon',
+    'tuesday': 'Tue', 
+    'wednesday': 'Wed',
+    'thursday': 'Thu',
+    'friday': 'Fri',
+    'saturday': 'Sat',
+    'sunday': 'Sun'
+  };
+  
+  return workingDays.map(day => dayAbbreviations[day] || day).join(', ');
+};
+
+/**
+ * NEW: Get time slots display string for client
+ * @param {Array} availableTimeSlots - Array of time slot IDs
+ * @returns {string} Formatted time slots string
+ */
+export const formatAvailableTimeSlots = (availableTimeSlots = []) => {
+  if (!Array.isArray(availableTimeSlots) || availableTimeSlots.length === 0) {
+    return 'No time slots set';
+  }
+  
+  const timeSlotLabels = {
+    '8-10': '8-10 AM',
+    '10-12': '10-12 PM', 
+    '1230-230': '12:30-2:30 PM'
+  };
+  
+  return availableTimeSlots.map(slot => timeSlotLabels[slot] || slot).join(', ');
 };
 
 /**
