@@ -1,4 +1,5 @@
-// src/components/schedule/DragDropScheduler.jsx - Enhanced with copy/paste schedule + Individual Client Schedules + Dynamic Availability Display
+// src/components/schedule/DragDropScheduler.jsx - UPDATED: Core 3 slots + Special Scheduling Manager
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle } from 'lucide-react';
 import { formatDatePST } from '../../utils/dateUtils';
@@ -12,6 +13,7 @@ import {
   formatAvailableTimeSlots
 } from '../../utils/helpers';
 import { AlertCard } from '../ui/Card';
+import FlexibleSchedulingManager from './FlexibleScheduleManager'; // ADD: Import special scheduling
 
 const DragDropScheduler = ({ 
   selectedDate, 
@@ -39,18 +41,18 @@ const DragDropScheduler = ({
   const [pastePreview, setPastePreview] = useState([]);
   const [isPasting, setIsPasting] = useState(false);
 
-  // FILTER OUT GRACE COACHES
+  // FILTER OUT GRACE COACHES - only show Success coaches in main interface
   const activeCoaches = coaches.filter(c => 
     c.role === 'coach' && 
     (c.coachType || 'success') === 'success'
   );
 
-  // UPDATED: Get clients based on individual schedules for selected date
+  // Get clients based on individual schedules for selected date
   const getClientsForSelectedDate = () => {
     return getClientsAvailableForDate(clients, selectedDate);
   };
 
-  // UPDATED: Get unscheduled and partially scheduled clients (with availability info)
+  // Get unscheduled and partially scheduled clients (with availability info)
   const getUnscheduledClients = () => {
     const availableClients = getClientsForSelectedDate();
     
@@ -63,7 +65,7 @@ const DragDropScheduler = ({
     }).filter(client => client.availableSlots > 0); // Only clients with available slots
   };
 
-  // NEW: Get fully scheduled clients (for greying out)
+  // Get fully scheduled clients (for greying out)
   const getFullyScheduledClients = () => {
     const availableClients = getClientsForSelectedDate();
     
@@ -104,7 +106,7 @@ const DragDropScheduler = ({
       return;
     }
 
-    // NEW: Check if client is available for this specific time slot
+    // Check if client is available for this specific time slot
     const clientAvailableTimeSlots = selectedClient.availableTimeSlots || ['8-10', '10-12', '1230-230'];
     if (!clientAvailableTimeSlots.includes(timeSlotId)) {
       alert(`${selectedClient.name} is not available for the ${timeSlotId} time slot. Their available times are: ${formatAvailableTimeSlots(clientAvailableTimeSlots)}`);
@@ -200,7 +202,7 @@ const DragDropScheduler = ({
         copiedSchedule.schedules.forEach(schedule => {
           const client = clients.find(c => c.id === schedule.clientId);
           
-          // NEW: Check if client is available for this date and time slot
+          // Check if client is available for this date and time slot
           if (!client) {
             conflicts.push({
               ...schedule,
@@ -336,7 +338,7 @@ Continue?`;
     return dates;
   };
 
-  // UPDATED: Render client card with detailed time slot availability
+  // Render client card with detailed time slot availability
   const renderClientCard = (client, isFullyScheduled = false) => {
     const isSelected = selectedClient?.id === client.id;
     const isDisabled = isFullyScheduled;
@@ -394,7 +396,7 @@ Continue?`;
                client.businessName || 'Program Participant'}
             </div>
             
-            {/* NEW: Detailed Time Slot Availability */}
+            {/* Detailed Time Slot Availability */}
             <div className="text-xs mt-2">
               {/* Working Days Info */}
               <div className="text-[#9B97A2] mb-1">
@@ -736,10 +738,9 @@ Continue?`;
             </div>
           </div>
           <div className="mt-3 text-sm text-[#292929]">
-            <div className="font-medium">🔍 Smart Features:</div>
-            <div>• Color-coded time slots show what's available, scheduled, or unavailable</div>
-            <div>• Visual schedule breakdown prevents double-booking</div>
-            <div>• Instant feedback on remaining scheduling slots</div>
+            <div className="font-medium">🔍 Core Schedule Times:</div>
+            <div>• <strong>8:00 AM - 10:00 AM</strong> • <strong>10:00 AM - 12:00 PM</strong> • <strong>12:30 PM - 2:30 PM</strong></div>
+            <div className="mt-1 text-xs">For special scheduling (early hours, weekends, etc.), use the Special Scheduling section below.</div>
           </div>
         </div>
 
@@ -819,6 +820,16 @@ Continue?`;
           )}
         </div>
       </div>
+
+      {/* ADD: Special Scheduling Manager for rare circumstances */}
+      <FlexibleSchedulingManager
+        selectedDate={selectedDate}
+        clients={clients}
+        coaches={coaches}
+        schedules={dailySchedules}
+        scheduleActions={scheduleActions}
+        availabilityActions={availabilityActions}
+      />
 
       {/* Paste Schedule Modal */}
       {showPasteModal && (

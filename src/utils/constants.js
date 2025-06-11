@@ -1,4 +1,4 @@
-// src/utils/constants.js - Updated with flexible scheduling and internship support
+// src/utils/constants.js - FIXED: Back to core 3 time slots only
 
 import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car, Briefcase } from 'lucide-react';
 
@@ -24,32 +24,45 @@ export const PROGRAMS = {
   GRACE: 'grace'
 };
 
-// UPDATED: Expanded time slots for flexible scheduling including early hours and events
+// FIXED: Back to core 3 time slots only - special scheduling handled separately
 export const TIME_SLOTS = [
-  { id: '7-9', label: '7:00 AM - 9:00 AM PST', start: '7:00 AM PST', end: '9:00 AM PST' },
   { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
-  { id: '9-11', label: '9:00 AM - 11:00 AM PST', start: '9:00 AM PST', end: '11:00 AM PST' },
   { id: '10-12', label: '10:00 AM - 12:00 PM PST', start: '10:00 AM PST', end: '12:00 PM PST' },
-  { id: '12-2', label: '12:00 PM - 2:00 PM PST', start: '12:00 PM PST', end: '2:00 PM PST' },
-  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' },
-  { id: '1-3', label: '1:00 PM - 3:00 PM PST', start: '1:00 PM PST', end: '3:00 PM PST' },
-  { id: '2-4', label: '2:00 PM - 4:00 PM PST', start: '2:00 PM PST', end: '4:00 PM PST' },
-  { id: '3-5', label: '3:00 PM - 5:00 PM PST', start: '3:00 PM PST', end: '5:00 PM PST' },
-  // Weekend/Event slots
-  { id: 'weekend-morning', label: 'Weekend Morning Event', start: '9:00 AM PST', end: '12:00 PM PST' },
-  { id: 'weekend-afternoon', label: 'Weekend Afternoon Event', start: '1:00 PM PST', end: '4:00 PM PST' },
-  { id: 'custom', label: 'Custom Time Slot', start: 'Custom', end: 'Custom' }
+  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' }
 ];
 
-// NEW: Default time slots for different program types
+// NEW: Special time slots for FlexibleScheduleManager (not shown in main interface)
+export const SPECIAL_TIME_SLOTS = [
+  // Early morning slots
+  { id: '7-9', label: '7:00 AM - 9:00 AM PST', start: '7:00 AM PST', end: '9:00 AM PST', type: 'early' },
+  { id: '730-930', label: '7:30 AM - 9:30 AM PST', start: '7:30 AM PST', end: '9:30 AM PST', type: 'early' },
+  
+  // Extended afternoon slots
+  { id: '2-4', label: '2:00 PM - 4:00 PM PST', start: '2:00 PM PST', end: '4:00 PM PST', type: 'extended' },
+  { id: '3-5', label: '3:00 PM - 5:00 PM PST', start: '3:00 PM PST', end: '5:00 PM PST', type: 'extended' },
+  
+  // Weekend/Event slots
+  { id: 'weekend-morning', label: 'Weekend Morning Event (9:00 AM - 12:00 PM)', start: '9:00 AM PST', end: '12:00 PM PST', type: 'weekend' },
+  { id: 'weekend-afternoon', label: 'Weekend Afternoon Event (1:00 PM - 4:00 PM)', start: '1:00 PM PST', end: '4:00 PM PST', type: 'weekend' },
+  
+  // Custom slot
+  { id: 'custom', label: 'Custom Time Slot', start: 'Custom', end: 'Custom', type: 'custom' }
+];
+
+// NEW: Get all time slots (core + special) for special scheduling
+export const getAllTimeSlots = () => {
+  return [...TIME_SLOTS, ...SPECIAL_TIME_SLOTS];
+};
+
+// Default time slots for different program types (core slots only)
 export const DEFAULT_TIME_SLOTS_BY_PROGRAM = {
   'limitless': ['8-10', '10-12', '1230-230'],
-  'new-options': ['8-10', '10-12', '1230-230', '2-4'],
-  'bridges': ['8-10', '10-12', '1230-230', '2-4'], // Bridges may need internship slots
+  'new-options': ['8-10', '10-12', '1230-230'],
+  'bridges': ['8-10', '10-12', '1230-230'], 
   'grace': [] // Grace doesn't use individual scheduling
 };
 
-// NEW: Extended working days including weekends for events
+// Working days including weekends for special events
 export const ALL_WORKING_DAYS = [
   { id: 'monday', label: 'Monday', weekday: true },
   { id: 'tuesday', label: 'Tuesday', weekday: true },
@@ -60,18 +73,16 @@ export const ALL_WORKING_DAYS = [
   { id: 'sunday', label: 'Sunday', weekday: false }
 ];
 
-// NEW: Default working days by program
+// Default working days by program (weekdays only for normal scheduling)
 export const DEFAULT_WORKING_DAYS_BY_PROGRAM = {
   'limitless': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
   'new-options': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-  'bridges': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'], // May include weekends for internships
+  'bridges': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
   'grace': [] // Grace doesn't use individual scheduling
 };
 
-// UPDATED: Time blocks for task scheduling (expanded for early hours)
+// Time blocks for task scheduling (30-minute intervals within core hours)
 export const TIME_BLOCKS = [
-  { id: '700', label: '7:00 AM', time: '7:00' },
-  { id: '730', label: '7:30 AM', time: '7:30' },
   { id: '800', label: '8:00 AM', time: '8:00' },
   { id: '830', label: '8:30 AM', time: '8:30' },
   { id: '900', label: '9:00 AM', time: '9:00' },
@@ -85,12 +96,7 @@ export const TIME_BLOCKS = [
   { id: '1300', label: '1:00 PM', time: '1:00' },
   { id: '1330', label: '1:30 PM', time: '1:30' },
   { id: '1400', label: '2:00 PM', time: '2:00' },
-  { id: '1430', label: '2:30 PM', time: '2:30' },
-  { id: '1500', label: '3:00 PM', time: '3:00' },
-  { id: '1530', label: '3:30 PM', time: '3:30' },
-  { id: '1600', label: '4:00 PM', time: '4:00' },
-  { id: '1630', label: '4:30 PM', time: '4:30' },
-  { id: '1700', label: '5:00 PM', time: '5:00' }
+  { id: '1430', label: '2:30 PM', time: '2:30' }
 ];
 
 // Business types for Limitless program
@@ -127,7 +133,7 @@ export const COACH_TYPES_DETAILED = [
   { id: 'grace', name: 'Grace Coach', programs: ['grace'] }
 ];
 
-// NEW: Internship status options for Bridges participants
+// Internship status options for Bridges participants
 export const INTERNSHIP_STATUS = {
   PLANNED: 'planned',
   IN_PROGRESS: 'in_progress',
@@ -135,7 +141,7 @@ export const INTERNSHIP_STATUS = {
   CANCELLED: 'cancelled'
 };
 
-// NEW: Internship types/categories
+// Internship types/categories
 export const INTERNSHIP_TYPES = [
   { id: 'office', label: 'Office/Administrative' },
   { id: 'retail', label: 'Retail/Customer Service' },
@@ -149,7 +155,7 @@ export const INTERNSHIP_TYPES = [
   { id: 'other', label: 'Other' }
 ];
 
-// NEW: Internship schedule patterns
+// Internship schedule patterns
 export const INTERNSHIP_SCHEDULES = [
   { id: 'daily', label: 'Daily (30 days)', description: 'Monday-Friday for 6 weeks' },
   { id: 'weekly_1', label: 'Once per week (30 weeks)', description: 'One day per week for 30 weeks' },
@@ -158,7 +164,7 @@ export const INTERNSHIP_SCHEDULES = [
   { id: 'custom', label: 'Custom Schedule', description: 'Flexible schedule totaling 30 business days' }
 ];
 
-//Navigation function to include mileage tracking and internships
+// Navigation function to include mileage tracking and internships
 export const getNavigationItemsForUser = (userProfile) => {
   if (!userProfile) return [];
 
@@ -329,7 +335,7 @@ export const canAccessClientTasks = (userProfile, clientData = null) => {
   return true;
 };
 
-// NEW: Helper function to check if client can access internships
+// Helper function to check if client can access internships
 export const canAccessInternships = (userProfile, clientData = null) => {
   if (!userProfile) return false;
   
@@ -343,7 +349,7 @@ export const canAccessInternships = (userProfile, clientData = null) => {
   return false;
 };
 
-// NEW: Helper function to check if user can manage internships
+// Helper function to check if user can manage internships
 export const canManageInternships = (userProfile) => {
   if (!userProfile) return false;
   
@@ -642,7 +648,7 @@ export const MILEAGE_FORMATS = {
   INPUT_PLACEHOLDER: '0.000'
 };
 
-// NEW: Validation constants for internships
+// Validation constants for internships
 export const INTERNSHIP_VALIDATION = {
   MIN_BUSINESS_DAYS: 1,
   MAX_BUSINESS_DAYS: 50, // Allow some flexibility beyond 30
@@ -651,12 +657,12 @@ export const INTERNSHIP_VALIDATION = {
   MAX_NOTES_LENGTH: 2000
 };
 
-// NEW: Helper function to get flexible time slots based on program
+// Helper function to get flexible time slots based on program
 export const getTimeSlotsByProgram = (program) => {
   return DEFAULT_TIME_SLOTS_BY_PROGRAM[program] || DEFAULT_TIME_SLOTS_BY_PROGRAM.limitless;
 };
 
-// NEW: Helper function to get working days based on program
+// Helper function to get working days based on program
 export const getWorkingDaysByProgram = (program) => {
   return DEFAULT_WORKING_DAYS_BY_PROGRAM[program] || DEFAULT_WORKING_DAYS_BY_PROGRAM.limitless;
 };

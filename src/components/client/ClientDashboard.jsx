@@ -1,6 +1,6 @@
-// src/components/client/ClientDashboard.jsx
+// src/components/client/ClientDashboard.jsx - Updated to simplify Grace clients, not Bridges
 import React from 'react';
-import { Target, Building2, Clock } from 'lucide-react';
+import { Target, Building2, Clock, User } from 'lucide-react';
 import { getPSTDate } from '../../utils/dateUtils';
 
 const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }) => {
@@ -30,10 +30,14 @@ const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
         <h2 className="text-2xl font-bold mb-2">Welcome, {clientData.name}!</h2>
-        <p className="text-[#BED2D8]">Your ITG Business Journey Dashboard</p>
+        <p className="text-[#BED2D8]">
+          {clientData.program === 'grace' ? 'Your Grace Enrichment Program Dashboard' :
+           clientData.program === 'bridges' ? 'Your Career Development Journey Dashboard' : 
+           'Your ITG Business Journey Dashboard'}
+        </p>
       </div>
 
-      {/* Current Goals and Business Info */}
+      {/* Current Goals and Program Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-semibold mb-4 flex items-center text-[#292929]">
@@ -42,47 +46,125 @@ const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }
           </h3>
           <div className="space-y-3">
             <p className="text-[#292929]">
-              {clientData.currentGoals || 'Work with your coach to set specific business goals.'}
+              {clientData.currentGoals || `Work with your coach to set specific ${
+                clientData.program === 'grace' ? 'enrichment program' :
+                clientData.program === 'bridges' ? 'career development' : 
+                'program'
+              } goals.`}
             </p>
-            <div className="mt-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-[#707070]">Overall Progress</span>
-                <span className="text-[#292929]">{clientData.progress || 0}%</span>
+            {/* Only show progress bar for non-Grace clients */}
+            {clientData.program !== 'grace' && (
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-[#707070]">Overall Progress</span>
+                  <span className="text-[#292929]">{clientData.progress || 0}%</span>
+                </div>
+                <div className="w-full bg-[#F5F5F5] rounded-full h-3">
+                  <div 
+                    className="bg-[#6D858E] h-3 rounded-full transition-all duration-300" 
+                    style={{width: `${clientData.progress || 0}%`}}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-[#F5F5F5] rounded-full h-3">
-                <div 
-                  className="bg-[#6D858E] h-3 rounded-full transition-all duration-300" 
-                  style={{width: `${clientData.progress || 0}%`}}
-                ></div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-semibold mb-4 flex items-center text-[#292929]">
-            <Building2 className="mr-2 text-[#6D858E]" size={20} />
-            My Business
+            {clientData.program === 'grace' ? (
+              <>
+                <User className="mr-2 text-[#6D858E]" size={20} />
+                My Grace Program
+              </>
+            ) : clientData.program === 'bridges' ? (
+              <>
+                <User className="mr-2 text-[#6D858E]" size={20} />
+                My Career Development
+              </>
+            ) : (
+              <>
+                <Building2 className="mr-2 text-[#6D858E]" size={20} />
+                My Business
+              </>
+            )}
           </h3>
           <div className="space-y-2">
-            <div>
-              <span className="text-sm text-[#707070]">Business Name:</span>
-              <p className="font-medium text-[#6D858E]">{clientData.businessName}</p>
-            </div>
-            <div>
-              <span className="text-sm text-[#707070]">Business Type:</span>
-              <p className="font-medium text-[#292929]">{clientData.jobGoal}</p>
-            </div>
-            <div>
-              <span className="text-sm text-[#707070]">Equipment:</span>
-              <p className="font-medium text-[#292929]">{clientData.equipment}</p>
-            </div>
-            {clientData.businessDescription && (
+            {/* Show different info based on program */}
+            {clientData.program === 'grace' ? (
+              <>
+                {clientData.jobGoal && (
+                  <div>
+                    <span className="text-sm text-[#707070]">Enrichment Activities:</span>
+                    <p className="font-medium text-[#6D858E]">{clientData.jobGoal}</p>
+                  </div>
+                )}
+                {clientData.businessDescription && (
+                  <div>
+                    <span className="text-sm text-[#707070]">Program Goals:</span>
+                    <p className="text-sm text-[#292929] bg-[#F5F5F5] p-2 rounded mt-1">
+                      {clientData.businessDescription}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : clientData.program === 'bridges' ? (
+              <>
+                <div>
+                  <span className="text-sm text-[#707070]">Career Goals:</span>
+                  <p className="font-medium text-[#6D858E]">{clientData.jobGoal}</p>
+                </div>
+                {clientData.businessDescription && (
+                  <div>
+                    <span className="text-sm text-[#707070]">Development Plan:</span>
+                    <p className="text-sm text-[#292929] bg-[#F5F5F5] p-2 rounded mt-1">
+                      {clientData.businessDescription}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : clientData.program === 'limitless' ? (
+              <>
+                <div>
+                  <span className="text-sm text-[#707070]">Business Name:</span>
+                  <p className="font-medium text-[#6D858E]">{clientData.businessName}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-[#707070]">Business Type:</span>
+                  <p className="font-medium text-[#292929]">{clientData.jobGoal}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-[#707070]">Equipment:</span>
+                  <p className="font-medium text-[#292929]">{clientData.equipment}</p>
+                </div>
+                {clientData.businessDescription && (
+                  <div>
+                    <span className="text-sm text-[#707070]">Description:</span>
+                    <p className="text-sm text-[#292929] bg-[#F5F5F5] p-2 rounded mt-1">
+                      {clientData.businessDescription}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : clientData.program === 'new-options' ? (
+              <>
+                <div>
+                  <span className="text-sm text-[#707070]">Job Interest:</span>
+                  <p className="font-medium text-[#6D858E]">{clientData.jobGoal}</p>
+                </div>
+                {clientData.businessDescription && (
+                  <div>
+                    <span className="text-sm text-[#707070]">Job Description:</span>
+                    <p className="text-sm text-[#292929] bg-[#F5F5F5] p-2 rounded mt-1">
+                      {clientData.businessDescription}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
               <div>
-                <span className="text-sm text-[#707070]">Description:</span>
-                <p className="text-sm text-[#292929] bg-[#F5F5F5] p-2 rounded mt-1">
-                  {clientData.businessDescription}
-                </p>
+                <span className="text-sm text-[#707070]">Program:</span>
+                <p className="font-medium text-[#292929]">{clientData.program || 'Limitless'}</p>
               </div>
             )}
           </div>
@@ -105,7 +187,12 @@ const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }
                   <h4 className="font-semibold text-[#292929]">{slot?.label}</h4>
                   <p className="text-[#6D858E]">with {coach?.name || 'Coach TBD'}</p>
                   <p className="text-sm text-[#707070] mt-2">
-                    Ready to work on your business goals!
+                    {clientData.program === 'grace' ? 
+                      'Ready for your enrichment activities!' :
+                      clientData.program === 'bridges' ? 
+                      'Ready to work on your career development!' :
+                      'Ready to work on your business goals!'
+                    }
                   </p>
                 </div>
               );

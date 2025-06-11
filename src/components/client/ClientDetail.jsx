@@ -1,4 +1,4 @@
-// src/components/client/ClientDetail.jsx - Updated with Internships tab for Bridges clients
+// src/components/client/ClientDetail.jsx - Updated to simplify Grace clients, not Bridges
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -68,11 +68,14 @@ const ClientDetail = ({
   
   // Update local state when client data changes from real-time updates
   useEffect(() => {
-    setProgress(client.progress || 0);
+    // Only update progress for non-Grace clients
+    if (client.program !== 'grace') {
+      setProgress(client.progress || 0);
+    }
     setNotes(client.notes || '');
     setSessionNotes(client.sessionNotes || '');
     setCurrentGoals(client.currentGoals || '');
-  }, [client.id, client.progress, client.notes, client.sessionNotes, client.currentGoals]);
+  }, [client.id, client.progress, client.notes, client.sessionNotes, client.currentGoals, client.program]);
 
   // Load files when authenticated
   useEffect(() => {
@@ -124,16 +127,22 @@ const ClientDetail = ({
     }
   };
 
-  // Handle update with goals
+  // Handle update with goals - simplified for Grace clients
   const handleUpdate = async () => {
     try {
-      await clientActions.updateProgress(client.id, {
-        progress: parseInt(progress),
+      const updateData = {
         notes: notes.trim(),
         sessionNotes: sessionNotes.trim(),
         currentGoals: currentGoals.trim()
-      });
-      alert('Client progress, notes, and goals updated successfully!');
+      };
+
+      // Only include progress for non-Grace clients
+      if (client.program !== 'grace') {
+        updateData.progress = parseInt(progress);
+      }
+
+      await clientActions.updateProgress(client.id, updateData);
+      alert('Client notes and goals updated successfully!');
     } catch (error) {
       alert('Error updating client. Please try again: ' + error.message);
     }
@@ -350,6 +359,7 @@ const ClientDetail = ({
           {client.program === 'limitless' ? client.businessName :
            client.program === 'new-options' ? 'Community Job' :
            client.program === 'bridges' ? 'Career Development' :
+           client.program === 'grace' ? 'Grace Program' :
            client.businessName || client.jobGoal}
         </span>
         {showInternshipsTab && (
@@ -403,6 +413,7 @@ const ClientDetail = ({
                   {client.program === 'limitless' ? 'Business Information' :
                    client.program === 'new-options' ? 'Job Information' :
                    client.program === 'bridges' ? 'Career Development' :
+                   client.program === 'grace' ? 'Grace Participant Information' :
                    'Client Information'}
                 </h3>
                 <div className="space-y-4">
@@ -411,28 +422,41 @@ const ClientDetail = ({
                     <p className="font-medium text-[#292929]">{client.name}</p>
                   </div>
                   
-                  {client.program === 'limitless' && (
+                  {/* Show full information for all programs except Grace */}
+                  {client.program !== 'grace' && (
                     <>
-                      <div>
-                        <label className="text-sm font-medium text-[#707070]">Business Name:</label>
-                        <p className="font-medium text-[#6D858E]">{client.businessName}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-[#707070]">Business Type:</label>
-                        <p className="font-medium text-[#292929]">{client.jobGoal}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-[#707070]">Equipment Used:</label>
-                        <p className="text-[#292929]">{client.equipment}</p>
-                      </div>
+                      {client.program === 'limitless' && (
+                        <>
+                          <div>
+                            <label className="text-sm font-medium text-[#707070]">Business Name:</label>
+                            <p className="font-medium text-[#6D858E]">{client.businessName}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-[#707070]">Business Type:</label>
+                            <p className="font-medium text-[#292929]">{client.jobGoal}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-[#707070]">Equipment Used:</label>
+                            <p className="text-[#292929]">{client.equipment}</p>
+                          </div>
+                        </>
+                      )}
+                      
+                      {(client.program === 'new-options' || client.program === 'bridges') && (
+                        <div>
+                          <label className="text-sm font-medium text-[#707070]">
+                            {client.program === 'new-options' ? 'Job Interest:' : 'Career Goals:'}
+                          </label>
+                          <p className="font-medium text-[#292929]">{client.jobGoal}</p>
+                        </div>
+                      )}
                     </>
                   )}
-                  
-                  {(client.program === 'new-options' || client.program === 'bridges') && (
+
+                  {/* Simplified Grace participant info */}
+                  {client.program === 'grace' && client.jobGoal && (
                     <div>
-                      <label className="text-sm font-medium text-[#707070]">
-                        {client.program === 'new-options' ? 'Job Interest:' : 'Career Goals:'}
-                      </label>
+                      <label className="text-sm font-medium text-[#707070]">Enrichment Activities:</label>
                       <p className="font-medium text-[#292929]">{client.jobGoal}</p>
                     </div>
                   )}
@@ -442,6 +466,7 @@ const ClientDetail = ({
                       {client.program === 'limitless' ? 'Business Description:' :
                        client.program === 'new-options' ? 'Job Description:' :
                        client.program === 'bridges' ? 'Career Development Plan:' :
+                       client.program === 'grace' ? 'Program Goals:' :
                        'Description:'}
                     </label>
                     <p className="text-sm text-[#292929] bg-[#F5F5F5] p-3 rounded">{client.businessDescription}</p>
@@ -453,7 +478,7 @@ const ClientDetail = ({
                     <p className="text-[#292929]">{client.phone}</p>
                   </div>
 
-                  {/* Working Schedule Information */}
+                  {/* Working Schedule Information - only for non-Grace clients */}
                   {client.program !== 'grace' && (
                     <div>
                       <label className="text-sm font-medium text-[#707070]">Working Schedule:</label>
@@ -472,27 +497,30 @@ const ClientDetail = ({
                     <label className="text-sm font-medium text-[#707070]">Current Goals:</label>
                     <div className="mt-2 p-3 bg-[#BED2D8] rounded-lg border-l-4 border-[#6D858E]">
                       <p className="text-[#292929]">
-                        {client.currentGoals || 'No current goals set. Use the Goals & Session Notes section below to add goals for this client.'}
+                        {client.currentGoals || `No current goals set. Use the Goals & Session Notes section below to add goals for this ${client.program === 'grace' ? 'participant' : 'client'}.`}
                       </p>
                     </div>
                   </div>
                   
-                  <div>
-                    <label className="text-sm font-medium text-[#707070]">Progress:</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={progress}
-                      onChange={(e) => setProgress(parseInt(e.target.value))}
-                      className="w-full mt-2"
-                    />
-                    <div className="flex justify-between text-sm text-[#707070]">
-                      <span>0%</span>
-                      <span className="font-medium">{progress}%</span>
-                      <span>100%</span>
+                  {/* Progress bar - only for non-Grace clients */}
+                  {client.program !== 'grace' && (
+                    <div>
+                      <label className="text-sm font-medium text-[#707070]">Progress:</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={progress}
+                        onChange={(e) => setProgress(parseInt(e.target.value))}
+                        className="w-full mt-2"
+                      />
+                      <div className="flex justify-between text-sm text-[#707070]">
+                        <span>0%</span>
+                        <span className="font-medium">{progress}%</span>
+                        <span>100%</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               
@@ -508,7 +536,7 @@ const ClientDetail = ({
                       onChange={(e) => setCurrentGoals(e.target.value)}
                       className="w-full mt-2 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
                       rows="3"
-                      placeholder={`Set client's current ${client.program === 'limitless' ? 'business' : client.program === 'bridges' ? 'career development' : 'program'} goals and objectives...`}
+                      placeholder={`Set ${client.program === 'grace' ? 'participant\'s enrichment program' : 'client\'s'} goals and objectives...`}
                     />
                   </div>
                   <div>
@@ -535,7 +563,7 @@ const ClientDetail = ({
                     onClick={handleUpdate}
                     className="bg-[#6D858E] text-white px-4 py-2 rounded-md hover:bg-[#5A4E69]"
                   >
-                    Update Goals, Progress & Notes
+                    {client.program === 'grace' ? 'Update Goals & Notes' : 'Update Goals, Progress & Notes'}
                   </button>
                 </div>
               </div>
@@ -558,7 +586,7 @@ const ClientDetail = ({
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold flex items-center text-[#292929]">
                   <FolderOpen className="mr-2" size={20} />
-                  Client Files (Google Workspace Shared Drive)
+                  {client.program === 'grace' ? 'Participant' : 'Client'} Files (Google Workspace Shared Drive)
                 </h3>
                 
                 {!isAvailable ? (
@@ -786,71 +814,76 @@ const ClientDetail = ({
         </div>
       </div>
       
-      {/* Client Profile Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold mb-4 text-[#6D858E] flex items-center">
-            <CheckCircle className="mr-2" size={20} />
-            Strengths
-          </h3>
-          <div className="text-[#292929] bg-[#BED2D8] p-4 rounded-lg border-l-4 border-[#6D858E]">
-            {client.strengths ? (
-              <ul className="space-y-2">
-                {client.strengths.split(', ').map((strength, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-[#6D858E] mr-2">•</span>
-                    <span>{strength}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[#9B97A2]">No strengths documented</p>
-            )}
+      {/* Client Profile Information - Hide for Grace clients */}
+      {client.program !== 'grace' && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Always show strengths for coaches (clients never see this view anyway) */}
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h3 className="text-xl font-semibold mb-4 text-[#6D858E] flex items-center">
+                <CheckCircle className="mr-2" size={20} />
+                Strengths
+              </h3>
+              <div className="text-[#292929] bg-[#BED2D8] p-4 rounded-lg border-l-4 border-[#6D858E]">
+                {client.strengths ? (
+                  <ul className="space-y-2">
+                    {client.strengths.split(', ').map((strength, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="text-[#6D858E] mr-2">•</span>
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[#9B97A2]">No strengths documented</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow-md">
+              <h3 className="text-xl font-semibold mb-4 text-[#5A4E69] flex items-center">
+                <AlertCircle className="mr-2" size={20} />
+                Challenges
+              </h3>
+              <div className="text-[#292929] bg-[#F5F5F5] p-4 rounded-lg border-l-4 border-[#5A4E69]">
+                {client.challenges ? (
+                  <ul className="space-y-2">
+                    {client.challenges.split(', ').map((challenge, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="text-[#5A4E69] mr-2">•</span>
+                        <span>{challenge}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[#9B97A2]">No challenges documented</p>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-xl font-semibold mb-4 text-[#5A4E69] flex items-center">
-            <AlertCircle className="mr-2" size={20} />
-            Challenges
-          </h3>
-          <div className="text-[#292929] bg-[#F5F5F5] p-4 rounded-lg border-l-4 border-[#5A4E69]">
-            {client.challenges ? (
-              <ul className="space-y-2">
-                {client.challenges.split(', ').map((challenge, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-[#5A4E69] mr-2">•</span>
-                    <span>{challenge}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[#9B97A2]">No challenges documented</p>
-            )}
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold mb-4 text-[#5A4E69] flex items-center">
-          <User className="mr-2" size={20} />
-          Recommended Coaching Approach
-        </h3>
-        <div className="text-[#292929] bg-[#F5F5F5] p-4 rounded-lg border-l-4 border-[#5A4E69]">
-          {client.coachingApproach ? (
-            <ul className="space-y-3">
-              {client.coachingApproach.split(', ').map((approach, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-[#5A4E69] mr-2 mt-1">→</span>
-                  <span>{approach}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[#9B97A2]">No coaching approach documented</p>
-          )}
-        </div>
-      </div>
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h3 className="text-xl font-semibold mb-4 text-[#5A4E69] flex items-center">
+              <User className="mr-2" size={20} />
+              Recommended Coaching Approach
+            </h3>
+            <div className="text-[#292929] bg-[#F5F5F5] p-4 rounded-lg border-l-4 border-[#5A4E69]">
+              {client.coachingApproach ? (
+                <ul className="space-y-3">
+                  {client.coachingApproach.split(', ').map((approach, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="text-[#5A4E69] mr-2 mt-1">→</span>
+                      <span>{approach}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[#9B97A2]">No coaching approach documented</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* General Coaching Tips */}
       <div className="bg-white p-6 rounded-lg shadow-md">
@@ -871,6 +904,7 @@ const ClientDetail = ({
               <li>• Recognize personal growth</li>
               <li>• {client.program === 'limitless' ? 'Connect development to business success' :
                       client.program === 'bridges' ? 'Connect skills to career readiness' :
+                      client.program === 'grace' ? 'Connect growth to enrichment goals' :
                       'Connect progress to program goals'}</li>
             </ul>
           </div>

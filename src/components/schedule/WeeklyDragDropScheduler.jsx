@@ -1,4 +1,5 @@
-// src/components/schedule/WeeklyDragDropScheduler.jsx - UPDATED with vertical coaches, sticky headers, client availability
+// src/components/schedule/WeeklyDragDropScheduler.jsx - UPDATED: Core 3 slots only + Special Scheduling
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDatePST, getWeekDatesStartingMonday, formatDateForInput } from '../../utils/dateUtils';
@@ -11,6 +12,7 @@ import {
   formatWorkingDays,
   formatAvailableTimeSlots
 } from '../../utils/helpers';
+import FlexibleSchedulingManager from './FlexibleScheduleManager'; // ADD: Import special scheduling
 
 const WeeklyDragDropScheduler = ({ 
   selectedDate,
@@ -24,7 +26,7 @@ const WeeklyDragDropScheduler = ({
   dailySchedules,
   clients,
   coaches,
-  timeSlots,
+  timeSlots, // This should be the core 3 slots only
   scheduleActions,
   availabilityActions 
 }) => {
@@ -63,13 +65,13 @@ const WeeklyDragDropScheduler = ({
     setCurrentWeekStart(formatDateForInput(currentStart));
   };
 
-  // Filter out Grace coaches
+  // Filter out Grace coaches - only show Success coaches
   const activeCoaches = coaches.filter(c => 
     c.role === 'coach' && 
     (c.coachType || 'success') === 'success'
   );
 
-  // UPDATED: Get clients with availability info for the week
+  // Get clients with availability info for the week
   const getUnscheduledClients = () => {
     const schedulableClients = getSchedulableClients(clients);
     
@@ -152,7 +154,7 @@ const WeeklyDragDropScheduler = ({
     }
   };
 
-  // UPDATED: Render client card with weekly availability info
+  // Render client card with weekly availability info
   const renderClientCard = (client) => {
     const isSelected = selectedClient?.id === client.id;
     const isDisabled = client.isFullyScheduled;
@@ -305,9 +307,13 @@ const WeeklyDragDropScheduler = ({
               <div>The client will be instantly assigned to that coach, day, and time</div>
             </div>
           </div>
+          <div className="mt-3 text-sm text-[#292929]">
+            <div className="font-medium">🔍 Core Schedule Times:</div>
+            <div>• <strong>8:00 AM - 10:00 AM</strong> • <strong>10:00 AM - 12:00 PM</strong> • <strong>12:30 PM - 2:30 PM</strong></div>
+          </div>
         </div>
 
-        {/* NEW: Vertical Coach Layout with Sticky Headers */}
+        {/* Vertical Coach Layout with Sticky Headers */}
         <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
           <div className="min-w-[1200px]">
             {/* Sticky Coach Headers */}
@@ -351,7 +357,7 @@ const WeeklyDragDropScheduler = ({
                       ))}
                     </div>
                     
-                    {/* Time Slots for this day */}
+                    {/* Time Slots for this day - ONLY CORE 3 SLOTS */}
                     {timeSlots.map(slot => (
                       <div key={`${date}-${slot.id}`} className="grid gap-1" 
                            style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
@@ -497,6 +503,16 @@ const WeeklyDragDropScheduler = ({
           </div>
         )}
       </div>
+
+      {/* ADD: Special Scheduling Manager for rare circumstances */}
+      <FlexibleSchedulingManager
+        selectedDate={selectedDate}
+        clients={clients}
+        coaches={coaches}
+        schedules={dailySchedules}
+        scheduleActions={scheduleActions}
+        availabilityActions={availabilityActions}
+      />
     </div>
   );
 };

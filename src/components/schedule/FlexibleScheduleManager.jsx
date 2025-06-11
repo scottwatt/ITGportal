@@ -1,4 +1,5 @@
-// src/components/schedule/FlexibleSchedulingManager.jsx - Handle special scheduling cases
+// src/components/schedule/FlexibleScheduleManager.jsx - UPDATED: Uses special time slots only
+
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react';
 import { formatDatePST, getPSTDate } from '../../utils/dateUtils';
 import { getSchedulableClients, getClientInitials } from '../../utils/helpers';
-import { TIME_SLOTS } from '../../utils/constants';
+import { SPECIAL_TIME_SLOTS, getAllTimeSlots } from '../../utils/constants';
 
 const FlexibleSchedulingManager = ({ 
   selectedDate,
@@ -69,7 +70,7 @@ const FlexibleSchedulingManager = ({
     
     // For early or weekend slots, return all schedulable clients
     return getAllSchedulableClients().filter(client => {
-      // Check if they're not already fully scheduled
+      // Check if they're not already fully scheduled for their normal slots
       const clientSchedules = schedules.filter(s => 
         s.clientId === client.id && s.date === specialDate
       );
@@ -78,10 +79,10 @@ const FlexibleSchedulingManager = ({
     });
   };
 
-  // Get available coaches for special scheduling
+  // Get available coaches for special scheduling (Success coaches only)
   const getAvailableCoachesForSpecial = () => {
     return coaches.filter(coach => {
-      // Filter out Grace coaches for regular scheduling
+      // Filter out Grace coaches for special scheduling
       if ((coach.coachType || 'success') === 'grace') return false;
       
       // Check if coach is available (not marked unavailable)
@@ -92,21 +93,15 @@ const FlexibleSchedulingManager = ({
 
   // Get special time slots based on type
   const getSpecialTimeSlots = () => {
-    const allSlots = TIME_SLOTS;
-    
     switch (specialType) {
       case 'early':
-        return allSlots.filter(slot => 
-          slot.id.includes('7') || slot.start.includes('7:')
-        );
+        return SPECIAL_TIME_SLOTS.filter(slot => slot.type === 'early');
       case 'weekend':
-        return allSlots.filter(slot => 
-          slot.id.includes('weekend') || slot.id === 'custom'
-        );
+        return SPECIAL_TIME_SLOTS.filter(slot => slot.type === 'weekend' || slot.type === 'custom');
       case 'off-day':
-        return allSlots; // All time slots available for off-day scheduling
+        return getAllTimeSlots(); // All slots (core + special) available for off-day scheduling
       default:
-        return allSlots;
+        return SPECIAL_TIME_SLOTS;
     }
   };
 
@@ -119,11 +114,11 @@ const FlexibleSchedulingManager = ({
     }).toLowerCase();
     
     const isWeekend = dayName === 'saturday' || dayName === 'sunday';
-    const isEarlySlot = timeSlot && (timeSlot.includes('7') || timeSlot.startsWith('7'));
-    const isWeekendSlot = timeSlot && (timeSlot.includes('weekend') || timeSlot === 'custom');
+    const specialSlot = SPECIAL_TIME_SLOTS.find(slot => slot.id === timeSlot);
     
-    if (isWeekend || isWeekendSlot) return 'weekend';
-    if (isEarlySlot) return 'early';
+    if (isWeekend || (specialSlot && specialSlot.type === 'weekend')) return 'weekend';
+    if (specialSlot && specialSlot.type === 'early') return 'early';
+    if (specialSlot && specialSlot.type === 'extended') return 'extended';
     return 'off-day';
   };
 
@@ -147,7 +142,10 @@ const FlexibleSchedulingManager = ({
         reason: specialReason
       });
       
-      alert(`Special scheduling created successfully!\n\nClient: ${selectedSpecialClient.name}\nDate: ${formatDatePST(specialDate)}\nTime: ${TIME_SLOTS.find(s => s.id === specialTimeSlot)?.label}\nReason: ${specialReason}`);
+      const allTimeSlots = getAllTimeSlots();
+      const timeSlotInfo = allTimeSlots.find(s => s.id === specialTimeSlot);
+      
+      alert(`Special scheduling created successfully!\n\nClient: ${selectedSpecialClient.name}\nDate: ${formatDatePST(specialDate)}\nTime: ${timeSlotInfo?.label || specialTimeSlot}\nType: ${specialType}\nReason: ${specialReason}`);
       
       setShowSpecialScheduling(false);
     } catch (error) {
@@ -171,10 +169,9 @@ const FlexibleSchedulingManager = ({
     
     const isOffDay = !workingDays.includes(dayName);
     const isOffTime = !availableTimeSlots.includes(timeSlot);
-    const isEarlyTime = timeSlot && timeSlot.includes('7');
-    const isWeekendTime = timeSlot && (timeSlot.includes('weekend') || timeSlot === 'custom');
+    const isSpecialSlot = SPECIAL_TIME_SLOTS.some(slot => slot.id === timeSlot);
     
-    return isOffDay || isOffTime || isEarlyTime || isWeekendTime;
+    return isOffDay || isOffTime || isSpecialSlot;
   };
 
   // Get existing special schedules for display
@@ -199,7 +196,7 @@ const FlexibleSchedulingManager = ({
             Special Scheduling Manager
           </h3>
           <p className="text-sm text-[#707070] mt-1">
-            Handle weekend events, early hours, and off-day scheduling
+            Handle weekend events, early hours, late hours, and off-day scheduling
           </p>
         </div>
         
@@ -220,7 +217,8 @@ const FlexibleSchedulingManager = ({
             {specialSchedules.map(schedule => {
               const client = clients.find(c => c.id === schedule.clientId);
               const coach = coaches.find(c => (c.uid || c.id) === schedule.coachId);
-              const timeSlot = TIME_SLOTS.find(s => s.id === schedule.timeSlot);
+              const allTimeSlots = getAllTimeSlots();
+              const timeSlot = allTimeSlots.find(s => s.id === schedule.timeSlot);
               const type = determineSpecialType(schedule.date, schedule.timeSlot);
               
               return (
@@ -231,15 +229,17 @@ const FlexibleSchedulingManager = ({
                         {client?.name} with {coach?.name}
                       </div>
                       <div className="text-sm text-[#707070]">
-                        {formatDatePST(schedule.date)} • {timeSlot?.label}
+                        {formatDatePST(schedule.date)} • {timeSlot?.label || schedule.timeSlot}
                       </div>
                       <span className={`text-xs px-2 py-1 rounded mt-1 inline-block ${
                         type === 'weekend' ? 'bg-purple-100 text-purple-800' :
                         type === 'early' ? 'bg-blue-100 text-blue-800' :
+                        type === 'extended' ? 'bg-green-100 text-green-800' :
                         'bg-yellow-100 text-yellow-800'
                       }`}>
                         {type === 'weekend' ? '🎪 Weekend Event' :
                          type === 'early' ? '🌅 Early Hour' :
+                         type === 'extended' ? '⏰ Extended Hour' :
                          '📅 Off Day'}
                       </span>
                     </div>
@@ -303,7 +303,7 @@ const FlexibleSchedulingManager = ({
                     <div className="text-center">
                       <div className="text-2xl mb-1">🌅</div>
                       <div className="font-medium">Early Hours</div>
-                      <div className="text-xs">7:00 AM start</div>
+                      <div className="text-xs">Before 8:00 AM</div>
                     </div>
                   </button>
                   

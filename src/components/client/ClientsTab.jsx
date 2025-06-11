@@ -1,4 +1,4 @@
-// src/components/client/ClientsTab.jsx - FIXED with internship props
+// src/components/client/ClientsTab.jsx - Updated to remove progress bar for Grace clients, not Bridges
 import React, { useState } from 'react';
 import { Filter } from 'lucide-react';
 import ClientDetail from './ClientDetail';
@@ -16,8 +16,8 @@ const ClientsTab = ({
   onBackToClients,
   clientActions,
   scheduleActions,
-  internships = [], // ADD: Accept internships prop
-  internshipActions // ADD: Accept internshipActions prop
+  internships = [],
+  internshipActions
 }) => {
   const [clientFilter, setClientFilter] = useState('all');
   
@@ -30,9 +30,9 @@ const ClientsTab = ({
         scheduleActions={scheduleActions}
         timeSlots={timeSlots}
         coaches={coaches}
-        internships={internships} // ADD: Pass internships to ClientDetail
-        internshipActions={internshipActions} // ADD: Pass internshipActions to ClientDetail
-        userProfile={userProfile} // ADD: Pass userProfile (was missing!)
+        internships={internships}
+        internshipActions={internshipActions}
+        userProfile={userProfile}
       />
     );
   }
@@ -84,7 +84,7 @@ const ClientsTab = ({
           const todayCoach = todaySchedule.length > 0 ? 
             coaches.find(c => c.uid === todaySchedule[0].coachId || c.id === todaySchedule[0].coachId) : null;
           
-          // ADD: Get internship info for Bridges clients
+          // Get internship info for Bridges clients
           const clientInternships = internships.filter(i => i.clientId === client.id);
           const activeInternship = clientInternships.find(i => i.status === 'in_progress');
           const completedInternships = clientInternships.filter(i => i.status === 'completed').length;
@@ -132,26 +132,28 @@ const ClientsTab = ({
               </div>
               
               <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-[#707070]">
-                      {client.program === 'limitless' ? 'Business Progress' :
-                       client.program === 'new-options' ? 'Job Readiness' :
-                       client.program === 'bridges' ? 'Skill Development' :
-                       client.program === 'grace' ? 'Program Progress' :
-                       'Progress'}
-                    </span>
-                    <span className="text-[#292929]">{client.progress || 0}%</span>
+                {/* Only show progress bar for non-Grace clients */}
+                {client.program !== 'grace' && (
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-[#707070]">
+                        {client.program === 'limitless' ? 'Business Progress' :
+                         client.program === 'new-options' ? 'Job Readiness' :
+                         client.program === 'bridges' ? 'Skill Development' :
+                         'Progress'}
+                      </span>
+                      <span className="text-[#292929]">{client.progress || 0}%</span>
+                    </div>
+                    <div className="w-full bg-[#F5F5F5] rounded-full h-2">
+                      <div 
+                        className="bg-[#6D858E] h-2 rounded-full" 
+                        style={{width: `${client.progress || 0}%`}}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-[#F5F5F5] rounded-full h-2">
-                    <div 
-                      className="bg-[#6D858E] h-2 rounded-full" 
-                      style={{width: `${client.progress || 0}%`}}
-                    ></div>
-                  </div>
-                </div>
+                )}
                 
-                {/* ADD: Show internship info for Bridges clients */}
+                {/* Show internship info for Bridges clients */}
                 {client.program === 'bridges' && (
                   <div className="bg-[#5A4E69] bg-opacity-10 p-3 rounded border-l-4 border-[#5A4E69]">
                     <div className="flex justify-between items-center text-sm">
@@ -167,6 +169,18 @@ const ClientsTab = ({
                         {completedInternships > 0 ? 'Ready for next internship' : 'No active internship'}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Show simplified info for Grace clients */}
+                {client.program === 'grace' && (
+                  <div className="bg-[#9B97A2] bg-opacity-10 p-3 rounded border-l-4 border-[#9B97A2]">
+                    <div className="text-sm text-[#292929]">
+                      <span className="font-medium text-[#9B97A2]">Grace Program:</span>
+                      <div className="mt-1 text-xs text-[#707070]">
+                        Participating in enrichment activities
+                      </div>
+                    </div>
                   </div>
                 )}
                 
