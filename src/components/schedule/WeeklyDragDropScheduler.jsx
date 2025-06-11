@@ -33,6 +33,14 @@ const WeeklyDragDropScheduler = ({
 }) => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  
+  // Copy/Paste Schedule States
+  const [copiedWeekSchedule, setCopiedWeekSchedule] = useState(null);
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [selectedTargetWeeks, setSelectedTargetWeeks] = useState([]);
+  const [pastePreview, setPastePreview] = useState([]);
+  const [isPasting, setIsPasting] = useState(false);
+  
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     // Get the Monday of the week containing selectedDate
     const date = new Date(selectedDate + 'T12:00:00');
@@ -174,6 +182,236 @@ const WeeklyDragDropScheduler = ({
     }
   };
 
+  // COPY/PASTE WEEK SCHEDULE FUNCTIONS
+  const handleCopyWeekSchedule = () => {
+    const weekSchedules = dailySchedules.filter(s => weekDates.includes(s.date));
+    
+    if (weekSchedules.length === 0) {
+      alert('No schedule to copy for this week.');
+      return;
+    }
+
+    // Create copy with coach and client details for preview
+    const scheduleWithDetails = weekSchedules.map(schedule => {
+      const coach = activeCoaches.find(c => (c.uid || c.id) === schedule.coachId);
+      const client = clients.find(c => c.id === schedule.clientId);
+      const timeSlotInfo = getTimeSlotInfo(schedule.timeSlot);
+      
+      return {
+        ...schedule,
+        coachName: coach?.name || 'Unknown Coach',
+        clientName: client?.name || 'Unknown Client',
+        timeSlotLabel: timeSlotInfo.label || 'Unknown Time'
+      };
+    });
+
+    setCopiedWeekSchedule({
+      sourceWeekStart: currentWeekStart,
+      schedules: scheduleWithDetails,
+      copiedAt: new Date().toISOString()
+    });
+
+    alert(`Copied ${weekSchedules.length} sessions from week of ${formatDatePST(weekDates[0])}!`);
+  };
+
+  const handleShowPasteModal = () => {
+    if (!copiedWeekSchedule) {
+      alert('No week schedule copied. Please copy a week schedule first.');
+      return;
+    }
+    setShowPasteModal(true);
+    setSelectedTargetWeeks([]);
+    setPastePreview([]);
+  };
+
+  const handleTargetWeekChange = (weekStart, isChecked) => {
+    if (isChecked) {
+      setSelectedTargetWeeks(prev => [...prev, weekStart]);
+    } else {
+      setSelectedTargetWeeks(prev => prev.filter(w => w !== weekStart));
+    }
+  };
+
+  // Generate paste preview when target weeks change
+  useEffect(() => {
+    if (selectedTargetWeeks.length > 0 && copiedWeekSchedule) {
+      const preview = selectedTargetWeeks.map(targetWeekStart => {
+        // Generate target week dates
+        const targetWeekDates = [];
+        const startDate = new Date(targetWeekStart + 'T12:00:00');
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + i);
+          targetWeekDates.push(formatDateForInput(date));
+        }
+
+        const conflicts = [];
+        const validAssignments = [];
+
+        copiedWeekSchedule.schedules.forEach(schedule => {
+          const client = clients.find(c => c.id === schedule.clientId);
+          
+          // Calculate target date by finding the day offset from source week
+          const sourceWeekDates = [];
+          const sourceStart = new Date(copiedWeekSchedule.sourceWeekStart + 'T12:00:00');
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(sourceStart);
+            date.setDate(sourceStart.getDate() + i);
+            sourceWeekDates.push(formatDateForInput(date));
+          }
+          
+          const dayIndex = sourceWeekDates.indexOf(schedule.date);
+          const targetDate = targetWeekDates[dayIndex];
+          
+          if (!client) {
+            conflicts.push({
+              ...schedule,
+              targetDate,
+              reason: `Client no longer exists`
+            });
+            return;
+          }
+          
+          // Check if client is available for this date and time slot
+          const clientAvailableForDate = getClientsAvailableForDate([client], targetDate);
+          if (clientAvailableForDate.length === 0) {
+            conflicts.push({
+              ...schedule,
+              targetDate,
+              reason: `${client.name} doesn't work on ${new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' })}s`
+            });
+            return;
+          }
+          
+          const clientAvailableTimeSlots = client.availableTimeSlots || ['8-10', '10-12', '1230-230'];
+          if (!clientAvailableTimeSlots.includes(schedule.timeSlot)) {
+            conflicts.push({
+              ...schedule,
+              targetDate,
+              reason: `${client.name} is not available for ${schedule.timeSlot} time slot`
+            });
+            return;
+          }
+          
+          // Check if coach is available on target date
+          const isCoachAvailable = availabilityActions.isCoachAvailable(schedule.coachId, targetDate);
+          
+          // Check for existing assignments (only prevent double-booking the same client)
+          const existingAssignment = dailySchedules.find(s => 
+            s.date === targetDate && 
+            s.timeSlot === schedule.timeSlot && 
+            s.clientId === schedule.clientId
+          );
+
+          if (!isCoachAvailable) {
+            const status = availabilityActions.getCoachStatusForDate(schedule.coachId, targetDate);
+            conflicts.push({
+              ...schedule,
+              targetDate,
+              reason: `Coach ${schedule.coachName} is ${status} on ${formatDatePST(targetDate)}`
+            });
+          } else if (existingAssignment) {
+            conflicts.push({
+              ...schedule,
+              targetDate,
+              reason: `${schedule.clientName} is already scheduled at ${schedule.timeSlotLabel} on ${formatDatePST(targetDate)}`
+            });
+          } else {
+            validAssignments.push({
+              ...schedule,
+              targetDate
+            });
+          }
+        });
+
+        return {
+          weekStart: targetWeekStart,
+          validAssignments,
+          conflicts
+        };
+      });
+
+      setPastePreview(preview);
+    }
+  }, [selectedTargetWeeks, copiedWeekSchedule, dailySchedules, availabilityActions, clients]);
+
+  const handlePasteWeekSchedule = async () => {
+    if (selectedTargetWeeks.length === 0) {
+      alert('Please select at least one target week.');
+      return;
+    }
+
+    const totalValidAssignments = pastePreview.reduce((sum, week) => sum + week.validAssignments.length, 0);
+    const totalConflicts = pastePreview.reduce((sum, week) => sum + week.conflicts.length, 0);
+
+    if (totalValidAssignments === 0) {
+      alert('No valid assignments can be made to the selected weeks due to conflicts.');
+      return;
+    }
+
+    const confirmMessage = `Ready to paste week schedule:
+• ${totalValidAssignments} assignments will be created
+• ${totalConflicts} assignments will be skipped due to conflicts
+
+Continue?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsPasting(true);
+
+    try {
+      let successCount = 0;
+
+      for (const weekPreview of pastePreview) {
+        for (const assignment of weekPreview.validAssignments) {
+          try {
+            await scheduleActions.add(
+              assignment.targetDate,
+              assignment.timeSlot,
+              assignment.coachId,
+              assignment.clientId
+            );
+            successCount++;
+          } catch (error) {
+            console.error('Error creating assignment:', error);
+          }
+        }
+      }
+
+      alert(`Successfully pasted ${successCount} assignments! ${totalConflicts} were skipped due to conflicts.`);
+      setShowPasteModal(false);
+      setSelectedTargetWeeks([]);
+      
+    } catch (error) {
+      alert(`Error pasting week schedule: ${error.message}`);
+    } finally {
+      setIsPasting(false);
+    }
+  };
+
+  // Generate next 8 weeks for selection
+  const getNextEightWeeks = () => {
+    const weeks = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 8; i++) {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() + (i * 7));
+      
+      // Get Monday of that week
+      const dayOfWeek = weekStart.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const monday = new Date(weekStart);
+      monday.setDate(weekStart.getDate() - daysToMonday);
+      
+      weeks.push(formatDateForInput(monday));
+    }
+    
+    return weeks;
+  };
+
   // Render client card with weekly availability info
   const renderClientCard = (client) => {
     const isSelected = selectedClient?.id === client.id;
@@ -255,6 +493,7 @@ const WeeklyDragDropScheduler = ({
   };
 
   const unscheduledClients = getUnscheduledClients();
+  const hasWeekSchedule = dailySchedules.some(s => weekDates.includes(s.date));
 
   if (activeCoaches.length === 0) {
     return (
@@ -270,6 +509,50 @@ const WeeklyDragDropScheduler = ({
 
   return (
     <div className="space-y-6">
+      {/* Copy/Paste Controls */}
+      <div className="bg-[#F5F5F5] p-4 rounded-lg border-l-4 border-[#5A4E69]">
+        <h4 className="font-semibold text-[#292929] mb-3">📋 Weekly Schedule Copy & Paste</h4>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleCopyWeekSchedule}
+            disabled={!hasWeekSchedule}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              hasWeekSchedule 
+                ? 'bg-[#5A4E69] text-white hover:bg-[#292929]' 
+                : 'bg-[#9B97A2] text-white cursor-not-allowed'
+            }`}
+          >
+            <Copy size={16} />
+            <span>Copy This Week's Schedule</span>
+          </button>
+          
+          <button
+            onClick={handleShowPasteModal}
+            disabled={!copiedWeekSchedule}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              copiedWeekSchedule 
+                ? 'bg-[#6D858E] text-white hover:bg-[#5A4E69]' 
+                : 'bg-[#9B97A2] text-white cursor-not-allowed'
+            }`}
+          >
+            <Clipboard size={16} />
+            <span>Paste to Other Weeks</span>
+          </button>
+          
+          {copiedWeekSchedule && (
+            <div className="text-sm text-[#707070] bg-white px-3 py-2 rounded border">
+              ✅ Copied {copiedWeekSchedule.schedules.length} sessions from week of {formatDatePST(copiedWeekSchedule.sourceWeekStart)}
+            </div>
+          )}
+          
+          {!hasWeekSchedule && (
+            <div className="text-sm text-[#9B97A2]">
+              ℹ️ No schedule to copy for this week
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-md">
         {/* Week Navigation */}
         <div className="flex justify-between items-center p-6">
@@ -369,10 +652,10 @@ const WeeklyDragDropScheduler = ({
 
         {/* Vertical Coach Layout with Sticky Headers */}
         <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
-          <div className="min-w-[1200px]">
+          <div className="min-w-[1200px] overflow-hidden">
             {/* Sticky Coach Headers */}
             <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E]">
-              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
                 {activeCoaches.map(coach => {
                   // Count both core and special schedules for this coach
                   const totalSchedules = dailySchedules.filter(s => 
@@ -413,7 +696,7 @@ const WeeklyDragDropScheduler = ({
                 return (
                   <div key={date} className="border-b border-gray-200">
                     {/* Day Header */}
-                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
                       {activeCoaches.map(coach => {
                         // Count special schedules for this coach on this day
                         const specialSchedules = dailySchedules.filter(s => 
@@ -442,7 +725,7 @@ const WeeklyDragDropScheduler = ({
                     {/* Time Slots for this day - ONLY CORE 3 SLOTS */}
                     {timeSlots.map(slot => (
                       <div key={`${date}-${slot.id}`} className="grid gap-1" 
-                           style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                           style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
                         {activeCoaches.map(coach => {
                           const coachId = coach.uid || coach.id;
                           const isAvailable = availabilityActions.isCoachAvailable(coachId, date);
@@ -458,7 +741,7 @@ const WeeklyDragDropScheduler = ({
                             <div
                               key={`${date}-${slot.id}-${coachId}`}
                               onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id, date)}
-                              className={`min-h-24 p-3 border-r border-b border-gray-200 transition-all ${
+                              className={`min-h-24 min-w-0 p-3 border-r border-b border-gray-200 transition-all ${
                                 !isAvailable 
                                   ? 'bg-red-50 cursor-not-allowed' :
                                 isClickable 
@@ -488,11 +771,24 @@ const WeeklyDragDropScheduler = ({
                                       <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-2">
                                         <div className="flex justify-between items-start">
                                           <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-xs text-[#292929] truncate">
-                                              {client.name}
+                                            <div className="flex items-center space-x-1">
+                                              <div className="font-medium text-xs text-[#292929]">
+                                                {getClientInitials(client.name)}
+                                              </div>
+                                              <span className={`text-xs px-1 py-0.5 rounded font-medium ${
+                                                client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
+                                                client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
+                                                client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
+                                                'bg-[#F5F5F5] text-[#292929]'
+                                              }`}>
+                                                {client?.program === 'limitless' ? 'L' :
+                                                 client?.program === 'new-options' ? 'NO' :
+                                                 client?.program === 'bridges' ? 'B' :
+                                                 'L'}
+                                              </span>
                                             </div>
-                                            <div className="text-xs text-[#707070] truncate">
-                                              {client.program === 'limitless' ? client.businessName :
+                                            <div className="text-xs text-[#707070] truncate mt-0.5" title={client.name}>
+                                              {client.program === 'limitless' ? (client.businessName || client.name) :
                                                client.program === 'new-options' ? 'Community Job' :
                                                client.program === 'bridges' ? 'Career Dev' :
                                                'Program'}
@@ -596,6 +892,140 @@ const WeeklyDragDropScheduler = ({
         scheduleActions={scheduleActions}
         availabilityActions={availabilityActions}
       />
+
+      {/* Paste Week Schedule Modal */}
+      {showPasteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-[#5A4E69] text-white">
+              <h3 className="text-lg font-semibold">📋 Paste Week Schedule to Other Weeks</h3>
+              <button 
+                onClick={() => setShowPasteModal(false)} 
+                className="text-white hover:text-gray-200 text-2xl"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
+              {/* Source Week Schedule Display */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-[#292929] mb-2">
+                  Source Week: {formatDatePST(copiedWeekSchedule.sourceWeekStart)} ({copiedWeekSchedule.schedules.length} sessions)
+                </h4>
+                <div className="bg-[#F5F5F5] p-3 rounded border max-h-40 overflow-y-auto">
+                  {copiedWeekSchedule.schedules.map((schedule, index) => (
+                    <div key={index} className="text-sm text-[#292929]">
+                      • {formatDatePST(schedule.date)} {schedule.timeSlotLabel}: {schedule.clientName} with {schedule.coachName}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target Week Selection */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-[#292929] mb-3">Select Target Weeks:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                  {getNextEightWeeks().map(weekStart => {
+                    const weekEnd = new Date(weekStart + 'T12:00:00');
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    
+                    return (
+                      <label key={weekStart} className="flex items-center space-x-2 p-3 border rounded hover:bg-[#F5F5F5] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedTargetWeeks.includes(weekStart)}
+                          onChange={(e) => handleTargetWeekChange(weekStart, e.target.checked)}
+                          className="rounded"
+                        />
+                        <div className="text-sm">
+                          <div className="font-medium">
+                            Week of {new Date(weekStart + 'T12:00:00').toLocaleDateString('en-US', {
+                              timeZone: 'America/Los_Angeles',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
+                          <div className="text-xs text-[#707070]">
+                            {formatDatePST(weekStart)} - {formatDatePST(formatDateForInput(weekEnd))}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Paste Preview */}
+              {pastePreview.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="font-semibold text-[#292929] mb-3">Paste Preview:</h4>
+                  <div className="space-y-4 max-h-60 overflow-y-auto">
+                    {pastePreview.map(weekPreview => (
+                      <div key={weekPreview.weekStart} className="border rounded p-3">
+                        <h5 className="font-medium text-[#292929] mb-2">
+                          Week of {formatDatePST(weekPreview.weekStart)}
+                        </h5>
+                        
+                        {weekPreview.validAssignments.length > 0 && (
+                          <div className="mb-2">
+                            <div className="text-sm text-green-600 font-medium mb-1">
+                              ✅ Will Create ({weekPreview.validAssignments.length}):
+                            </div>
+                            <div className="max-h-24 overflow-y-auto">
+                              {weekPreview.validAssignments.map((assignment, index) => (
+                                <div key={index} className="text-sm text-green-700 ml-4">
+                                  • {formatDatePST(assignment.targetDate)} {assignment.timeSlotLabel}: {assignment.clientName} with {assignment.coachName}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {weekPreview.conflicts.length > 0 && (
+                          <div>
+                            <div className="text-sm text-red-600 font-medium mb-1">
+                              ⚠️ Will Skip ({weekPreview.conflicts.length}):
+                            </div>
+                            <div className="max-h-24 overflow-y-auto">
+                              {weekPreview.conflicts.map((conflict, index) => (
+                                <div key={index} className="text-sm text-red-700 ml-4">
+                                  • {formatDatePST(conflict.targetDate)} {conflict.timeSlotLabel}: {conflict.clientName} - {conflict.reason}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex space-x-3 p-4 border-t bg-[#F5F5F5]">
+              <button
+                onClick={handlePasteWeekSchedule}
+                disabled={selectedTargetWeeks.length === 0 || isPasting}
+                className={`flex-1 py-2 px-4 rounded font-medium transition-colors ${
+                  selectedTargetWeeks.length > 0 && !isPasting
+                    ? 'bg-[#5A4E69] text-white hover:bg-[#292929]'
+                    : 'bg-[#9B97A2] text-white cursor-not-allowed'
+                }`}
+              >
+                {isPasting ? 'Pasting...' : `Paste to ${selectedTargetWeeks.length} Week${selectedTargetWeeks.length !== 1 ? 's' : ''}`}
+              </button>
+              <button
+                onClick={() => setShowPasteModal(false)}
+                disabled={isPasting}
+                className="px-6 py-2 bg-[#9B97A2] text-white rounded hover:bg-[#707070] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -626,10 +626,10 @@ Continue?`;
         </div>
 
         {/* Schedule Grid - UPDATED: Horizontal Layout like Weekly View */}
-        <div className="mb-8">
+        <div className="mb-8 overflow-hidden">
           {/* Sticky Coach Headers */}
           <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E] mb-4">
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
               {activeCoaches.map(coach => {
                 // Count both core and special schedules for this coach
                 const allAssignments = dailySchedules.filter(s => 
@@ -701,7 +701,7 @@ Continue?`;
             {timeSlots.map(slot => (
               <div key={slot.id} className="border-b border-gray-200">
                 {/* Time Slot Header */}
-                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
                   {activeCoaches.map(coach => (
                     <div key={`${slot.id}-header-${coach.uid || coach.id}`} 
                          className="text-center p-2 border-r border-gray-200 font-semibold bg-[#F5F5F5] text-[#292929]">
@@ -711,7 +711,7 @@ Continue?`;
                 </div>
                 
                 {/* Coach Slots for this Time */}
-                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
                   {activeCoaches.map(coach => {
                     const coachId = coach.uid || coach.id;
                     const isAvailable = availabilityActions.isCoachAvailable(coachId, selectedDate);
@@ -727,7 +727,7 @@ Continue?`;
                       <div
                         key={`${slot.id}-${coachId}`}
                         onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id)}
-                        className={`min-h-32 p-3 border-r border-b border-gray-200 transition-all ${
+                        className={`min-h-32 min-w-0 p-3 border-r border-b border-gray-200 transition-all ${
                           !isAvailable 
                             ? 'bg-red-50 cursor-not-allowed' :
                           isClickable 
