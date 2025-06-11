@@ -1,4 +1,4 @@
-// src/components/layout/AppLayout.jsx - Fixed with defensive programming + Mileage Tracker
+// src/components/layout/AppLayout.jsx - Fixed with defensive programming + Mileage Tracker + INTERNSHIPS
 import React, { lazy, Suspense, useEffect } from 'react'; // ADDED useEffect
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -92,6 +92,7 @@ const AppLayout = ({
   schedules = [],
   tasks = [],
   mileageRecords = [], // ADDED
+  internships = [], // ADD: Internship data prop
   
   // Action props
   clientActions,
@@ -100,7 +101,8 @@ const AppLayout = ({
   availabilityActions,
   graceAttendanceActions,
   taskActions,
-  mileageActions // ADDED
+  mileageActions, // ADDED
+  internshipActions // ADD: Internship actions prop
 }) => {
   
   // ADDED: Load Google Maps API when mileage tab is accessed
@@ -262,7 +264,8 @@ const AppLayout = ({
                   onBackToClients={handleBackToClients}
                   clientActions={clientActions}
                   scheduleActions={scheduleActions}
-
+                  internships={internships} // ADD: Pass internships
+                  internshipActions={internshipActions} // ADD: Pass internship actions
                 />
               </div>
             </LazyComponentWrapper>
@@ -307,6 +310,8 @@ const AppLayout = ({
               schedules={schedules} 
               coaches={coaches} 
               timeSlots={TIME_SLOTS}
+              internships={internships} // ADD: Pass internships for Bridges clients
+              internshipActions={internshipActions} // ADD: Pass internship actions
             />
           );
         case 'my-schedule':
@@ -319,8 +324,8 @@ const AppLayout = ({
               timeSlots={TIME_SLOTS}
               taskActions={taskActions}
               tasks={tasks}
-
-
+              internships={internships} // ADD: Pass internships for Bridges clients
+              internshipActions={internshipActions} // ADD: Pass internship actions
             />
           );
         case 'my-goals':
@@ -364,6 +369,8 @@ const AppLayout = ({
             schedules={schedules}
             timeSlots={TIME_SLOTS}
             onClientSelect={handleClientSelect}
+            internships={internships} // ADD: Pass internships to Dashboard
+            internshipActions={internshipActions} // ADD: Pass internship actions
           />
         );
         
@@ -379,6 +386,8 @@ const AppLayout = ({
               timeSlots={TIME_SLOTS}
               onClientSelect={handleClientSelect}
               scheduleActions={scheduleActions}
+              internships={internships} // ADD: Pass internships
+              internshipActions={internshipActions} // ADD: Pass internship actions
             />
           </LazyComponentWrapper>
         );
@@ -410,6 +419,8 @@ const AppLayout = ({
               onBackToClients={handleBackToClients}
               clientActions={clientActions}
               scheduleActions={scheduleActions}
+              internships={internships} // ADD: Pass internships
+              internshipActions={internshipActions} // ADD: Pass internship actions
             />
           </LazyComponentWrapper>
         );
@@ -477,6 +488,9 @@ const AppLayout = ({
               coachActions={coachActions}
               scheduleActions={scheduleActions}
               availabilityActions={availabilityActions}
+              internships={internships} // ADD: Pass internships data
+              internshipActions={internshipActions} // ADD: Pass internship actions
+              userProfile={userProfile} // ADD: Pass userProfile (was missing!)
             />
           </LazyComponentWrapper>
         );

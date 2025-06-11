@@ -1,4 +1,4 @@
-// src/components/client/ClientsTab.jsx
+// src/components/client/ClientsTab.jsx - FIXED with internship props
 import React, { useState } from 'react';
 import { Filter } from 'lucide-react';
 import ClientDetail from './ClientDetail';
@@ -15,7 +15,9 @@ const ClientsTab = ({
   onClientSelect,
   onBackToClients,
   clientActions,
-  scheduleActions 
+  scheduleActions,
+  internships = [], // ADD: Accept internships prop
+  internshipActions // ADD: Accept internshipActions prop
 }) => {
   const [clientFilter, setClientFilter] = useState('all');
   
@@ -28,6 +30,9 @@ const ClientsTab = ({
         scheduleActions={scheduleActions}
         timeSlots={timeSlots}
         coaches={coaches}
+        internships={internships} // ADD: Pass internships to ClientDetail
+        internshipActions={internshipActions} // ADD: Pass internshipActions to ClientDetail
+        userProfile={userProfile} // ADD: Pass userProfile (was missing!)
       />
     );
   }
@@ -78,6 +83,11 @@ const ClientsTab = ({
           const todaySchedule = scheduleActions.getTodaysScheduleForClient(client.id, today);
           const todayCoach = todaySchedule.length > 0 ? 
             coaches.find(c => c.uid === todaySchedule[0].coachId || c.id === todaySchedule[0].coachId) : null;
+          
+          // ADD: Get internship info for Bridges clients
+          const clientInternships = internships.filter(i => i.clientId === client.id);
+          const activeInternship = clientInternships.find(i => i.status === 'in_progress');
+          const completedInternships = clientInternships.filter(i => i.status === 'completed').length;
           
           return (
             <div 
@@ -140,6 +150,25 @@ const ClientsTab = ({
                     ></div>
                   </div>
                 </div>
+                
+                {/* ADD: Show internship info for Bridges clients */}
+                {client.program === 'bridges' && (
+                  <div className="bg-[#5A4E69] bg-opacity-10 p-3 rounded border-l-4 border-[#5A4E69]">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-[#5A4E69] font-medium">Internships:</span>
+                      <span className="text-[#292929]">{completedInternships}/3 completed</span>
+                    </div>
+                    {activeInternship ? (
+                      <div className="mt-1 text-xs text-[#5A4E69]">
+                        🏢 {activeInternship.companyName} ({activeInternship.completedDays || 0}/{activeInternship.totalBusinessDays || 30} days)
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-xs text-[#707070]">
+                        {completedInternships > 0 ? 'Ready for next internship' : 'No active internship'}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {client.equipment && client.program === 'limitless' && (
                   <div className="flex justify-between text-sm">

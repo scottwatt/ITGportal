@@ -1,4 +1,4 @@
-// src/App.js - Updated with Grace Attendance support + Mileage Tracking
+// src/App.js - Updated with Grace Attendance support + Mileage Tracking + INTERNSHIPS
 import React from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -10,6 +10,7 @@ import LoadingScreen from './components/shared/LoadingScreen';
 // Custom hooks
 import { useAuth } from './hooks/useAuth';
 import { useAppState } from './hooks/useAppState';
+import { useInternships } from './hooks/useInternships'; // ADD: Import internships hook
 
 // Styles
 import './App.css';
@@ -51,6 +52,9 @@ function App() {
   // Application state and data (only initialize if authenticated)
   const appState = useAppState(auth.isAuthenticated);
 
+  // ADD: Internship management hook (only initialize if authenticated)
+  const internshipHook = useInternships(null, auth.isAuthenticated);
+
   // Handle authentication loading
   if (auth.loading) {
     return <LoadingScreen message="Checking authentication..." />;
@@ -66,14 +70,19 @@ function App() {
     return <LoginScreen onLogin={auth.login} error={auth.error} />;
   }
 
-  // Handle app state loading
-  if (appState.loading) {
+  // Handle app state loading (include internship loading)
+  if (appState.loading || internshipHook.loading) {
     return <LoadingScreen message="Loading application data..." />;
   }
 
-  // Handle app state errors
-  if (appState.errors.length > 0) {
-    const errorMessage = appState.errors.join(', ');
+  // Handle app state errors (include internship errors)
+  const allErrors = [...appState.errors];
+  if (internshipHook.error) {
+    allErrors.push(`Internships: ${internshipHook.error}`);
+  }
+  
+  if (allErrors.length > 0) {
+    const errorMessage = allErrors.join(', ');
     return (
       <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center">
@@ -89,6 +98,21 @@ function App() {
       </div>
     );
   }
+
+  // ADD: Create internship actions object
+  const internshipActions = {
+    add: internshipHook.add,
+    update: internshipHook.update,
+    remove: internshipHook.remove,
+    getForClient: internshipHook.getForClient,
+    getById: internshipHook.getById,
+    markDay: internshipHook.markDay,
+    addEvaluation: internshipHook.addEvaluation,
+    start: internshipHook.start,
+    complete: internshipHook.complete,
+    cancel: internshipHook.cancel,
+    getClientStats: internshipHook.getClientStats
+  };
 
   // Render main application
   return (
@@ -125,16 +149,18 @@ function App() {
           coaches={appState.coaches}
           schedules={appState.schedules}
           tasks={appState.tasks}
-          mileageRecords={appState.mileageRecords}  // ADDED: Mileage records
+          mileageRecords={appState.mileageRecords}
+          internships={internshipHook.internships} // ADD: Internship data
           
           // Action props
           clientActions={appState.clientActions}
           coachActions={appState.coachActions}
           scheduleActions={appState.scheduleActions}
-          availabilityActions={appState.availabilityActions}      // Coach availability
-          graceAttendanceActions={appState.graceAttendanceActions}  // Grace attendance
-          taskActions={appState.taskActions}  // Task actions
-          mileageActions={appState.mileageActions}  // ADDED: Mileage actions
+          availabilityActions={appState.availabilityActions}
+          graceAttendanceActions={appState.graceAttendanceActions}
+          taskActions={appState.taskActions}
+          mileageActions={appState.mileageActions}
+          internshipActions={internshipActions} // ADD: Internship actions
         />
       </ErrorBoundary>
     </div>

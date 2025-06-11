@@ -1,4 +1,4 @@
-// src/components/internships/ClientInternshipsTab.jsx - Main internship management for Bridges clients
+// src/components/internships/ClientInternshipsTab.jsx - Enhanced with Admin Controls
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -18,7 +18,10 @@ import {
   Phone,
   Mail,
   Target,
-  TrendingUp
+  TrendingUp,
+  RotateCcw,
+  Shield,
+  XCircle
 } from 'lucide-react';
 import { 
   INTERNSHIP_STATUS, 
@@ -40,6 +43,9 @@ const ClientInternshipsTab = ({
   const [editingInternship, setEditingInternship] = useState(null);
   const [showDayLog, setShowDayLog] = useState(null);
   const [stats, setStats] = useState({});
+
+  // Check if user is admin (can delete and unmark)
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.permissions?.includes('manage_internships');
 
   // Load internships for this client
   useEffect(() => {
@@ -80,8 +86,24 @@ const ClientInternshipsTab = ({
     setShowForm(true);
   };
 
+  // ENHANCED: Admin can delete any internship, regular users only planned ones
   const handleDeleteInternship = async (internship) => {
-    if (window.confirm(`Are you sure you want to delete the internship at ${internship.companyName}?`)) {
+    const isAdminDelete = isAdmin && internship.status !== INTERNSHIP_STATUS.PLANNED;
+    
+    let confirmMessage;
+    if (isAdminDelete) {
+      confirmMessage = `⚠️ ADMIN DELETE: Permanently delete this ${internship.status} internship?\n\nCompany: ${internship.companyName}\nStatus: ${getStatusLabel(internship.status)}\n\nThis action CANNOT be undone!`;
+    } else {
+      confirmMessage = `Are you sure you want to delete the internship at ${internship.companyName}?`;
+    }
+    
+    if (window.confirm(confirmMessage)) {
+      // Double confirmation for admin deletes of non-planned internships
+      if (isAdminDelete) {
+        const secondConfirm = window.confirm('Are you absolutely sure? This will permanently delete the internship record.');
+        if (!secondConfirm) return;
+      }
+      
       try {
         await internshipActions.remove(internship.id);
         await loadInternships();
@@ -89,6 +111,34 @@ const ClientInternshipsTab = ({
         alert('Internship deleted successfully');
       } catch (error) {
         alert('Error deleting internship: ' + error.message);
+      }
+    }
+  };
+
+  // NEW: Admin function to unmark as complete
+  const handleUnmarkComplete = async (internship) => {
+    if (!isAdmin) {
+      alert('Only admins can unmark completed internships');
+      return;
+    }
+
+    if (window.confirm(`Unmark internship at ${internship.companyName} as completed?\n\nThis will reset it to "In Progress" status and adjust the completed days.`)) {
+      try {
+        // Reset to in_progress with ~80% of the days completed
+        const resetDays = Math.floor((internship.totalBusinessDays || 30) * 0.8);
+        
+        await internshipActions.update(internship.id, {
+          status: INTERNSHIP_STATUS.IN_PROGRESS,
+          completedAt: null,
+          completedDays: resetDays,
+          actualEndDate: null
+        });
+        
+        await loadInternships();
+        await loadStats();
+        alert(`Internship unmarked as completed and reset to "In Progress" with ${resetDays} days completed`);
+      } catch (error) {
+        alert('Error unmarking internship: ' + error.message);
       }
     }
   };
@@ -215,6 +265,19 @@ const ClientInternshipsTab = ({
         </div>
       </div>
 
+      {/* Admin Controls Notice */}
+      {isAdmin && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <Shield className="h-5 w-5 text-amber-600 mr-2" />
+            <div>
+              <h4 className="text-sm font-medium text-amber-800">Admin Controls Available</h4>
+              <p className="text-sm text-amber-700">You can delete any internship and unmark completed ones if needed.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Current Internship Highlight */}
       {stats.currentInternship && (
         <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
@@ -228,8 +291,10 @@ const ClientInternshipsTab = ({
             onDelete={canEdit ? handleDeleteInternship : null}
             onStart={canEdit ? handleStartInternship : null}
             onComplete={canEdit ? handleCompleteInternship : null}
+            onUnmarkComplete={isAdmin ? handleUnmarkComplete : null}
             onDayLog={() => setShowDayLog(stats.currentInternship)}
             isHighlighted={true}
+            isAdmin={isAdmin}
           />
         </div>
       )}
@@ -264,7 +329,9 @@ const ClientInternshipsTab = ({
                 onDelete={canEdit ? handleDeleteInternship : null}
                 onStart={canEdit ? handleStartInternship : null}
                 onComplete={canEdit ? handleCompleteInternship : null}
+                onUnmarkComplete={isAdmin ? handleUnmarkComplete : null}
                 onDayLog={() => setShowDayLog(internship)}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
@@ -321,15 +388,17 @@ const ClientInternshipsTab = ({
   );
 };
 
-// Individual Internship Card Component
+// Enhanced Individual Internship Card Component
 const InternshipCard = ({ 
   internship, 
   onEdit, 
   onDelete, 
   onStart, 
   onComplete, 
+  onUnmarkComplete,
   onDayLog,
-  isHighlighted = false 
+  isHighlighted = false,
+  isAdmin = false
 }) => {
   const getStatusColor = (status) => {
     switch (status) {
@@ -420,6 +489,7 @@ const InternshipCard = ({
           </div>
         </div>
         
+        {/* ENHANCED: Action buttons with admin controls */}
         <div className="flex flex-col space-y-2 ml-4">
           {onEdit && (
             <button
@@ -431,13 +501,29 @@ const InternshipCard = ({
             </button>
           )}
           
-          {onDelete && internship.status === INTERNSHIP_STATUS.PLANNED && (
+          {/* ENHANCED: Regular delete (planned only) or admin delete (any status) */}
+          {onDelete && (internship.status === INTERNSHIP_STATUS.PLANNED || isAdmin) && (
             <button
               onClick={() => onDelete(internship)}
-              className="text-red-600 hover:text-red-800 p-1"
-              title="Delete internship"
+              className={`p-1 ${isAdmin && internship.status !== INTERNSHIP_STATUS.PLANNED 
+                ? 'text-red-700 hover:text-red-900' 
+                : 'text-red-600 hover:text-red-800'}`}
+              title={isAdmin && internship.status !== INTERNSHIP_STATUS.PLANNED 
+                ? "Admin: Delete any internship" 
+                : "Delete planned internship"}
             >
               <Trash2 size={16} />
+            </button>
+          )}
+
+          {/* NEW: Admin unmark complete button */}
+          {onUnmarkComplete && isAdmin && internship.status === INTERNSHIP_STATUS.COMPLETED && (
+            <button
+              onClick={() => onUnmarkComplete(internship)}
+              className="text-amber-600 hover:text-amber-800 p-1"
+              title="Admin: Unmark as completed"
+            >
+              <RotateCcw size={16} />
             </button>
           )}
         </div>
@@ -499,12 +585,49 @@ const InternshipCard = ({
             <span>Log Day</span>
           </button>
         )}
+
+        {/* NEW: Admin controls section */}
+        {isAdmin && (internship.status === INTERNSHIP_STATUS.COMPLETED || internship.status !== INTERNSHIP_STATUS.PLANNED) && (
+          <div className="flex items-center space-x-2 ml-2 pl-2 border-l border-gray-300">
+            {internship.status === INTERNSHIP_STATUS.COMPLETED && onUnmarkComplete && (
+              <button
+                onClick={() => onUnmarkComplete(internship)}
+                className="bg-amber-600 text-white px-3 py-1 rounded text-sm hover:bg-amber-700 flex items-center space-x-1"
+                title="Admin: Unmark as completed"
+              >
+                <RotateCcw size={14} />
+                <span>Unmark</span>
+              </button>
+            )}
+            
+            {internship.status !== INTERNSHIP_STATUS.PLANNED && onDelete && (
+              <button
+                onClick={() => onDelete(internship)}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 flex items-center space-x-1"
+                title="Admin: Delete internship"
+              >
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Completion Info */}
+      {internship.status === INTERNSHIP_STATUS.COMPLETED && internship.completedAt && (
+        <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
+          <div className="flex items-center space-x-2 text-sm text-purple-800">
+            <CheckCircle className="w-4 h-4" />
+            <span>Completed on {formatDatePST(internship.completedAt)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// Internship Form Component
+// Internship Form Component (unchanged)
 const InternshipForm = ({ client, internship, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
     companyName: internship?.companyName || '',
@@ -748,7 +871,7 @@ const InternshipForm = ({ client, internship, onSave, onCancel }) => {
   );
 };
 
-// Day Log Component
+// Day Log Component (unchanged)
 const InternshipDayLog = ({ internship, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
