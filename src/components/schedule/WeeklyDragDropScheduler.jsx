@@ -1,4 +1,4 @@
-// src/components/schedule/WeeklyDragDropScheduler.jsx - FIXED: Handles special schedules gracefully
+// src/components/schedule/WeeklyDragDropScheduler.jsx - FIXED: Multiple clients per coach + Better layout
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, ChevronLeft, ChevronRight, Star } from 'lucide-react';
@@ -146,7 +146,7 @@ const WeeklyDragDropScheduler = ({
       return;
     }
 
-    // Check if client is already scheduled at this time
+    // Check if client is already scheduled at this time (prevent double-booking the same client)
     const existingSchedule = dailySchedules.find(s => 
       s.date === date && 
       s.timeSlot === timeSlotId && 
@@ -446,14 +446,13 @@ const WeeklyDragDropScheduler = ({
                         {activeCoaches.map(coach => {
                           const coachId = coach.uid || coach.id;
                           const isAvailable = availabilityActions.isCoachAvailable(coachId, date);
-                          const assignment = dailySchedules.find(s => 
+                          const assignments = dailySchedules.filter(s => 
                             s.date === date && 
                             s.timeSlot === slot.id && 
                             s.coachId === coachId
                           );
                           const canAssign = isAssigning && selectedClient && isAvailable;
-                          const isClickable = canAssign && !assignment && 
-                                             selectedClient?.availableTimeSlots?.includes(slot.id);
+                          const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
                           
                           return (
                             <div
@@ -464,13 +463,13 @@ const WeeklyDragDropScheduler = ({
                                   ? 'bg-red-50 cursor-not-allowed' :
                                 isClickable 
                                   ? 'bg-[#BED2D8] cursor-pointer hover:shadow-md hover:bg-[#6D858E] hover:bg-opacity-20' :
-                                assignment
+                                assignments.length > 0
                                   ? 'bg-[#BED2D8]' 
                                   : 'bg-white hover:bg-gray-50'
                               }`}
                             >
                               {/* Time Slot Label (show in every empty slot) */}
-                              {!assignment && (
+                              {assignments.length === 0 && (
                                 <div className="text-xs font-medium text-[#707070] mb-2 text-center">
                                   {slot.start} - {slot.end}
                                 </div>
@@ -481,37 +480,39 @@ const WeeklyDragDropScheduler = ({
                                   <AlertTriangle size={16} className="mx-auto mb-1" />
                                   <div className="text-xs">Unavailable</div>
                                 </div>
-                              ) : assignment ? (
-                                (() => {
-                                  const client = clients.find(c => c.id === assignment.clientId);
-                                  return client ? (
-                                    <div className="bg-white border border-[#6D858E] rounded p-2">
-                                      <div className="flex justify-between items-start">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-xs text-[#292929] truncate">
-                                            {client.name}
+                              ) : assignments.length > 0 ? (
+                                <div className="space-y-1">
+                                  {assignments.map(assignment => {
+                                    const client = clients.find(c => c.id === assignment.clientId);
+                                    return client ? (
+                                      <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-2">
+                                        <div className="flex justify-between items-start">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-xs text-[#292929] truncate">
+                                              {client.name}
+                                            </div>
+                                            <div className="text-xs text-[#707070] truncate">
+                                              {client.program === 'limitless' ? client.businessName :
+                                               client.program === 'new-options' ? 'Community Job' :
+                                               client.program === 'bridges' ? 'Career Dev' :
+                                               'Program'}
+                                            </div>
                                           </div>
-                                          <div className="text-xs text-[#707070] truncate">
-                                            {client.program === 'limitless' ? client.businessName :
-                                             client.program === 'new-options' ? 'Community Job' :
-                                             client.program === 'bridges' ? 'Career Dev' :
-                                             'Program'}
-                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRemoveAssignment(assignment.id);
+                                            }}
+                                            className="ml-1 p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded"
+                                            title="Remove assignment"
+                                          >
+                                            <Trash2 size={12} />
+                                          </button>
                                         </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemoveAssignment(assignment.id);
-                                          }}
-                                          className="ml-1 p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded"
-                                          title="Remove assignment"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
                                       </div>
-                                    </div>
-                                  ) : null;
-                                })()
+                                    ) : null;
+                                  })}
+                                </div>
                               ) : isClickable ? (
                                 <div className="text-center text-[#6D858E]">
                                   <MousePointer size={16} className="mx-auto mb-1" />

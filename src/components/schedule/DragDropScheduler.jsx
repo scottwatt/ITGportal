@@ -1,4 +1,4 @@
-// src/components/schedule/DragDropScheduler.jsx - FIXED: Handles special schedules gracefully
+// src/components/schedule/DragDropScheduler.jsx - FIXED: Horizontal layout + Multiple clients per coach
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, Star } from 'lucide-react';
@@ -252,11 +252,11 @@ const DragDropScheduler = ({
           // Check if coach is available on target date
           const isCoachAvailable = availabilityActions.isCoachAvailable(schedule.coachId, targetDate);
           
-          // Check for existing assignments
+          // Check for existing assignments (only prevent double-booking the same client)
           const existingAssignment = dailySchedules.find(s => 
             s.date === targetDate && 
             s.timeSlot === schedule.timeSlot && 
-            s.coachId === schedule.coachId
+            s.clientId === schedule.clientId
           );
 
           if (!isCoachAvailable) {
@@ -266,10 +266,9 @@ const DragDropScheduler = ({
               reason: `Coach ${schedule.coachName} is ${status} on this date`
             });
           } else if (existingAssignment) {
-            const existingClient = clients.find(c => c.id === existingAssignment.clientId);
             conflicts.push({
               ...schedule,
-              reason: `${schedule.coachName} already has ${existingClient?.name} at ${schedule.timeSlotLabel}`
+              reason: `${schedule.clientName} is already scheduled at ${schedule.timeSlotLabel} on this date`
             });
           } else {
             validAssignments.push(schedule);
@@ -529,184 +528,6 @@ Continue?`;
     );
   };
 
-  const renderCoachColumn = (coach) => {
-    const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
-    const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
-    const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
-
-    // Get ALL assignments for this coach on this date (including special schedules)
-    const allAssignments = dailySchedules.filter(s => 
-      s.date === selectedDate && 
-      s.coachId === (coach.uid || coach.id)
-    );
-
-    // Separate core and special assignments
-    const coreAssignments = allAssignments.filter(s => 
-      timeSlots.some(slot => slot.id === s.timeSlot)
-    );
-    const specialAssignments = allAssignments.filter(s => 
-      !timeSlots.some(slot => slot.id === s.timeSlot)
-    );
-
-    return (
-      <div key={coach.uid || coach.id} className="flex-shrink-0 space-y-3">
-        {/* Coach Header with Availability Status */}
-        <div className={`h-16 w-80 flex items-center justify-center rounded-lg px-4 shadow-md ${
-          isAvailable ? 'bg-[#6D858E]' : 'bg-red-500'
-        }`}>
-          <div className="text-center">
-            <div className="font-semibold text-white text-lg">{coach.name}</div>
-            <div className="text-xs text-[#BED2D8]">
-              {isAvailable ? (
-                `${allAssignments.length} sessions today${specialAssignments.length > 0 ? ` (${specialAssignments.length} special)` : ''}`
-              ) : (
-                `${status}${reason ? ` - ${reason}` : ''}`
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Show special assignments notification */}
-        {specialAssignments.length > 0 && (
-          <div className="w-80 p-2 bg-orange-50 border-l-4 border-orange-400 rounded">
-            <div className="flex items-center space-x-2">
-              <Star className="text-orange-500" size={16} />
-              <div className="text-sm text-orange-700">
-                <div className="font-medium">{specialAssignments.length} Special Schedule{specialAssignments.length !== 1 ? 's' : ''}</div>
-                {specialAssignments.map(assignment => {
-                  const client = clients.find(c => c.id === assignment.clientId);
-                  const timeSlotInfo = getTimeSlotInfo(assignment.timeSlot);
-                  return (
-                    <div key={assignment.id} className="text-xs">
-                      • {client?.name}: {timeSlotInfo.label}
-                      <button
-                        onClick={() => handleRemoveAssignment(assignment.id)}
-                        className="ml-2 text-red-600 hover:text-red-800"
-                        title="Remove special schedule"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Core Time Slots - Only show if coach is available */}
-        {isAvailable ? (
-          timeSlots.map(slot => {
-            const assignments = coreAssignments.filter(s => s.timeSlot === slot.id);
-            
-            const canAssign = isAssigning && selectedClient && !selectedClient.isFullyScheduled;
-            const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
-            
-            return (
-              <div
-                key={slot.id}
-                onClick={() => isClickable && handleTimeSlotClick(coach.uid || coach.id, slot.id)}
-                className={`min-h-32 w-80 border-2 rounded-lg p-4 transition-all duration-200 ${
-                  isClickable 
-                    ? 'border-[#6D858E] bg-[#BED2D8] cursor-pointer hover:shadow-lg hover:scale-105' 
-                    : assignments.length > 0
-                      ? 'border-[#6D858E] bg-[#BED2D8]' 
-                      : 'border-[#9B97A2] bg-[#F5F5F5]'
-                }`}
-              >
-                {/* Time Slot Header */}
-                <div className="text-center mb-3 pb-2 border-b border-gray-300">
-                  <div className="font-semibold text-sm text-[#292929]">{slot.start} - {slot.end}</div>
-                  {isClickable && (
-                    <div className="text-xs text-[#6D858E] font-medium mt-1">
-                      Click to assign {selectedClient.name}
-                    </div>
-                  )}
-                  {canAssign && !isClickable && selectedClient && (
-                    <div className="text-xs text-red-600 font-medium mt-1">
-                      {selectedClient.name} not available for this time
-                    </div>
-                  )}
-                </div>
-
-                {/* Assigned Clients */}
-                {assignments.length > 0 ? (
-                  <div className="space-y-2">
-                    {assignments.map(assignment => {
-                      const client = clients.find(c => c.id === assignment.clientId);
-                      return (
-                        <div key={assignment.id} className="bg-white border border-[#6D858E] rounded-lg p-3 shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-2">
-                                <div className="font-semibold text-sm text-[#292929] truncate">{client?.name}</div>
-                                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                                  client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
-                                  client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
-                                  client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
-                                  'bg-[#F5F5F5] text-[#292929]'
-                                }`}>
-                                  {client?.program === 'limitless' ? 'L' :
-                                   client?.program === 'new-options' ? 'NO' :
-                                   client?.program === 'bridges' ? 'B' :
-                                   'L'}
-                                </span>
-                              </div>
-                              <div className="text-xs text-[#707070] truncate mt-1">
-                                {client?.program === 'limitless' ? client?.businessName :
-                                 client?.program === 'new-options' ? 'Community Job Focus' :
-                                 client?.program === 'bridges' ? 'Career Development' :
-                                 client?.businessName || 'Program Participant'}
-                              </div>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveAssignment(assignment.id);
-                              }}
-                              className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
-                              title="Remove assignment"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="h-20 flex items-center justify-center text-[#9B97A2] text-sm">
-                    {isClickable ? (
-                      <div className="text-center text-[#6D858E] font-medium">
-                        <MousePointer size={20} className="mx-auto mb-1" />
-                        Click to assign here
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <User size={20} className="mx-auto mb-1" />
-                        No assignments
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })
-        ) : (
-          // Show unavailable message for unavailable coaches
-          <div className="w-80 p-4 bg-red-100 border-2 border-red-300 rounded-lg">
-            <div className="text-center text-red-700">
-              <AlertTriangle size={24} className="mx-auto mb-2" />
-              <p className="font-medium">Coach Unavailable</p>
-              <p className="text-sm">{status}</p>
-              {reason && <p className="text-xs mt-1">{reason}</p>}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const unscheduledClients = getUnscheduledClients();
   const fullyScheduledClients = getFullyScheduledClients();
   const displayDate = formatDatePST(selectedDate);
@@ -804,17 +625,190 @@ Continue?`;
           </div>
         </div>
 
-        {/* Schedule Grid */}
+        {/* Schedule Grid - UPDATED: Horizontal Layout like Weekly View */}
         <div className="mb-8">
-          <div className="flex gap-6 overflow-x-auto pb-4">
-            {activeCoaches.map(renderCoachColumn)}
+          {/* Sticky Coach Headers */}
+          <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E] mb-4">
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+              {activeCoaches.map(coach => {
+                // Count both core and special schedules for this coach
+                const allAssignments = dailySchedules.filter(s => 
+                  s.date === selectedDate && 
+                  s.coachId === (coach.uid || coach.id)
+                );
+                
+                const specialAssignments = allAssignments.filter(s => isSpecialTimeSlot(s.timeSlot));
+                const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
+                const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
+                const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
+                
+                return (
+                  <div key={coach.uid || coach.id} className={`p-4 text-center text-white ${
+                    isAvailable ? 'bg-[#6D858E]' : 'bg-red-500'
+                  }`}>
+                    <div className="font-semibold text-lg">{coach.name}</div>
+                    <div className="text-xs text-[#BED2D8]">
+                      {isAvailable ? (
+                        <>
+                          {allAssignments.length} sessions today
+                          {specialAssignments.length > 0 && (
+                            <div className="flex items-center justify-center space-x-1 mt-1">
+                              <Star size={12} />
+                              <span>{specialAssignments.length} special</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {status}{reason ? ` - ${reason}` : ''}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          
-          {activeCoaches.length > 1 && (
-            <div className="text-center text-[#9B97A2] text-sm mt-2">
-              ← Scroll horizontally to see all coaches →
+
+          {/* Show Special Schedules Summary */}
+          {dailySchedules.some(s => s.date === selectedDate && isSpecialTimeSlot(s.timeSlot)) && (
+            <div className="mb-6 p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
+              <div className="flex items-center space-x-2">
+                <Star className="text-orange-500" size={16} />
+                <div className="text-sm text-orange-700">
+                  <div className="font-medium">Special Schedules Today</div>
+                  {activeCoaches.map(coach => {
+                    const specialSchedules = dailySchedules.filter(s => 
+                      s.date === selectedDate && 
+                      s.coachId === (coach.uid || coach.id) && 
+                      isSpecialTimeSlot(s.timeSlot)
+                    );
+                    if (specialSchedules.length === 0) return null;
+                    
+                    return (
+                      <div key={coach.uid || coach.id} className="text-xs">
+                        {coach.name}: {specialSchedules.length} special schedule{specialSchedules.length !== 1 ? 's' : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Time Slots Grid - Horizontal Layout */}
+          <div className="space-y-0">
+            {timeSlots.map(slot => (
+              <div key={slot.id} className="border-b border-gray-200">
+                {/* Time Slot Header */}
+                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                  {activeCoaches.map(coach => (
+                    <div key={`${slot.id}-header-${coach.uid || coach.id}`} 
+                         className="text-center p-2 border-r border-gray-200 font-semibold bg-[#F5F5F5] text-[#292929]">
+                      <div>{slot.start} - {slot.end}</div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Coach Slots for this Time */}
+                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                  {activeCoaches.map(coach => {
+                    const coachId = coach.uid || coach.id;
+                    const isAvailable = availabilityActions.isCoachAvailable(coachId, selectedDate);
+                    const assignments = dailySchedules.filter(s => 
+                      s.date === selectedDate && 
+                      s.timeSlot === slot.id && 
+                      s.coachId === coachId
+                    );
+                    const canAssign = isAssigning && selectedClient && isAvailable;
+                    const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
+                    
+                    return (
+                      <div
+                        key={`${slot.id}-${coachId}`}
+                        onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id)}
+                        className={`min-h-32 p-3 border-r border-b border-gray-200 transition-all ${
+                          !isAvailable 
+                            ? 'bg-red-50 cursor-not-allowed' :
+                          isClickable 
+                            ? 'bg-[#BED2D8] cursor-pointer hover:shadow-md hover:bg-[#6D858E] hover:bg-opacity-20' :
+                          assignments.length > 0
+                            ? 'bg-[#BED2D8]' 
+                            : 'bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        {!isAvailable ? (
+                          <div className="text-center text-red-600">
+                            <AlertTriangle size={16} className="mx-auto mb-1" />
+                            <div className="text-xs">Unavailable</div>
+                          </div>
+                        ) : assignments.length > 0 ? (
+                          <div className="space-y-2">
+                            {assignments.map(assignment => {
+                              const client = clients.find(c => c.id === assignment.clientId);
+                              return client ? (
+                                <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-2">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-xs text-[#292929] truncate">
+                                        {client.name}
+                                      </div>
+                                      <div className="text-xs text-[#707070] truncate">
+                                        {client.program === 'limitless' ? client.businessName :
+                                         client.program === 'new-options' ? 'Community Job' :
+                                         client.program === 'bridges' ? 'Career Dev' :
+                                         'Program'}
+                                      </div>
+                                      <span className={`text-xs px-1 py-0.5 rounded font-medium ${
+                                        client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
+                                        client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
+                                        client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
+                                        'bg-[#F5F5F5] text-[#292929]'
+                                      }`}>
+                                        {client?.program === 'limitless' ? 'L' :
+                                         client?.program === 'new-options' ? 'NO' :
+                                         client?.program === 'bridges' ? 'B' :
+                                         'L'}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveAssignment(assignment.id);
+                                      }}
+                                      className="ml-1 p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded"
+                                      title="Remove assignment"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        ) : isClickable ? (
+                          <div className="text-center text-[#6D858E]">
+                            <MousePointer size={16} className="mx-auto mb-1" />
+                            <div className="text-xs font-medium">Click to assign</div>
+                          </div>
+                        ) : canAssign && selectedClient && !selectedClient?.availableTimeSlots?.includes(slot.id) ? (
+                          <div className="text-center text-red-600">
+                            <X size={16} className="mx-auto mb-1" />
+                            <div className="text-xs">Client not available</div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-[#9B97A2]">
+                            <User size={16} className="mx-auto mb-1" />
+                            <div className="text-xs">Available</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Available Clients */}

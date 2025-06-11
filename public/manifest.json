@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "ITG Coach Portal",
+  "name": "ITG Coach Portal - Independence Through Grace",
+  "description": "Supporting adults with disabilities in their development journey through personalized coaching and business mentorship.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -8,7 +9,22 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
+      "src": "favicon-16x16.png",
+      "type": "image/png",
+      "sizes": "16x16"
+    },
+    {
+      "src": "favicon-32x32.png",
+      "type": "image/png",
+      "sizes": "32x32"
+    },
+    {
+      "src": "favicon-96x96.png",
+      "type": "image/png",
+      "sizes": "96x96"
+    },
+    {
+      "src": "android-icon-192x192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
@@ -20,6 +36,50 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#6D858E",
+  "background_color": "#F5F5F5",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["business", "education", "productivity"],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "screenshot-narrow.png", 
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your coaching dashboard",
+      "url": "/?shortcut=dashboard",
+      "icons": [
+        {
+          "src": "favicon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Schedule",
+      "short_name": "Schedule", 
+      "description": "View your coaching schedule",
+      "url": "/?shortcut=schedule",
+      "icons": [
+        {
+          "src": "favicon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
 }

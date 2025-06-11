@@ -4,32 +4,94 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#6D858E" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="ITG Coach Portal - Independence Through Grace Foundation. Supporting adults with disabilities in their development journey through personalized coaching and business mentorship."
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
+    <meta name="keywords" content="ITG, Independence Through Grace, disability services, coaching, business mentorship, adult development" />
+    <meta name="author" content="Independence Through Grace Foundation" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="%PUBLIC_URL%/apple-icon-57x57.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="%PUBLIC_URL%/apple-icon-60x60.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="%PUBLIC_URL%/apple-icon-72x72.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="%PUBLIC_URL%/apple-icon-76x76.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="%PUBLIC_URL%/apple-icon-114x114.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="%PUBLIC_URL%/apple-icon-120x120.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="%PUBLIC_URL%/apple-icon-144x144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="%PUBLIC_URL%/apple-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-icon-180x180.png" />
+    
+    <!-- Android Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/android-icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="%PUBLIC_URL%/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
+    
+    <!-- MS Tiles -->
+    <meta name="msapplication-TileColor" content="#6D858E" />
+    <meta name="msapplication-TileImage" content="%PUBLIC_URL%/ms-icon-144x144.png" />
+    <meta name="msapplication-config" content="%PUBLIC_URL%/browserconfig.xml" />
+    
+    <!-- PWA settings -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://coach.independencethroughgrace.org/" />
+    <meta property="og:title" content="ITG Coach Portal - Independence Through Grace" />
+    <meta property="og:description" content="Supporting adults with disabilities in their development journey through personalized coaching and business mentorship." />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://coach.independencethroughgrace.org/" />
+    <meta property="twitter:title" content="ITG Coach Portal - Independence Through Grace" />
+    <meta property="twitter:description" content="Supporting adults with disabilities in their development journey through personalized coaching and business mentorship." />
+    <meta property="twitter:image" content="%PUBLIC_URL%/twitter-image.png" />
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <title>React App</title>
+    
+    <!-- Custom Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'itg-primary': '#6D858E',
+              'itg-secondary': '#5A4E69',
+              'itg-light': '#BED2D8',
+              'itg-dark': '#292929',
+              'itg-gray': '#707070',
+              'itg-light-gray': '#9B97A2',
+              'itg-bg': '#F5F5F5'
+            }
+          }
+        }
+      }
+    </script>
+    
+    <title>ITG Coach Portal - Independence Through Grace</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>
+      <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <h1>ITG Coach Portal</h1>
+        <p>You need to enable JavaScript to run this application.</p>
+        <p>For support, please contact Independence Through Grace Foundation.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
+      ITG Coach Portal - Independence Through Grace Foundation
+      
+      This application supports adults with disabilities in their development journey
+      through personalized coaching and business mentorship programs.
+      
+      Built with React and optimized for accessibility and performance.
     -->
   </body>
 </html>
