@@ -261,8 +261,8 @@ const FlexibleSchedulingManager = ({
       {/* Special Scheduling Modal */}
       {showSpecialScheduling && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
-            <div className="flex justify-between items-center p-6 border-b bg-orange-500 text-white">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b bg-orange-500 text-white">
               <h3 className="text-lg font-semibold">Create Special Schedule</h3>
               <button 
                 onClick={() => setShowSpecialScheduling(false)} 
@@ -271,8 +271,7 @@ const FlexibleSchedulingManager = ({
                 ×
               </button>
             </div>
-
-            <div className="p-6 space-y-4">
+            <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-4 space-y-4">
               {/* Special Schedule Type Selection */}
               <div>
                 <label className="block text-sm font-medium mb-2">Special Schedule Type *</label>

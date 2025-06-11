@@ -1,9 +1,9 @@
-// src/components/schedule/MyScheduleTab.jsx - Updated with weekly overview
+// src/components/schedule/MyScheduleTab.jsx - FIXED: Handles special time slots
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, User, Star } from 'lucide-react';
 import { getPSTDate, formatDatePST, getWeekDatesStartingMonday, formatDateForInput } from '../../utils/dateUtils';
 import { getOrderedCoachSchedule, getOrderedTimeSlots } from '../../utils/scheduleHelpers';
-import { TIME_SLOTS } from '../../utils/constants';
+import { TIME_SLOTS, getAllTimeSlots } from '../../utils/constants'; // Added getAllTimeSlots
 
 const MyScheduleTab = ({ 
   user,
@@ -22,6 +22,26 @@ const MyScheduleTab = ({
     const today = new Date();
     return new Date(today.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
   });
+
+  // Get all time slots (core + special) for proper lookup
+  const allTimeSlots = getAllTimeSlots();
+
+  // Helper function to get time slot info (handles both core and special)
+  const getTimeSlotInfo = (timeSlotId) => {
+    return allTimeSlots.find(slot => slot.id === timeSlotId) || {
+      id: timeSlotId,
+      label: timeSlotId,
+      start: 'Unknown',
+      end: 'Time',
+      type: 'unknown'
+    };
+  };
+
+  // Helper function to check if a time slot is special
+  const isSpecialTimeSlot = (timeSlotId) => {
+    const coreSlots = ['8-10', '10-12', '1230-230'];
+    return !coreSlots.includes(timeSlotId);
+  };
   
   const getMySchedule = () => {
     return userProfile?.role === 'admin' 
@@ -107,81 +127,119 @@ const MyScheduleTab = ({
     busiest: weeklySchedule.reduce((max, day) => 
       day.schedules.length > max.count ? { day: day.dayName, count: day.schedules.length } : max, 
       { day: '', count: 0 }
+    ),
+    specialSessions: weeklySchedule.reduce((sum, day) => 
+      sum + day.schedules.filter(s => isSpecialTimeSlot(s.timeSlot)).length, 0
     )
   };
 
   // Daily View Component
-  const renderDailyView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-[#292929]">
-          Daily Schedule - {formatDatePST(selectedDate)}
-        </h3>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-        />
-      </div>
-      
-      {orderedSchedule.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {orderedSchedule.map(timeSlot => (
-            <div key={timeSlot.id} className="border rounded-lg p-4 bg-white shadow-md">
-              <h4 className="font-semibold text-lg mb-2 text-[#292929]">{timeSlot.label}</h4>
-              <div className="space-y-2">
-                {timeSlot.clients.length > 0 ? (
-                  timeSlot.clients.map(client => (
-                    <div key={client.id} className="bg-[#BED2D8] p-3 rounded text-sm">
-                      <p 
-                        className="text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline font-medium"
-                        onClick={() => onClientSelect && onClientSelect(client)}
-                        title="Click to view client details"
-                      >
-                        {client.name}
-                      </p>
-                      <div className="flex justify-between items-center mt-1">
+  const renderDailyView = () => {
+    // Separate core and special schedules
+    const coreSchedules = mySchedule.filter(s => !isSpecialTimeSlot(s.timeSlot));
+    const specialSchedules = mySchedule.filter(s => isSpecialTimeSlot(s.timeSlot));
+    const orderedCoreSchedule = getOrderedCoachSchedule(coreSchedules, clients);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-semibold text-[#292929]">
+            Daily Schedule - {formatDatePST(selectedDate)}
+          </h3>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+          />
+        </div>
+
+        {/* Special Schedules Alert */}
+        {specialSchedules.length > 0 && (
+          <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded">
+            <div className="flex items-center space-x-2">
+              <Star className="text-orange-500" size={16} />
+              <h4 className="font-semibold text-orange-700">
+                {specialSchedules.length} Special Schedule{specialSchedules.length !== 1 ? 's' : ''} Today
+              </h4>
+            </div>
+            <div className="mt-2 space-y-1">
+              {specialSchedules.map(schedule => {
+                const client = clients.find(c => c.id === schedule.clientId);
+                const timeSlotInfo = getTimeSlotInfo(schedule.timeSlot);
+                return (
+                  <div key={schedule.id} className="text-sm text-orange-800">
+                    • {timeSlotInfo.label || timeSlotInfo.id}: {client?.name || 'Unknown Client'}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Core Schedule Grid */}
+        {orderedCoreSchedule.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {orderedCoreSchedule.map(timeSlot => (
+              <div key={timeSlot.id} className="border rounded-lg p-4 bg-white shadow-md">
+                <h4 className="font-semibold text-lg mb-2 text-[#292929]">{timeSlot.label}</h4>
+                <div className="space-y-2">
+                  {timeSlot.clients.length > 0 ? (
+                    timeSlot.clients.map(client => (
+                      <div key={client.id} className="bg-[#BED2D8] p-3 rounded text-sm">
                         <p 
-                          className="text-xs text-[#707070] cursor-pointer hover:text-[#292929] hover:underline"
+                          className="text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline font-medium"
                           onClick={() => onClientSelect && onClientSelect(client)}
                           title="Click to view client details"
                         >
-                          {client.program === 'limitless' ? client.businessName :
-                           client.program === 'new-options' ? 'Community Job' :
-                           client.program === 'bridges' ? 'Career Dev' :
-                           client.businessName}
+                          {client.name}
                         </p>
-                        <span className={`text-xs px-1 rounded ${
-                          client.program === 'limitless' ? 'bg-white text-[#6D858E]' :
-                          client.program === 'new-options' ? 'bg-white text-[#6D858E]' :
-                          client.program === 'bridges' ? 'bg-white text-[#5A4E69]' :
-                          'bg-white text-[#9B97A2]'
-                        }`}>
-                          {client.program === 'limitless' ? 'L' :
-                           client.program === 'new-options' ? 'NO' :
-                           client.program === 'bridges' ? 'B' :
-                           'L'}
-                        </span>
+                        <div className="flex justify-between items-center mt-1">
+                          <p 
+                            className="text-xs text-[#707070] cursor-pointer hover:text-[#292929] hover:underline"
+                            onClick={() => onClientSelect && onClientSelect(client)}
+                            title="Click to view client details"
+                          >
+                            {client.program === 'limitless' ? client.businessName :
+                             client.program === 'new-options' ? 'Community Job' :
+                             client.program === 'bridges' ? 'Career Dev' :
+                             client.businessName}
+                          </p>
+                          <span className={`text-xs px-1 rounded ${
+                            client.program === 'limitless' ? 'bg-white text-[#6D858E]' :
+                            client.program === 'new-options' ? 'bg-white text-[#6D858E]' :
+                            client.program === 'bridges' ? 'bg-white text-[#5A4E69]' :
+                            'bg-white text-[#9B97A2]'
+                          }`}>
+                            {client.program === 'limitless' ? 'L' :
+                             client.program === 'new-options' ? 'NO' :
+                             client.program === 'bridges' ? 'B' :
+                             'L'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-[#9B97A2] italic">No sessions assigned</p>
-                )}
+                    ))
+                  ) : (
+                    <p className="text-[#9B97A2] italic">No sessions assigned</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 text-[#9B97A2] bg-white rounded-lg shadow-md">
-          <Clock size={48} className="mx-auto mb-4" />
-          <h4 className="text-lg font-medium mb-2">No Sessions Scheduled</h4>
-          <p>You don't have any client sessions scheduled for this date.</p>
-        </div>
-      )}
-    </div>
-  );
+            ))}
+          </div>
+        ) : specialSchedules.length === 0 ? (
+          <div className="text-center py-12 text-[#9B97A2] bg-white rounded-lg shadow-md">
+            <Clock size={48} className="mx-auto mb-4" />
+            <h4 className="text-lg font-medium mb-2">No Sessions Scheduled</h4>
+            <p>You don't have any client sessions scheduled for this date.</p>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-[#9B97A2] bg-white rounded-lg shadow-md">
+            <p>All sessions today are special schedules (shown above)</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Weekly View Component
   const renderWeeklyView = () => (
@@ -210,7 +268,7 @@ const MyScheduleTab = ({
       </div>
 
       {/* Weekly Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-[#6D858E]">
           <div className="flex justify-between items-center">
             <div>
@@ -245,20 +303,39 @@ const MyScheduleTab = ({
             <Clock className="text-[#9B97A2]" size={24} />
           </div>
         </div>
+
+        <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-orange-400">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-[#707070] text-sm">Special Schedules</p>
+              <p className="text-2xl font-bold text-orange-500">{weeklyStats.specialSessions}</p>
+            </div>
+            <Star className="text-orange-500" size={24} />
+          </div>
+        </div>
       </div>
 
       {/* Weekly Calendar */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="grid grid-cols-7 gap-0 bg-[#F5F5F5]">
-          {weeklySchedule.map(day => (
-            <div key={day.date} className="text-center font-semibold p-4 text-[#292929] border-r border-gray-200 last:border-r-0">
-              <div className="text-sm">{day.dayName}</div>
-              <div className="text-lg">{day.dayNumber}</div>
-            </div>
-          ))}
+          {weeklySchedule.map(day => {
+            const specialCount = day.schedules.filter(s => isSpecialTimeSlot(s.timeSlot)).length;
+            return (
+              <div key={day.date} className="text-center font-semibold p-4 text-[#292929] border-r border-gray-200 last:border-r-0">
+                <div className="text-sm">{day.dayName}</div>
+                <div className="text-lg">{day.dayNumber}</div>
+                {specialCount > 0 && (
+                  <div className="flex items-center justify-center space-x-1 text-xs text-orange-600 mt-1">
+                    <Star size={10} />
+                    <span>{specialCount}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Time Slots */}
+        {/* Time Slots - Only show core slots in grid */}
         {TIME_SLOTS.map(timeSlot => (
           <div key={timeSlot.id} className="border-b border-gray-200 last:border-b-0">
             <div className="grid grid-cols-7 gap-0">
@@ -323,45 +400,84 @@ const MyScheduleTab = ({
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h4 className="text-lg font-semibold mb-4 text-[#292929]">This Week's Sessions</h4>
           <div className="space-y-4">
-            {weeklySchedule.filter(day => day.schedules.length > 0).map(day => (
-              <div key={day.date} className="border rounded-lg p-4">
-                <h5 className="font-medium text-[#292929] mb-2">
-                  {day.dayName}, {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
-                    timeZone: 'America/Los_Angeles',
-                    month: 'long',
-                    day: 'numeric'
-                  })} ({day.schedules.length} sessions)
-                </h5>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {TIME_SLOTS.map(timeSlot => {
-                    const sessionsForSlot = day.schedules.filter(s => s.timeSlot === timeSlot.id);
-                    if (sessionsForSlot.length === 0) return null;
-                    
-                    return (
-                      <div key={timeSlot.id} className="bg-[#F5F5F5] p-3 rounded">
-                        <div className="text-sm font-medium text-[#292929] mb-1">
-                          {timeSlot.start}
-                        </div>
-                        <div className="space-y-1">
-                          {sessionsForSlot.map(session => {
-                            const client = clients.find(c => c.id === session.clientId);
-                            return (
-                              <div 
-                                key={session.id}
-                                className="text-sm text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline"
-                                onClick={() => onClientSelect && onClientSelect(client)}
-                              >
-                                {client?.name}
+            {weeklySchedule.filter(day => day.schedules.length > 0).map(day => {
+              const coreSchedules = day.schedules.filter(s => !isSpecialTimeSlot(s.timeSlot));
+              const specialSchedules = day.schedules.filter(s => isSpecialTimeSlot(s.timeSlot));
+              
+              return (
+                <div key={day.date} className="border rounded-lg p-4">
+                  <h5 className="font-medium text-[#292929] mb-2">
+                    {day.dayName}, {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', {
+                      timeZone: 'America/Los_Angeles',
+                      month: 'long',
+                      day: 'numeric'
+                    })} ({day.schedules.length} sessions)
+                  </h5>
+                  
+                  {/* Core Sessions */}
+                  {coreSchedules.length > 0 && (
+                    <div className="mb-4">
+                      <h6 className="text-sm font-medium text-[#292929] mb-2">Core Schedule:</h6>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {TIME_SLOTS.map(timeSlot => {
+                          const sessionsForSlot = coreSchedules.filter(s => s.timeSlot === timeSlot.id);
+                          if (sessionsForSlot.length === 0) return null;
+                          
+                          return (
+                            <div key={timeSlot.id} className="bg-[#F5F5F5] p-3 rounded">
+                              <div className="text-sm font-medium text-[#292929] mb-1">
+                                {timeSlot.start}
                               </div>
-                            );
-                          })}
-                        </div>
+                              <div className="space-y-1">
+                                {sessionsForSlot.map(session => {
+                                  const client = clients.find(c => c.id === session.clientId);
+                                  return (
+                                    <div 
+                                      key={session.id}
+                                      className="text-sm text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline"
+                                      onClick={() => onClientSelect && onClientSelect(client)}
+                                    >
+                                      {client?.name}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* Special Sessions */}
+                  {specialSchedules.length > 0 && (
+                    <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Star className="text-orange-500" size={14} />
+                        <h6 className="text-sm font-medium text-orange-700">
+                          Special Schedules ({specialSchedules.length}):
+                        </h6>
+                      </div>
+                      <div className="space-y-1">
+                        {specialSchedules.map(session => {
+                          const client = clients.find(c => c.id === session.clientId);
+                          const timeSlotInfo = getTimeSlotInfo(session.timeSlot);
+                          return (
+                            <div 
+                              key={session.id}
+                              className="text-sm text-orange-800 cursor-pointer hover:text-orange-900 hover:underline"
+                              onClick={() => onClientSelect && onClientSelect(client)}
+                            >
+                              • {timeSlotInfo.label || timeSlotInfo.id}: {client?.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

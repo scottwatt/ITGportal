@@ -1,7 +1,7 @@
-// src/components/schedule/WeeklyDragDropScheduler.jsx - UPDATED: Core 3 slots only + Special Scheduling
+// src/components/schedule/WeeklyDragDropScheduler.jsx - FIXED: Handles special schedules gracefully
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { formatDatePST, getWeekDatesStartingMonday, formatDateForInput } from '../../utils/dateUtils';
 import { 
   getSchedulableClients, 
@@ -12,7 +12,8 @@ import {
   formatWorkingDays,
   formatAvailableTimeSlots
 } from '../../utils/helpers';
-import FlexibleSchedulingManager from './FlexibleScheduleManager'; // ADD: Import special scheduling
+import { getAllTimeSlots } from '../../utils/constants'; // Import all time slots
+import FlexibleSchedulingManager from './FlexibleScheduleManager';
 
 const WeeklyDragDropScheduler = ({ 
   selectedDate,
@@ -26,7 +27,7 @@ const WeeklyDragDropScheduler = ({
   dailySchedules,
   clients,
   coaches,
-  timeSlots, // This should be the core 3 slots only
+  timeSlots, // This should be the core 3 slots only for main grid
   scheduleActions,
   availabilityActions 
 }) => {
@@ -41,6 +42,25 @@ const WeeklyDragDropScheduler = ({
     monday.setDate(date.getDate() - daysToMonday);
     return formatDateForInput(monday);
   });
+
+  // Get all time slots (core + special) for lookups
+  const allTimeSlots = getAllTimeSlots();
+
+  // Helper function to get time slot info (handles both core and special)
+  const getTimeSlotInfo = (timeSlotId) => {
+    return allTimeSlots.find(slot => slot.id === timeSlotId) || {
+      id: timeSlotId,
+      label: timeSlotId,
+      start: 'Unknown',
+      end: 'Time',
+      type: 'unknown'
+    };
+  };
+
+  // Helper function to check if a time slot is a special (non-core) slot
+  const isSpecialTimeSlot = (timeSlotId) => {
+    return !timeSlots.some(slot => slot.id === timeSlotId);
+  };
 
   // Get week dates starting from current Monday
   const getWeekDates = () => {
@@ -313,23 +333,70 @@ const WeeklyDragDropScheduler = ({
           </div>
         </div>
 
+        {/* Show Special Schedules Summary */}
+        {weekDates.some(date => {
+          const specialSchedules = dailySchedules.filter(s => 
+            s.date === date && isSpecialTimeSlot(s.timeSlot)
+          );
+          return specialSchedules.length > 0;
+        }) && (
+          <div className="mx-6 mb-6 p-3 bg-orange-50 border-l-4 border-orange-400 rounded">
+            <div className="flex items-center space-x-2">
+              <Star className="text-orange-500" size={16} />
+              <div className="text-sm text-orange-700">
+                <div className="font-medium">Special Schedules This Week</div>
+                {weekDates.map(date => {
+                  const specialSchedules = dailySchedules.filter(s => 
+                    s.date === date && isSpecialTimeSlot(s.timeSlot)
+                  );
+                  if (specialSchedules.length === 0) return null;
+                  
+                  const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { 
+                    timeZone: 'America/Los_Angeles',
+                    weekday: 'short' 
+                  });
+                  
+                  return (
+                    <div key={date} className="text-xs">
+                      {dayName}: {specialSchedules.length} special schedule{specialSchedules.length !== 1 ? 's' : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Vertical Coach Layout with Sticky Headers */}
         <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
           <div className="min-w-[1200px]">
             {/* Sticky Coach Headers */}
             <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E]">
               <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-                {activeCoaches.map(coach => (
-                  <div key={coach.uid || coach.id} className="p-4 text-center bg-[#6D858E] text-white">
-                    <div className="font-semibold text-lg">{coach.name}</div>
-                    <div className="text-xs text-[#BED2D8]">
-                      {dailySchedules.filter(s => 
-                        weekDates.includes(s.date) && 
-                        s.coachId === (coach.uid || coach.id)
-                      ).length} sessions this week
+                {activeCoaches.map(coach => {
+                  // Count both core and special schedules for this coach
+                  const totalSchedules = dailySchedules.filter(s => 
+                    weekDates.includes(s.date) && 
+                    s.coachId === (coach.uid || coach.id)
+                  );
+                  
+                  const specialSchedules = totalSchedules.filter(s => isSpecialTimeSlot(s.timeSlot));
+                  
+                  return (
+                    <div key={coach.uid || coach.id} className="p-4 text-center bg-[#6D858E] text-white">
+                      <div className="font-semibold text-lg">{coach.name}</div>
+                      <div className="text-xs text-[#BED2D8]">
+                        {totalSchedules.length} sessions this week
+                        {specialSchedules.length > 0 && (
+                          <div className="flex items-center justify-center space-x-1 mt-1">
+                            <Star size={12} />
+                            <span>{specialSchedules.length} special</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -347,14 +414,29 @@ const WeeklyDragDropScheduler = ({
                   <div key={date} className="border-b border-gray-200">
                     {/* Day Header */}
                     <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-                      {activeCoaches.map(coach => (
-                        <div key={`${date}-header-${coach.uid || coach.id}`} 
-                             className={`text-center p-2 border-r border-gray-200 font-semibold ${
-                               isToday ? 'bg-[#5A4E69] text-white' : 'bg-[#F5F5F5] text-[#292929]'
-                             }`}>
-                          {dayName} {dayNumber}
-                        </div>
-                      ))}
+                      {activeCoaches.map(coach => {
+                        // Count special schedules for this coach on this day
+                        const specialSchedules = dailySchedules.filter(s => 
+                          s.date === date && 
+                          s.coachId === (coach.uid || coach.id) && 
+                          isSpecialTimeSlot(s.timeSlot)
+                        );
+                        
+                        return (
+                          <div key={`${date}-header-${coach.uid || coach.id}`} 
+                               className={`text-center p-2 border-r border-gray-200 font-semibold ${
+                                 isToday ? 'bg-[#5A4E69] text-white' : 'bg-[#F5F5F5] text-[#292929]'
+                               }`}>
+                            <div>{dayName} {dayNumber}</div>
+                            {specialSchedules.length > 0 && (
+                              <div className="flex items-center justify-center space-x-1 text-xs text-orange-600">
+                                <Star size={10} />
+                                <span>{specialSchedules.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                     
                     {/* Time Slots for this day - ONLY CORE 3 SLOTS */}
@@ -387,9 +469,9 @@ const WeeklyDragDropScheduler = ({
                                   : 'bg-white hover:bg-gray-50'
                               }`}
                             >
-                              {/* Time Slot Label (only show on first coach column) */}
-                              {coach === activeCoaches[0] && (
-                                <div className="text-xs font-medium text-[#707070] mb-2">
+                              {/* Time Slot Label (show in every empty slot) */}
+                              {!assignment && (
+                                <div className="text-xs font-medium text-[#707070] mb-2 text-center">
                                   {slot.start} - {slot.end}
                                 </div>
                               )}
@@ -504,7 +586,7 @@ const WeeklyDragDropScheduler = ({
         )}
       </div>
 
-      {/* ADD: Special Scheduling Manager for rare circumstances */}
+      {/* Special Scheduling Manager for rare circumstances */}
       <FlexibleSchedulingManager
         selectedDate={selectedDate}
         clients={clients}

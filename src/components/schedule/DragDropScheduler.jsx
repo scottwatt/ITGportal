@@ -1,7 +1,7 @@
-// src/components/schedule/DragDropScheduler.jsx - UPDATED: Core 3 slots + Special Scheduling Manager
+// src/components/schedule/DragDropScheduler.jsx - FIXED: Handles special schedules gracefully
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle } from 'lucide-react';
+import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, Star } from 'lucide-react';
 import { formatDatePST } from '../../utils/dateUtils';
 import { 
   getSchedulableClients, 
@@ -12,8 +12,9 @@ import {
   formatWorkingDays,
   formatAvailableTimeSlots
 } from '../../utils/helpers';
+import { getAllTimeSlots } from '../../utils/constants'; // Import all time slots
 import { AlertCard } from '../ui/Card';
-import FlexibleSchedulingManager from './FlexibleScheduleManager'; // ADD: Import special scheduling
+import FlexibleSchedulingManager from './FlexibleScheduleManager';
 
 const DragDropScheduler = ({ 
   selectedDate, 
@@ -27,7 +28,7 @@ const DragDropScheduler = ({
   dailySchedules,
   clients,
   coaches,
-  timeSlots,
+  timeSlots, // Core 3 slots only for main scheduling
   scheduleActions,
   availabilityActions 
 }) => {
@@ -40,6 +41,25 @@ const DragDropScheduler = ({
   const [selectedTargetDates, setSelectedTargetDates] = useState([]);
   const [pastePreview, setPastePreview] = useState([]);
   const [isPasting, setIsPasting] = useState(false);
+
+  // Get all time slots (core + special) for lookups
+  const allTimeSlots = getAllTimeSlots();
+
+  // Helper function to get time slot info (handles both core and special)
+  const getTimeSlotInfo = (timeSlotId) => {
+    return allTimeSlots.find(slot => slot.id === timeSlotId) || {
+      id: timeSlotId,
+      label: timeSlotId,
+      start: 'Unknown',
+      end: 'Time',
+      type: 'unknown'
+    };
+  };
+
+  // Helper function to check if a time slot is a special (non-core) slot
+  const isSpecialTimeSlot = (timeSlotId) => {
+    return !timeSlots.some(slot => slot.id === timeSlotId);
+  };
 
   // FILTER OUT GRACE COACHES - only show Success coaches in main interface
   const activeCoaches = coaches.filter(c => 
@@ -154,13 +174,13 @@ const DragDropScheduler = ({
     const scheduleWithDetails = todaySchedules.map(schedule => {
       const coach = activeCoaches.find(c => (c.uid || c.id) === schedule.coachId);
       const client = clients.find(c => c.id === schedule.clientId);
-      const timeSlot = timeSlots.find(ts => ts.id === schedule.timeSlot);
+      const timeSlotInfo = getTimeSlotInfo(schedule.timeSlot); // Use helper function
       
       return {
         ...schedule,
         coachName: coach?.name || 'Unknown Coach',
         clientName: client?.name || 'Unknown Client',
-        timeSlotLabel: timeSlot?.label || 'Unknown Time'
+        timeSlotLabel: timeSlotInfo.label || 'Unknown Time'
       };
     });
 
@@ -351,11 +371,10 @@ Continue?`;
     
     const availableTimeSlots = clientAvailableTimeSlots.filter(slot => !scheduledTimeSlots.includes(slot));
     
-    // Time slot display info
-    const timeSlotLabels = {
-      '8-10': '8-10 AM',
-      '10-12': '10-12 PM', 
-      '1230-230': '12:30-2:30 PM'
+    // Time slot display info - using helper function for flexible lookup
+    const getTimeSlotLabel = (slotId) => {
+      const slotInfo = getTimeSlotInfo(slotId);
+      return slotInfo.label || slotId;
     };
     
     return (
@@ -416,7 +435,7 @@ Continue?`;
                         key={slot}
                         className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded border"
                       >
-                        {timeSlotLabels[slot]}
+                        {getTimeSlotLabel(slot)}
                       </span>
                     ))}
                   </div>
@@ -433,14 +452,20 @@ Continue?`;
                         s.timeSlot === slot
                       );
                       const coach = activeCoaches.find(c => (c.uid || c.id) === schedule?.coachId);
+                      const isSpecial = isSpecialTimeSlot(slot);
                       
                       return (
                         <span 
                           key={slot}
-                          className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded border"
-                          title={`With ${coach?.name || 'Unknown Coach'}`}
+                          className={`text-xs px-1 py-0.5 rounded border ${
+                            isSpecial 
+                              ? 'bg-orange-100 text-orange-800 border-orange-300' 
+                              : 'bg-blue-100 text-blue-800 border-blue-300'
+                          }`}
+                          title={`${coach?.name || 'Unknown Coach'}${isSpecial ? ' (Special Schedule)' : ''}`}
                         >
-                          {timeSlotLabels[slot]}
+                          {isSpecial && <Star size={8} className="inline mr-1" />}
+                          {getTimeSlotLabel(slot)}
                         </span>
                       );
                     })}
@@ -458,7 +483,7 @@ Continue?`;
                           key={slot.id}
                           className="text-xs bg-gray-100 text-gray-600 px-1 py-0.5 rounded border"
                         >
-                          {timeSlotLabels[slot.id]}
+                          {slot.label}
                         </span>
                       ))}
                   </div>
@@ -509,6 +534,20 @@ Continue?`;
     const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
     const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
 
+    // Get ALL assignments for this coach on this date (including special schedules)
+    const allAssignments = dailySchedules.filter(s => 
+      s.date === selectedDate && 
+      s.coachId === (coach.uid || coach.id)
+    );
+
+    // Separate core and special assignments
+    const coreAssignments = allAssignments.filter(s => 
+      timeSlots.some(slot => slot.id === s.timeSlot)
+    );
+    const specialAssignments = allAssignments.filter(s => 
+      !timeSlots.some(slot => slot.id === s.timeSlot)
+    );
+
     return (
       <div key={coach.uid || coach.id} className="flex-shrink-0 space-y-3">
         {/* Coach Header with Availability Status */}
@@ -519,10 +558,7 @@ Continue?`;
             <div className="font-semibold text-white text-lg">{coach.name}</div>
             <div className="text-xs text-[#BED2D8]">
               {isAvailable ? (
-                `${dailySchedules.filter(s => 
-                  s.date === selectedDate && 
-                  s.coachId === (coach.uid || coach.id)
-                ).length} sessions today`
+                `${allAssignments.length} sessions today${specialAssignments.length > 0 ? ` (${specialAssignments.length} special)` : ''}`
               ) : (
                 `${status}${reason ? ` - ${reason}` : ''}`
               )}
@@ -530,14 +566,38 @@ Continue?`;
           </div>
         </div>
         
-        {/* Time Slots - Only show if coach is available */}
+        {/* Show special assignments notification */}
+        {specialAssignments.length > 0 && (
+          <div className="w-80 p-2 bg-orange-50 border-l-4 border-orange-400 rounded">
+            <div className="flex items-center space-x-2">
+              <Star className="text-orange-500" size={16} />
+              <div className="text-sm text-orange-700">
+                <div className="font-medium">{specialAssignments.length} Special Schedule{specialAssignments.length !== 1 ? 's' : ''}</div>
+                {specialAssignments.map(assignment => {
+                  const client = clients.find(c => c.id === assignment.clientId);
+                  const timeSlotInfo = getTimeSlotInfo(assignment.timeSlot);
+                  return (
+                    <div key={assignment.id} className="text-xs">
+                      • {client?.name}: {timeSlotInfo.label}
+                      <button
+                        onClick={() => handleRemoveAssignment(assignment.id)}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                        title="Remove special schedule"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Core Time Slots - Only show if coach is available */}
         {isAvailable ? (
           timeSlots.map(slot => {
-            const assignments = dailySchedules.filter(s => 
-              s.date === selectedDate && 
-              s.timeSlot === slot.id && 
-              s.coachId === (coach.uid || coach.id)
-            );
+            const assignments = coreAssignments.filter(s => s.timeSlot === slot.id);
             
             const canAssign = isAssigning && selectedClient && !selectedClient.isFullyScheduled;
             const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
@@ -821,7 +881,7 @@ Continue?`;
         </div>
       </div>
 
-      {/* ADD: Special Scheduling Manager for rare circumstances */}
+      {/* Special Scheduling Manager for rare circumstances */}
       <FlexibleSchedulingManager
         selectedDate={selectedDate}
         clients={clients}

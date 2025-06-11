@@ -1,14 +1,35 @@
-// src/components/client/ClientScheduleView.jsx - Updated with task titles display
+// src/components/client/ClientScheduleView.jsx - FIXED: Handles special time slots
 import React, { useState, useEffect } from 'react';
+import { Star, Clock } from 'lucide-react';
 import { getWeekDatesStartingMonday } from '../../utils/dateUtils';
 import { getOrderedWeeklySchedule } from '../../utils/scheduleHelpers';
-import { TIME_SLOTS, TIME_BLOCKS } from '../../utils/constants';
+import { TIME_SLOTS, TIME_BLOCKS, getAllTimeSlots } from '../../utils/constants'; // Added getAllTimeSlots
 
 const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlots, taskActions, tasks }) => {
   const [weeklyTasks, setWeeklyTasks] = useState({});
   const [loadingTasks, setLoadingTasks] = useState(false);
 
   const clientData = clients.find(c => c.email === userProfile.email) || clients[0];
+
+  // Get all time slots (core + special) for proper lookup
+  const allTimeSlots = getAllTimeSlots();
+
+  // Helper function to get time slot info (handles both core and special)
+  const getTimeSlotInfo = (timeSlotId) => {
+    return allTimeSlots.find(slot => slot.id === timeSlotId) || {
+      id: timeSlotId,
+      label: timeSlotId,
+      start: 'Unknown',
+      end: 'Time',
+      type: 'unknown'
+    };
+  };
+
+  // Helper function to check if a time slot is special
+  const isSpecialTimeSlot = (timeSlotId) => {
+    const coreSlots = ['8-10', '10-12', '1230-230'];
+    return !coreSlots.includes(timeSlotId);
+  };
 
   // Function to map 2-hour time slots to 30-minute task blocks
   const getTaskBlocksForTimeSlot = (timeSlotId) => {
@@ -19,7 +40,12 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
       // Add alternative formats in case the data uses different IDs
       'morning': ['800', '830', '900', '930'],
       'midmorning': ['1000', '1030', '1100', '1130'],
-      'afternoon': ['1230', '1300', '1330', '1400']
+      'afternoon': ['1230', '1300', '1330', '1400'],
+      // Special time slots - map to appropriate blocks
+      '6-8': ['600', '630', '700', '730'],
+      '7-9': ['700', '730', '800', '830'],
+      '1400-1600': ['1400', '1430', '1500', '1530'],
+      '1500-1700': ['1500', '1530', '1600', '1630']
     };
     
     return blockMappings[timeSlotId] || [];
@@ -131,12 +157,34 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
               <div className="space-y-2">
                 {day.timeSlotGroups && day.timeSlotGroups.length > 0 ? (
                   day.timeSlotGroups.map(timeSlotGroup => (
-                    timeSlotGroup.sessions.map(session => (
-                      <div key={session.id} className="bg-[#BED2D8] p-2 rounded text-xs">
-                        <p className="font-medium text-[#292929]">{timeSlotGroup.start}</p>
-                        <p className="text-[#6D858E]">{session.coach?.name || 'No Coach Assigned'}</p>
-                      </div>
-                    ))
+                    timeSlotGroup.sessions.map(session => {
+                      const timeSlotInfo = getTimeSlotInfo(session.timeSlot);
+                      const isSpecial = isSpecialTimeSlot(session.timeSlot);
+                      
+                      return (
+                        <div 
+                          key={session.id} 
+                          className={`p-2 rounded text-xs ${
+                            isSpecial 
+                              ? 'bg-orange-100 border border-orange-300 text-orange-800' 
+                              : 'bg-[#BED2D8] text-[#292929]'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-1 mb-1">
+                            {isSpecial && <Star size={10} />}
+                            <p className="font-medium">
+                              {timeSlotInfo.label || timeSlotGroup.start}
+                            </p>
+                          </div>
+                          <p className={isSpecial ? 'text-orange-700' : 'text-[#6D858E]'}>
+                            {session.coach?.name || 'No Coach Assigned'}
+                          </p>
+                          {isSpecial && (
+                            <p className="text-xs text-orange-600 mt-1">Special Schedule</p>
+                          )}
+                        </div>
+                      );
+                    })
                   ))
                 ) : (
                   <p className="text-[#9B97A2] text-xs text-center py-2">No sessions</p>
@@ -161,11 +209,17 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
           {orderedWeeklySchedule.flatMap(day => 
             day.timeSlotGroups ? day.timeSlotGroups.flatMap(timeSlotGroup =>
               timeSlotGroup.sessions.map(session => {
-                const timeSlotInfo = TIME_SLOTS.find(ts => ts.id === session.timeSlot);
+                const timeSlotInfo = getTimeSlotInfo(session.timeSlot); // Use helper function
+                const isSpecial = isSpecialTimeSlot(session.timeSlot);
                 const taskBlocks = getTasksForTimeSlot(day.date, session.timeSlot);
                 
                 return (
-                  <div key={session.id} className="border rounded-lg p-4 hover:bg-[#F5F5F5]">
+                  <div 
+                    key={session.id} 
+                    className={`border rounded-lg p-4 hover:bg-[#F5F5F5] ${
+                      isSpecial ? 'border-orange-300 bg-orange-50' : ''
+                    }`}
+                  >
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h4 className="font-semibold text-lg text-[#292929]">
@@ -176,11 +230,26 @@ const ClientScheduleView = ({ userProfile, clients, schedules, coaches, timeSlot
                             day: 'numeric' 
                           })}
                         </h4>
-                        <p className="text-[#6D858E]">{timeSlotInfo?.label || 'Time TBD'}</p>
+                        <div className="flex items-center space-x-2">
+                          {isSpecial && <Star className="text-orange-500" size={16} />}
+                          <Clock className="text-[#6D858E]" size={16} />
+                          <p className="text-[#6D858E]">
+                            {timeSlotInfo?.label || timeSlotInfo?.start + ' - ' + timeSlotInfo?.end || 'Time TBD'}
+                          </p>
+                          {isSpecial && (
+                            <span className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded">
+                              Special Schedule
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[#707070]">Coach: {session.coach?.name || 'No Coach Assigned'}</p>
                       </div>
                       <div className="text-right">
-                        <span className="bg-[#BED2D8] text-[#292929] px-2 py-1 rounded text-sm">
+                        <span className={`px-2 py-1 rounded text-sm ${
+                          isSpecial 
+                            ? 'bg-orange-200 text-orange-800' 
+                            : 'bg-[#BED2D8] text-[#292929]'
+                        }`}>
                           Scheduled
                         </span>
                       </div>
