@@ -150,7 +150,10 @@ function App() {
           schedules={appState.schedules}
           tasks={appState.tasks}
           mileageRecords={appState.mileageRecords}
-          internships={internshipHook.internships} // ADD: Internship data
+          internships={internshipHook.internships} 
+          makerspaceRequests={appState.makerspaceRequests}
+          makerspaceSchedule={appState.makerspaceSchedule}
+          walkthroughs={appState.walkthroughs}
           
           // Action props
           clientActions={appState.clientActions}
@@ -160,7 +163,8 @@ function App() {
           graceAttendanceActions={appState.graceAttendanceActions}
           taskActions={appState.taskActions}
           mileageActions={appState.mileageActions}
-          internshipActions={internshipActions} // ADD: Internship actions
+          internshipActions={internshipActions}
+          makerspaceActions={appState.makerspaceActions}
         />
       </ErrorBoundary>
     </div>

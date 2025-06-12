@@ -1166,15 +1166,22 @@ const AdminPanel = ({
                   />
                   
                   <select
-                    value={newCoach.role}
-                    onChange={(e) => setNewCoach({...newCoach, role: e.target.value})}
-                    className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
-                    required
-                  >
-                    <option value="coach">Coach</option>
-                    <option value="scheduler">Scheduler</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                      value={newCoach.role}
+                      onChange={(e) => setNewCoach({...newCoach, role: e.target.value})}
+                      className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
+                      required
+                    >
+                      <option value="coach">Coach</option>
+                      <option value="scheduler">Scheduler</option>
+                      <option value="admin">Admin</option>
+                      <option value="merchandise_coordinator">Merchandise Coordinator</option>
+                      <option value="program_admin_coordinator">Program Admin Coordinator</option>
+                      <option value="admin_dev_coordinator">Admin Development Coordinator</option>
+                      <option value="vocational_dev_coordinator">Vocational Development Coordinator</option>
+                      <option value="executive_director">Executive Director</option>
+                      <option value="director_org_dev">Director of Organizational Development</option>
+                      <option value="director_program_dev">Director of Program Development</option>
+                    </select>
                   
                   <select
                     value={newCoach.coachType}

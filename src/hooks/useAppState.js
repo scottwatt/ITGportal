@@ -7,8 +7,10 @@ import { useCoachAvailability } from './useCoachAvailability';
 import { useGraceAttendance } from './useGraceAttendance';
 import { useTasks } from './useTasks';
 import { useMileageTracker } from './useMileageTracker';
-import { useInternships } from './useInternships'; // ADD internships hook
+import { useInternships } from './useInternships';
+import { useMakerspace } from './useMakerspace'; // ADD makerspace hook
 import { useAuth } from './useAuth';
+import { getPSTDate } from '../utils/dateUtils'; // ADD for makerspace stats
 
 export const useAppState = (isAuthenticated) => {
   // UI State
@@ -31,6 +33,9 @@ export const useAppState = (isAuthenticated) => {
   // ADD: Internships hook for all internships (admins/coaches need to see all)
   const internshipsHook = useInternships(null, isAuthenticated); // null = get all internships
   
+  // ADD: Makerspace hook for all makerspace functionality
+  const makerspaceHook = useMakerspace(isAuthenticated);
+
   // FIXED: Memoize coach lookup to prevent re-renders
   const currentCoachId = useMemo(() => {
     if (!isAuthenticated || !user?.uid || !Array.isArray(coachesHook.coaches)) {
@@ -745,21 +750,22 @@ export const useAppState = (isAuthenticated) => {
   }, [mileageHook]);
 
   // Loading state - true if any critical data is still loading
-  const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || 
-                  coachAvailabilityHook.loading || graceAttendanceHook.loading || 
-                  tasksHook.loading || internshipsHook.loading;
+    const loading = clientsHook.loading || coachesHook.loading || schedulesHook.loading || 
+      coachAvailabilityHook.loading || graceAttendanceHook.loading || 
+      tasksHook.loading || internshipsHook.loading || makerspaceHook.loading;
 
   // Error state - collect all errors
-  const errors = [
-    clientsHook.error,
-    coachesHook.error,
-    schedulesHook.error,
-    coachAvailabilityHook.error,
-    graceAttendanceHook.error,
-    tasksHook.error,
-    mileageHook.error,
-    internshipsHook.error
-  ].filter(Boolean);
+const errors = [
+  clientsHook.error,
+  coachesHook.error,
+  schedulesHook.error,
+  coachAvailabilityHook.error,
+  graceAttendanceHook.error,
+  tasksHook.error,
+  mileageHook.error,
+  internshipsHook.error,
+  makerspaceHook.error
+].filter(Boolean);
 
   // FIXED: Always ensure arrays are returned, even during loading/error states
   const safeClients = Array.isArray(clientsHook.clients) ? clientsHook.clients : [];
@@ -770,6 +776,9 @@ export const useAppState = (isAuthenticated) => {
   const safeTasks = Array.isArray(tasksHook.tasks) ? tasksHook.tasks : [];
   const safeMileageRecords = Array.isArray(mileageHook.records) ? mileageHook.records : [];
   const safeInternships = Array.isArray(internshipsHook.internships) ? internshipsHook.internships : [];
+  const safeMakerspaceRequests = Array.isArray(makerspaceHook.requests) ? makerspaceHook.requests : [];
+  const safeMakerspaceSchedule = Array.isArray(makerspaceHook.schedule) ? makerspaceHook.schedule : [];
+  const safeWalkthroughs = Array.isArray(makerspaceHook.walkthroughs) ? makerspaceHook.walkthroughs : [];
 
   return {
     // UI State
@@ -789,7 +798,10 @@ export const useAppState = (isAuthenticated) => {
     attendanceRecords: safeAttendanceRecords,
     tasks: safeTasks,
     mileageRecords: safeMileageRecords,
-    internships: safeInternships, // ADD internships to state
+    internships: safeInternships,
+    makerspaceRequests: safeMakerspaceRequests,
+    makerspaceSchedule: safeMakerspaceSchedule,
+    walkthroughs: safeWalkthroughs,
 
     // UI Actions
     setActiveTab: handleTabChange,
@@ -806,7 +818,9 @@ export const useAppState = (isAuthenticated) => {
     graceAttendanceActions,
     taskActions,
     mileageActions,
-    internshipActions, // ADD internship actions
+    internshipActions,
+    makerspaceActions: makerspaceHook.makerspaceActions,
+    
 
     // Utility functions
     utils: {
