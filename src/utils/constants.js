@@ -131,24 +131,24 @@ export const getNavigationItemsForUser = (userProfile) => {
     if (isGraceClient) {
       return [
         { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-        { id: 'my-schedule', label: 'My Schedule', icon: 'Calendar' },
-        { id: 'my-goals', label: 'My Goals', icon: 'ClipboardList' },
+        { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
+        { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
     } else {
       // Regular client (Limitless/New Options/Bridges) - ADD MAKERSPACE REQUEST
       const items = [
         { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-        { id: 'my-schedule', label: 'My Schedule', icon: 'Calendar' },
-        { id: 'my-tasks', label: 'My Tasks', icon: 'Clock' },
-        { id: 'my-goals', label: 'My Goals', icon: 'ClipboardList' },
-        { id: 'makerspace-request', label: 'Request Makerspace Time', icon: 'Wrench' }, // NEW
+        { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
+        { id: 'my-tasks', label: 'Tasks', icon: 'Clock' },
+        { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
+        { id: 'makerspace-request', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
       
       // Add internships tab for Bridges clients
       if (program === 'bridges') {
-        items.splice(4, 0, { id: 'my-internships', label: 'My Internships', icon: 'Briefcase' });
+        items.splice(4, 0, { id: 'my-internships', label: 'Internships', icon: 'Briefcase' });
       }
       
       return items;
@@ -158,12 +158,12 @@ export const getNavigationItemsForUser = (userProfile) => {
   // NEW: Merchandise Coordinator (Kameron) - Special navigation
   if (role === USER_ROLES.MERCHANDISE_COORDINATOR) {
     return [
-      { id: 'dashboard', label: 'Makerspace Dashboard', icon: 'Building2' },
-      { id: 'makerspace-schedule', label: 'Makerspace Schedule', icon: 'Calendar' },
-      { id: 'makerspace-requests', label: 'Time Requests', icon: 'ClipboardList' },
-      { id: 'walkthrough-schedule', label: 'Walkthrough Schedule', icon: 'UserCheck' },
-      { id: 'production-tracking', label: 'Production Tracking', icon: 'Package' },
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'makerspace-schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'makerspace-requests', label: 'Requests', icon: 'ClipboardList' },
+      { id: 'walkthrough-schedule', label: 'Training', icon: 'UserCheck' },
+      { id: 'production-tracking', label: 'Production', icon: 'Package' },
+      { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
@@ -171,11 +171,11 @@ export const getNavigationItemsForUser = (userProfile) => {
   // Grace Coach navigation items (unchanged)
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.GRACE) {
     return [
-      { id: 'dashboard', label: 'Grace Dashboard', icon: 'Building2' },
-      { id: 'grace-schedule', label: 'Grace Schedule', icon: 'Calendar' },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
-      { id: 'clients', label: 'Grace Participants', icon: 'Users' },
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'grace-schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'grace-attendance', label: 'Attendance', icon: 'UserCheck' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'mileage', label: 'Mileage', icon: 'Car' }, 
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
@@ -184,10 +184,10 @@ export const getNavigationItemsForUser = (userProfile) => {
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.SUCCESS) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'mileage', label: 'Mileage', icon: 'Car' }, 
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
@@ -196,15 +196,15 @@ export const getNavigationItemsForUser = (userProfile) => {
   if (role === USER_ROLES.COACH) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'mileage', label: 'Mileage', icon: 'Car' }, 
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
-  // FIXED: Full access roles (Josh, Connie, Scott, Directors) - Get all tabs like admin
+  // FIXED: Full access roles (Josh, Connie, Scott, Directors) - COMPACT LABELS
   const FULL_ACCESS_ROLES = [
     USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
     USER_ROLES.ADMIN_DEV_COORDINATOR, 
@@ -218,45 +218,45 @@ export const getNavigationItemsForUser = (userProfile) => {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' },
-      { id: 'admin', label: 'Admin Panel', icon: 'Settings' }
+      { id: 'admin', label: 'Admin', icon: 'Settings' }
     ];
   }
 
-  // Scheduler navigation items (unchanged but add makerspace overview)
+  // Scheduler navigation items - COMPACT LABELS
   if (role === USER_ROLES.SCHEDULER) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'mileage', label: 'Mileage', icon: 'Car' }, 
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
-  // Admin navigation items (updated with makerspace)
+  // Admin navigation items - COMPACT LABELS
   if (role === USER_ROLES.ADMIN) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' },
-      { id: 'admin', label: 'Admin Panel', icon: 'Settings' },
+      { id: 'admin', label: 'Admin', icon: 'Settings' },
     ];
   }
 

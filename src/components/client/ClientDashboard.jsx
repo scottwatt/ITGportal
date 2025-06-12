@@ -1,9 +1,17 @@
-// src/components/client/ClientDashboard.jsx - Updated to simplify Grace clients, not Bridges
+// src/components/client/ClientDashboard.jsx - Updated with makerspace request status
 import React from 'react';
-import { Target, Building2, Clock, User } from 'lucide-react';
-import { getPSTDate } from '../../utils/dateUtils';
+import { Target, Building2, Clock, User, Wrench, AlertCircle, CheckCircle } from 'lucide-react';
+import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
+import { MAKERSPACE_TIME_SLOTS } from '../../utils/constants';
 
-const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }) => {
+const ClientDashboard = ({ 
+  userProfile, 
+  clients, 
+  schedules, 
+  coaches, 
+  timeSlots,
+  makerspaceRequests = [] // Add makerspace requests prop
+}) => {
   // Find the current client's data
   const clientData = clients.find(c => c.email === userProfile.email) || clients[0];
   
@@ -25,6 +33,42 @@ const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }
   };
 
   const todaysSessions = getTodaysSchedule();
+
+  // Get client's makerspace requests
+  const clientMakerspaceRequests = makerspaceRequests.filter(req => 
+    req.clientId === clientData.id
+  ).sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+
+  const pendingRequests = clientMakerspaceRequests.filter(req => req.status === 'pending');
+  const upcomingApprovedRequests = clientMakerspaceRequests.filter(req => 
+    req.status === 'approved' && req.date >= today
+  ).slice(0, 3);
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="text-yellow-600" size={16} />;
+      case 'approved':
+        return <CheckCircle className="text-green-600" size={16} />;
+      case 'declined':
+        return <AlertCircle className="text-red-600" size={16} />;
+      default:
+        return <Clock className="text-gray-600" size={16} />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'approved':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'declined':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -206,6 +250,88 @@ const ClientDashboard = ({ userProfile, clients, schedules, coaches, timeSlots }
           </div>
         )}
       </div>
+
+      {/* Makerspace Requests Status - Only show for Limitless clients */}
+      {clientData.program === 'limitless' && (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4 flex items-center text-[#292929]">
+            <Wrench className="mr-2 text-[#6D858E]" size={20} />
+            Makerspace Status
+          </h3>
+          
+          {/* Pending Requests */}
+          {pendingRequests.length > 0 && (
+            <div className="mb-4">
+              <h4 className="font-medium text-[#292929] mb-2">Pending Requests</h4>
+              <div className="space-y-2">
+                {pendingRequests.map(request => (
+                  <div key={request.id} className={`p-3 rounded-lg border ${getStatusColor(request.status)}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(request.status)}
+                        <div>
+                          <p className="font-medium">
+                            {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
+                          </p>
+                          <p className="text-sm">{request.purpose}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 bg-white rounded">
+                        Under Review
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Approved Sessions */}
+          {upcomingApprovedRequests.length > 0 && (
+            <div className="mb-4">
+              <h4 className="font-medium text-[#292929] mb-2">Upcoming Makerspace Sessions</h4>
+              <div className="space-y-2">
+                {upcomingApprovedRequests.map(request => (
+                  <div key={request.id} className={`p-3 rounded-lg border ${getStatusColor(request.status)}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(request.status)}
+                        <div>
+                          <p className="font-medium">
+                            {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
+                          </p>
+                          <p className="text-sm">{request.purpose}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 bg-white rounded">
+                        Approved
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No requests message */}
+          {clientMakerspaceRequests.length === 0 && (
+            <div className="text-center py-6 text-[#9B97A2]">
+              <Wrench size={48} className="mx-auto mb-2" />
+              <p>No makerspace requests yet</p>
+              <p className="text-sm">Use the "Request Makerspace Time" tab to schedule your business work time</p>
+            </div>
+          )}
+
+          {/* Quick action */}
+          {clientData.program === 'limitless' && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm text-[#707070] mb-3">
+                Need time in the makerspace? Request a session with access to all equipment including heat press, embroidery machine, and design computers.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

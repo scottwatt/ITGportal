@@ -437,6 +437,8 @@ const AppLayout = ({
               timeSlots={TIME_SLOTS}
               internships={internships}
               internshipActions={internshipActions}
+              makerspaceRequests={makerspaceRequests}
+
             />
           );
         case 'my-schedule':

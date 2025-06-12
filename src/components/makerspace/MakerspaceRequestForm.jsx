@@ -1,6 +1,6 @@
-// src/components/makerspace/MakerspaceRequestForm.jsx
+// src/components/makerspace/MakerspaceRequestForm.jsx - Updated with conflict detection
 import React, { useState } from 'react';
-import { Wrench, Clock, Calendar, Package, Send, AlertCircle } from 'lucide-react';
+import { Wrench, Clock, Calendar, Package, Send, AlertCircle, XCircle } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { MAKERSPACE_TIME_SLOTS, MAKERSPACE_EQUIPMENT, EQUIPMENT_CATEGORIES } from '../../utils/constants';
 
@@ -8,7 +8,9 @@ const MakerspaceRequestForm = ({
   userProfile, 
   clients, 
   makerspaceActions,
-  existingRequests = [] 
+  existingRequests = [],
+  makerspaceSchedule = [], // Add schedule data
+  walkthroughs = [] // Add walkthrough data
 }) => {
   // Find the current client's data
   const clientData = clients.find(c => c.email === userProfile.email) || clients[0];
@@ -24,6 +26,79 @@ const MakerspaceRequestForm = ({
   
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState('');
+
+  // Check if a time slot is already booked
+  const checkTimeSlotAvailability = (date, timeSlot) => {
+    if (!date || !timeSlot) return { available: true, conflicts: [] };
+
+    const conflicts = [];
+
+    // Check existing makerspace schedule
+    const scheduleConflict = makerspaceSchedule.find(entry => 
+      entry.date === date && entry.timeSlot === timeSlot
+    );
+    if (scheduleConflict) {
+      conflicts.push({
+        type: 'makerspace_session',
+        details: `${scheduleConflict.clientName || 'Another client'} - ${scheduleConflict.purpose || 'Makerspace session'}`
+      });
+    }
+
+    // Check walkthroughs
+    const walkthroughConflict = walkthroughs.find(walkthrough => 
+      walkthrough.date === date && walkthrough.timeSlot === timeSlot && walkthrough.status !== 'cancelled'
+    );
+    if (walkthroughConflict) {
+      conflicts.push({
+        type: 'walkthrough',
+        details: `Equipment walkthrough/training for ${walkthroughConflict.clientName || 'client'}`
+      });
+    }
+
+    // Check other pending/approved requests (excluding current client's requests)
+    const requestConflict = existingRequests.find(request => 
+      request.date === date && 
+      request.timeSlot === timeSlot && 
+      request.clientId !== clientData?.id &&
+      ['pending', 'approved'].includes(request.status)
+    );
+    if (requestConflict) {
+      conflicts.push({
+        type: 'request',
+        details: `${requestConflict.status === 'pending' ? 'Pending request' : 'Approved session'} for ${requestConflict.clientName}`
+      });
+    }
+
+    return {
+      available: conflicts.length === 0,
+      conflicts
+    };
+  };
+
+  // Update conflict warning when date/timeSlot changes
+  const updateConflictWarning = (date, timeSlot) => {
+    const availability = checkTimeSlotAvailability(date, timeSlot);
+    
+    if (!availability.available) {
+      const conflictMessages = availability.conflicts.map(conflict => {
+        switch (conflict.type) {
+          case 'makerspace_session':
+            return `🔧 ${conflict.details}`;
+          case 'walkthrough':
+            return `👥 ${conflict.details}`;
+          case 'request':
+            return `📋 ${conflict.details}`;
+          default:
+            return `⚠️ ${conflict.details}`;
+        }
+      });
+      
+      setConflictWarning(`This time slot is already booked:\n${conflictMessages.join('\n')}`);
+    } else {
+      setConflictWarning('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,7 +116,7 @@ const MakerspaceRequestForm = ({
       newErrors.date = 'Cannot request time for past dates';
     }
     
-    // Check if there's already a request for this date/time
+    // Check if there's already a request for this date/time from this client
     const existingRequest = existingRequests.find(req => 
       req.clientId === clientData.id &&
       req.date === formData.date &&
@@ -51,6 +126,18 @@ const MakerspaceRequestForm = ({
     
     if (existingRequest) {
       newErrors.timeSlot = 'You already have a request for this time slot';
+    }
+
+    // Check for conflicts with other bookings
+    const availability = checkTimeSlotAvailability(formData.date, formData.timeSlot);
+    if (!availability.available) {
+      const conflictTypes = availability.conflicts.map(c => c.type);
+      
+      if (conflictTypes.includes('makerspace_session') || conflictTypes.includes('walkthrough')) {
+        newErrors.timeSlot = 'This time slot is already booked. Please choose a different time.';
+      } else if (conflictTypes.includes('request')) {
+        newErrors.timeSlot = 'Another client has requested this time slot. Please choose a different time.';
+      }
     }
     
     if (Object.keys(newErrors).length > 0) {
@@ -84,6 +171,7 @@ const MakerspaceRequestForm = ({
         estimatedDuration: '2',
         notes: ''
       });
+      setConflictWarning('');
       
       alert('Your makerspace time request has been submitted! Kameron will review it and get back to you soon.');
       
@@ -106,6 +194,23 @@ const MakerspaceRequestForm = ({
         ...formData,
         equipment: formData.equipment.filter(id => id !== equipmentId)
       });
+    }
+  };
+
+  const handleDateTimeChange = (field, value) => {
+    const updatedFormData = { ...formData, [field]: value };
+    setFormData(updatedFormData);
+    
+    // Check for conflicts when both date and timeSlot are set
+    if (updatedFormData.date && updatedFormData.timeSlot) {
+      updateConflictWarning(updatedFormData.date, updatedFormData.timeSlot);
+    } else {
+      setConflictWarning('');
+    }
+    
+    // Clear related errors
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
@@ -191,7 +296,7 @@ const MakerspaceRequestForm = ({
               <input
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                onChange={(e) => handleDateTimeChange('date', e.target.value)}
                 min={getPSTDate()}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E] ${
                   errors.date ? 'border-red-500' : 'border-gray-300'
@@ -208,7 +313,7 @@ const MakerspaceRequestForm = ({
               </label>
               <select
                 value={formData.timeSlot}
-                onChange={(e) => setFormData({...formData, timeSlot: e.target.value})}
+                onChange={(e) => handleDateTimeChange('timeSlot', e.target.value)}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E] ${
                   errors.timeSlot ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -224,6 +329,22 @@ const MakerspaceRequestForm = ({
               {errors.timeSlot && <p className="text-red-500 text-xs mt-1">{errors.timeSlot}</p>}
             </div>
           </div>
+
+          {/* Conflict Warning */}
+          {conflictWarning && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <XCircle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
+                <div>
+                  <h4 className="text-red-800 font-medium mb-1">Time Slot Conflict</h4>
+                  <p className="text-red-700 text-sm whitespace-pre-line">{conflictWarning}</p>
+                  <p className="text-red-600 text-xs mt-2">
+                    Please select a different date or time slot.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Purpose */}
           <div>
@@ -310,7 +431,7 @@ const MakerspaceRequestForm = ({
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || conflictWarning}
               className="bg-[#6D858E] text-white px-6 py-3 rounded-md hover:bg-[#5A4E69] disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               <Send size={16} />
@@ -329,6 +450,7 @@ const MakerspaceRequestForm = ({
           <li>• Maximum 2 hours per time slot</li>
           <li>• All equipment use requires prior safety training</li>
           <li>• Please clean up your workspace when finished</li>
+          <li>• Time slots are first-come, first-served based on approval</li>
         </ul>
       </div>
     </div>
