@@ -625,11 +625,11 @@ Continue?`;
           </div>
         </div>
 
-        {/* Schedule Grid - UPDATED: Horizontal Layout like Weekly View */}
-        <div className="mb-8 overflow-hidden">
+        {/* Schedule Grid */}
+        <div className="mb-8">
           {/* Sticky Coach Headers */}
           <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E] mb-4">
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
+            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
               {activeCoaches.map(coach => {
                 // Count both core and special schedules for this coach
                 const allAssignments = dailySchedules.filter(s => 
@@ -643,25 +643,25 @@ Continue?`;
                 const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
                 
                 return (
-                  <div key={coach.uid || coach.id} className={`p-4 text-center text-white ${
+                  <div key={coach.uid || coach.id} className={`p-2 text-center text-white ${
                     isAvailable ? 'bg-[#6D858E]' : 'bg-red-500'
                   }`}>
-                    <div className="font-semibold text-lg">{coach.name}</div>
+                    <div className="font-semibold text-sm truncate" title={coach.name}>{coach.name}</div>
                     <div className="text-xs text-[#BED2D8]">
                       {isAvailable ? (
                         <>
-                          {allAssignments.length} sessions today
+                          {allAssignments.length} today
                           {specialAssignments.length > 0 && (
                             <div className="flex items-center justify-center space-x-1 mt-1">
-                              <Star size={12} />
-                              <span>{specialAssignments.length} special</span>
+                              <Star size={10} />
+                              <span>{specialAssignments.length}</span>
                             </div>
                           )}
                         </>
                       ) : (
-                        <>
-                          {status}{reason ? ` - ${reason}` : ''}
-                        </>
+                        <div className="truncate text-xs" title={`${status}${reason ? ` - ${reason}` : ''}`}>
+                          {status}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -687,7 +687,7 @@ Continue?`;
                     
                     return (
                       <div key={coach.uid || coach.id} className="text-xs">
-                        {coach.name}: {specialSchedules.length} special schedule{specialSchedules.length !== 1 ? 's' : ''}
+                        {coach.name}: {specialSchedules.length} special
                       </div>
                     );
                   })}
@@ -696,22 +696,22 @@ Continue?`;
             </div>
           )}
 
-          {/* Time Slots Grid - Horizontal Layout */}
+          {/* Time Slots Grid - Compact Layout */}
           <div className="space-y-0">
             {timeSlots.map(slot => (
               <div key={slot.id} className="border-b border-gray-200">
                 {/* Time Slot Header */}
-                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
+                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
                   {activeCoaches.map(coach => (
                     <div key={`${slot.id}-header-${coach.uid || coach.id}`} 
-                         className="text-center p-2 border-r border-gray-200 font-semibold bg-[#F5F5F5] text-[#292929]">
-                      <div>{slot.start} - {slot.end}</div>
+                        className="text-center p-2 border-r border-gray-200 font-semibold bg-[#F5F5F5] text-[#292929]">
+                      <div className="text-xs">{slot.start} - {slot.end}</div>
                     </div>
                   ))}
                 </div>
                 
                 {/* Coach Slots for this Time */}
-                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, minmax(200px, 1fr))` }}>
+                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
                   {activeCoaches.map(coach => {
                     const coachId = coach.uid || coach.id;
                     const isAvailable = availabilityActions.isCoachAvailable(coachId, selectedDate);
@@ -727,7 +727,7 @@ Continue?`;
                       <div
                         key={`${slot.id}-${coachId}`}
                         onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id)}
-                        className={`min-h-32 min-w-0 p-3 border-r border-b border-gray-200 transition-all ${
+                        className={`min-h-24 p-2 border-r border-b border-gray-200 transition-all overflow-hidden ${
                           !isAvailable 
                             ? 'bg-red-50 cursor-not-allowed' :
                           isClickable 
@@ -739,47 +739,51 @@ Continue?`;
                       >
                         {!isAvailable ? (
                           <div className="text-center text-red-600">
-                            <AlertTriangle size={16} className="mx-auto mb-1" />
+                            <AlertTriangle size={12} className="mx-auto mb-1" />
                             <div className="text-xs">Unavailable</div>
                           </div>
                         ) : assignments.length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-1">
                             {assignments.map(assignment => {
                               const client = clients.find(c => c.id === assignment.clientId);
                               return client ? (
-                                <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-2">
+                                <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-1">
                                   <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-xs text-[#292929] truncate">
-                                        {client.name}
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                      {/* Very compact layout */}
+                                      <div className="flex items-center space-x-1">
+                                        <div className="font-medium text-xs text-[#292929] truncate">
+                                          {getClientInitials(client.name)}
+                                        </div>
+                                        <span className={`text-xs px-1 rounded font-medium ${
+                                          client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
+                                          client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
+                                          client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
+                                          'bg-[#F5F5F5] text-[#292929]'
+                                        }`}>
+                                          {client?.program === 'limitless' ? 'L' :
+                                          client?.program === 'new-options' ? 'NO' :
+                                          client?.program === 'bridges' ? 'B' :
+                                          'L'}
+                                        </span>
                                       </div>
-                                      <div className="text-xs text-[#707070] truncate">
-                                        {client.program === 'limitless' ? client.businessName :
-                                         client.program === 'new-options' ? 'Community Job' :
-                                         client.program === 'bridges' ? 'Career Dev' :
-                                         'Program'}
+                                      {/* Super short description */}
+                                      <div className="text-xs text-[#707070] truncate" title={client.businessName || client.name}>
+                                        {client.program === 'limitless' ? 'Business' :
+                                        client.program === 'new-options' ? 'Job' :
+                                        client.program === 'bridges' ? 'Career' :
+                                        'Program'}
                                       </div>
-                                      <span className={`text-xs px-1 py-0.5 rounded font-medium ${
-                                        client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        'bg-[#F5F5F5] text-[#292929]'
-                                      }`}>
-                                        {client?.program === 'limitless' ? 'L' :
-                                         client?.program === 'new-options' ? 'NO' :
-                                         client?.program === 'bridges' ? 'B' :
-                                         'L'}
-                                      </span>
                                     </div>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleRemoveAssignment(assignment.id);
                                       }}
-                                      className="ml-1 p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded"
+                                      className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded flex-shrink-0"
                                       title="Remove assignment"
                                     >
-                                      <Trash2 size={12} />
+                                      <Trash2 size={10} />
                                     </button>
                                   </div>
                                 </div>
@@ -788,18 +792,18 @@ Continue?`;
                           </div>
                         ) : isClickable ? (
                           <div className="text-center text-[#6D858E]">
-                            <MousePointer size={16} className="mx-auto mb-1" />
-                            <div className="text-xs font-medium">Click to assign</div>
+                            <MousePointer size={12} className="mx-auto mb-1" />
+                            <div className="text-xs font-medium">Click</div>
                           </div>
                         ) : canAssign && selectedClient && !selectedClient?.availableTimeSlots?.includes(slot.id) ? (
                           <div className="text-center text-red-600">
-                            <X size={16} className="mx-auto mb-1" />
-                            <div className="text-xs">Client not available</div>
+                            <X size={12} className="mx-auto mb-1" />
+                            <div className="text-xs">N/A</div>
                           </div>
                         ) : (
                           <div className="text-center text-[#9B97A2]">
-                            <User size={16} className="mx-auto mb-1" />
-                            <div className="text-xs">Available</div>
+                            <User size={12} className="mx-auto mb-1" />
+                            <div className="text-xs">Open</div>
                           </div>
                         )}
                       </div>
