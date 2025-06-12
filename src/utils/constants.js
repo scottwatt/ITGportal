@@ -1,4 +1,4 @@
-// src/utils/constants.js - UPDATED with new roles and makerspace scheduling
+// src/utils/constants.js - FIXED with new roles and makerspace scheduling
 
 import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car, Briefcase, Wrench, Package } from 'lucide-react';
 
@@ -43,8 +43,6 @@ export const MAKERSPACE_REQUEST_STATUS = {
 // NEW: Walkthrough types
 export const WALKTHROUGH_TYPES = [
   { id: 'new_client', label: 'New Client Orientation' },
-  { id: 'equipment_training', label: 'Equipment Training' },
-  { id: 'safety_training', label: 'Safety Training' },
   { id: 'general_tour', label: 'General Tour' },
   { id: 'business_consultation', label: 'Business Consultation' },
   { id: 'other', label: 'Other' }
@@ -115,38 +113,42 @@ export const DEFAULT_WORKING_DAYS_BY_PROGRAM = {
   'grace': [] // Grace doesn't use individual scheduling
 };
 
-// UPDATED: Navigation function with new roles and makerspace functionality
+// FIXED: Navigation function with new roles and makerspace functionality
 export const getNavigationItemsForUser = (userProfile) => {
-  if (!userProfile) return [];
+  if (!userProfile || !userProfile.role) {
+    console.warn('getNavigationItemsForUser: No user profile or role provided');
+    return [];
+  }
 
-  const { role, coachType } = userProfile;
+  const { role, coachType, program } = userProfile;
 
   // Client navigation items
   if (role === USER_ROLES.CLIENT) {
     // Check if Grace client
-    const isGraceClient = userProfile.program === 'grace' || 
+    const isGraceClient = program === 'grace' || 
                          (userProfile.clients && userProfile.clients.some(c => c.program === 'grace'));
     
     if (isGraceClient) {
       return [
-        { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-        { id: 'my-schedule', label: 'My Schedule', icon: Calendar },
-        { id: 'my-goals', label: 'My Goals', icon: ClipboardList }
+        { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+        { id: 'my-schedule', label: 'My Schedule', icon: 'Calendar' },
+        { id: 'my-goals', label: 'My Goals', icon: 'ClipboardList' },
+        { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
     } else {
       // Regular client (Limitless/New Options/Bridges) - ADD MAKERSPACE REQUEST
       const items = [
-        { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-        { id: 'my-schedule', label: 'My Schedule', icon: Calendar },
-        { id: 'my-tasks', label: 'My Tasks', icon: Clock },
-        { id: 'my-goals', label: 'My Goals', icon: ClipboardList },
-        { id: 'makerspace-request', label: 'Request Makerspace Time', icon: Wrench }, // NEW
-        { id: 'resources', label: 'Resources', icon: BookOpen }
+        { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+        { id: 'my-schedule', label: 'My Schedule', icon: 'Calendar' },
+        { id: 'my-tasks', label: 'My Tasks', icon: 'Clock' },
+        { id: 'my-goals', label: 'My Goals', icon: 'ClipboardList' },
+        { id: 'makerspace-request', label: 'Request Makerspace Time', icon: 'Wrench' }, // NEW
+        { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
       
       // Add internships tab for Bridges clients
-      if (userProfile.program === 'bridges') {
-        items.splice(4, 0, { id: 'my-internships', label: 'My Internships', icon: Briefcase });
+      if (program === 'bridges') {
+        items.splice(4, 0, { id: 'my-internships', label: 'My Internships', icon: 'Briefcase' });
       }
       
       return items;
@@ -156,53 +158,53 @@ export const getNavigationItemsForUser = (userProfile) => {
   // NEW: Merchandise Coordinator (Kameron) - Special navigation
   if (role === USER_ROLES.MERCHANDISE_COORDINATOR) {
     return [
-      { id: 'dashboard', label: 'Makerspace Dashboard', icon: Building2 },
-      { id: 'makerspace-schedule', label: 'Makerspace Schedule', icon: Calendar },
-      { id: 'makerspace-requests', label: 'Time Requests', icon: ClipboardList },
-      { id: 'walkthrough-schedule', label: 'Walkthrough Schedule', icon: UserCheck },
-      { id: 'production-tracking', label: 'Production Tracking', icon: Package },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car },
-      { id: 'resources', label: 'Resources', icon: BookOpen }
+      { id: 'dashboard', label: 'Makerspace Dashboard', icon: 'Building2' },
+      { id: 'makerspace-schedule', label: 'Makerspace Schedule', icon: 'Calendar' },
+      { id: 'makerspace-requests', label: 'Time Requests', icon: 'ClipboardList' },
+      { id: 'walkthrough-schedule', label: 'Walkthrough Schedule', icon: 'UserCheck' },
+      { id: 'production-tracking', label: 'Production Tracking', icon: 'Package' },
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
   // Grace Coach navigation items (unchanged)
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.GRACE) {
     return [
-      { id: 'dashboard', label: 'Grace Dashboard', icon: Building2 },
-      { id: 'grace-schedule', label: 'Grace Schedule', icon: Calendar },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'clients', label: 'Grace Participants', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
-      { id: 'resources', label: 'Resources', icon: BookOpen }
+      { id: 'dashboard', label: 'Grace Dashboard', icon: 'Building2' },
+      { id: 'grace-schedule', label: 'Grace Schedule', icon: 'Calendar' },
+      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
+      { id: 'clients', label: 'Grace Participants', icon: 'Users' },
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
   // Success Coach navigation items (unchanged)
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.SUCCESS) {
     return [
-      { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-      { id: 'schedule', label: 'My Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
-      { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
-      { id: 'resources', label: 'Resources', icon: BookOpen }
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
   // Regular Coach (without specific type - defaults to success coach behavior)
   if (role === USER_ROLES.COACH) {
     return [
-      { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-      { id: 'schedule', label: 'My Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
-      { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
-      { id: 'resources', label: 'Resources', icon: BookOpen }
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
-  // NEW: Full access roles (Josh, Connie, Scott, Directors) - Get all tabs like admin
+  // FIXED: Full access roles (Josh, Connie, Scott, Directors) - Get all tabs like admin
   const FULL_ACCESS_ROLES = [
     USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
     USER_ROLES.ADMIN_DEV_COORDINATOR, 
@@ -214,51 +216,56 @@ export const getNavigationItemsForUser = (userProfile) => {
 
   if (FULL_ACCESS_ROLES.includes(role)) {
     return [
-      { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-      { id: 'schedule', label: 'Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
-      { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: Wrench }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car },
-      { id: 'resources', label: 'Resources', icon: BookOpen },
-      { id: 'admin', label: 'Admin Panel', icon: Settings }
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' },
+      { id: 'admin', label: 'Admin Panel', icon: 'Settings' }
     ];
   }
 
   // Scheduler navigation items (unchanged but add makerspace overview)
   if (role === USER_ROLES.SCHEDULER) {
     return [
-      { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-      { id: 'schedule', label: 'Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
-      { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: Wrench }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car }, 
-      { id: 'resources', label: 'Resources', icon: BookOpen }
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' }, 
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
   // Admin navigation items (updated with makerspace)
   if (role === USER_ROLES.ADMIN) {
     return [
-      { id: 'dashboard', label: 'Dashboard', icon: Building2 },
-      { id: 'schedule', label: 'Schedule', icon: Calendar },
-      { id: 'daily-tasks', label: 'Daily Tasks', icon: Clock },
-      { id: 'monthly-schedule', label: 'Monthly View', icon: Calendar },
-      { id: 'clients', label: 'Clients', icon: Users },
-      { id: 'grace-attendance', label: 'Grace Attendance', icon: UserCheck },
-      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: Wrench }, // NEW
-      { id: 'mileage', label: 'Mileage Tracker', icon: Car },
-      { id: 'resources', label: 'Resources', icon: BookOpen },
-      { id: 'admin', label: 'Admin Panel', icon: Settings },
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
+      { id: 'daily-tasks', label: 'Daily Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly View', icon: 'Calendar' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'grace-attendance', label: 'Grace Attendance', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace Overview', icon: 'Wrench' }, // NEW
+      { id: 'mileage', label: 'Mileage Tracker', icon: 'Car' },
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' },
+      { id: 'admin', label: 'Admin Panel', icon: 'Settings' },
     ];
   }
 
-  return [];
+  // FALLBACK: If no role matches, return basic navigation to prevent empty screens
+  console.warn('Unknown role detected:', role, 'Providing fallback navigation');
+  return [
+    { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+    { id: 'resources', label: 'Resources', icon: 'BookOpen' }
+  ];
 };
 
 // NEW: Helper functions for makerspace access
@@ -495,12 +502,9 @@ export const MAKERSPACE_EQUIPMENT = [
   { id: 'heat_press', label: 'Heat Press', category: 'printing' },
   { id: 'embroidery_machine', label: 'Embroidery Machine', category: 'sewing' },
   { id: 'mug_press', label: 'Mug Heat Press', category: 'printing' },
-  { id: 'vinyl_cutter', label: 'Vinyl Cutter', category: 'cutting' },
+  { id: 'laser_engraver', label: 'Laser Engraver', category: 'cutting' },
   { id: 'sublimation_printer', label: 'Sublimation Printer', category: 'printing' },
-  { id: 'sewing_machine', label: 'Sewing Machine', category: 'sewing' },
   { id: 'computer_design', label: 'Design Computer', category: 'digital' },
-  { id: 'laminator', label: 'Laminator', category: 'finishing' },
-  { id: 'cutting_mat', label: 'Cutting Mat & Tools', category: 'cutting' },
   { id: 'general_workspace', label: 'General Workspace', category: 'workspace' }
 ];
 
@@ -509,8 +513,6 @@ export const EQUIPMENT_CATEGORIES = [
   { id: 'printing', label: 'Printing Equipment', color: 'bg-blue-100 text-blue-800' },
   { id: 'sewing', label: 'Sewing Equipment', color: 'bg-green-100 text-green-800' },
   { id: 'cutting', label: 'Cutting Equipment', color: 'bg-purple-100 text-purple-800' },
-  { id: 'digital', label: 'Digital Equipment', color: 'bg-orange-100 text-orange-800' },
-  { id: 'finishing', label: 'Finishing Equipment', color: 'bg-yellow-100 text-yellow-800' },
   { id: 'workspace', label: 'Workspace', color: 'bg-gray-100 text-gray-800' }
 ];
 

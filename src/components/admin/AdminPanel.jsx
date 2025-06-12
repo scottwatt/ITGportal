@@ -321,16 +321,53 @@ const AdminPanel = ({
   };
 
   const handleAddCoach = async (e) => {
-    e.preventDefault();
-    try {
-      const result = await coachActions.add(newCoach);
-      setNewCoach({ name: '', email: '', uid: '', role: 'coach', coachType: 'success' });
-      
-      alert(`Coach added successfully!\n\nLogin credentials for ${newCoach.name}:\nEmail: ${newCoach.email}\nPassword: ITGemployee123\n\nThis is the standard password for all staff members. Please share these credentials and ask them to change their password on first login.`);
-    } catch (error) {
-      alert('Error adding coach. Please try again.');
-    }
-  };
+  e.preventDefault();
+  
+  // Validate required fields
+  if (!newCoach.name.trim()) {
+    alert('Coach name is required');
+    return;
+  }
+  
+  if (!newCoach.email.trim()) {
+    alert('Coach email is required');
+    return;
+  }
+  
+  if (!newCoach.role) {
+    alert('Coach role is required');
+    return;
+  }
+  
+  // Validate role is allowed
+  const allowedRoles = [
+    'coach', 'admin', 'scheduler', 'merchandise_coordinator',
+    'program_admin_coordinator', 'admin_dev_coordinator', 'vocational_dev_coordinator',
+    'executive_director', 'director_org_dev', 'director_program_dev'
+  ];
+  
+  if (!allowedRoles.includes(newCoach.role)) {
+    alert(`Invalid role selected: ${newCoach.role}`);
+    return;
+  }
+  
+  try {
+    const result = await coachActions.add(newCoach);
+    setNewCoach({ 
+      name: '', 
+      email: '', 
+      role: 'coach', 
+      coachType: 'success',
+      phone: '',
+      notes: ''
+    });
+    
+    alert(`Coach added successfully!\n\nLogin credentials for ${newCoach.name}:\nEmail: ${newCoach.email}\nPassword: ITGemployee123\n\nThis is the standard password for all staff members. Please share these credentials and ask them to change their password on first login.`);
+  } catch (error) {
+    console.error('Error adding coach:', error);
+    alert(`Error adding coach: ${error.message}`);
+  }
+};
 
   // Handle client deletion
   const handleDeleteClient = async (clientId, clientName) => {
@@ -1717,6 +1754,13 @@ const AdminPanel = ({
                       <option value="coach">Coach</option>
                       <option value="admin">Admin</option>
                       <option value="scheduler">Scheduler</option>
+                      <option value="merchandise_coordinator">Merchandise Coordinator</option>
+                      <option value="program_admin_coordinator">Program Admin Coordinator</option>
+                      <option value="admin_dev_coordinator">Admin Development Coordinator</option>
+                      <option value="vocational_dev_coordinator">Vocational Development Coordinator</option>
+                      <option value="executive_director">Executive Director</option>
+                      <option value="director_org_dev">Director of Organizational Development</option>
+                      <option value="director_program_dev">Director of Program Development</option>
                     </select>
                   </div>
                 </div>
