@@ -1,8 +1,8 @@
-// src/components/client/ClientDashboard.jsx - Updated with makerspace request status
+// src/components/client/ClientDashboard.jsx - Updated with all coordinator request status
 import React from 'react';
-import { Target, Building2, Clock, User, Wrench, AlertCircle, CheckCircle } from 'lucide-react';
+import { Target, Building2, Clock, User, Wrench, AlertCircle, CheckCircle, Briefcase, ClipboardList } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
-import { MAKERSPACE_TIME_SLOTS } from '../../utils/constants';
+import { MAKERSPACE_TIME_SLOTS, getCoordinatorById } from '../../utils/constants';
 
 const ClientDashboard = ({ 
   userProfile, 
@@ -10,7 +10,7 @@ const ClientDashboard = ({
   schedules, 
   coaches, 
   timeSlots,
-  makerspaceRequests = [] // Add makerspace requests prop
+  makerspaceRequests = [] // Now contains all coordinator requests (makerspace, vocational, admin)
 }) => {
   // Find the current client's data
   const clientData = clients.find(c => c.email === userProfile.email) || clients[0];
@@ -34,13 +34,13 @@ const ClientDashboard = ({
 
   const todaysSessions = getTodaysSchedule();
 
-  // Get client's makerspace requests
-  const clientMakerspaceRequests = makerspaceRequests.filter(req => 
+  // Get client's coordinator requests (all types)
+  const clientCoordinatorRequests = makerspaceRequests.filter(req => 
     req.clientId === clientData.id
   ).sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
 
-  const pendingRequests = clientMakerspaceRequests.filter(req => req.status === 'pending');
-  const upcomingApprovedRequests = clientMakerspaceRequests.filter(req => 
+  const pendingRequests = clientCoordinatorRequests.filter(req => req.status === 'pending');
+  const upcomingApprovedRequests = clientCoordinatorRequests.filter(req => 
     req.status === 'approved' && req.date >= today
   ).slice(0, 3);
 
@@ -68,6 +68,64 @@ const ClientDashboard = ({
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getCoordinatorIcon = (coordinatorType) => {
+    switch (coordinatorType) {
+      case 'makerspace':
+        return <Wrench className="text-blue-600" size={16} />;
+      case 'vocational':
+        return <Briefcase className="text-green-600" size={16} />;
+      case 'admin':
+        return <ClipboardList className="text-purple-600" size={16} />;
+      default:
+        return <User className="text-gray-600" size={16} />;
+    }
+  };
+
+  const getCoordinatorName = (coordinatorType) => {
+    const coordinator = getCoordinatorById(coordinatorType);
+    return coordinator?.coordinatorName || 'Coordinator';
+  };
+
+  // Determine if client should see coordinator requests section
+  const shouldShowCoordinatorRequests = () => {
+    // Grace clients don't use coordinator scheduling
+    if (clientData.program === 'grace') return false;
+    return true;
+  };
+
+  const getCoordinatorSectionTitle = () => {
+    if (clientData.program === 'limitless') {
+      return 'Makerspace & Coordinator Sessions';
+    }
+    return 'Coordinator Sessions';
+  };
+
+  const getNoRequestsMessage = () => {
+    if (clientData.program === 'limitless') {
+      return {
+        title: 'No coordinator requests yet',
+        subtitle: 'Use the "Schedule Time" tab to book sessions with coordinators including makerspace time, vocational coaching, and administrative support'
+      };
+    }
+    return {
+      title: 'No coordinator requests yet', 
+      subtitle: 'Use the "Schedule Time" tab to book sessions with vocational development and administrative coordinators'
+    };
+  };
+
+  const getQuickActionMessage = () => {
+    const availableServices = [];
+    if (clientData.program === 'limitless') {
+      availableServices.push('makerspace time with equipment access');
+    }
+    if (['limitless', 'new-options', 'bridges'].includes(clientData.program)) {
+      availableServices.push('vocational development coaching');
+      availableServices.push('administrative support');
+    }
+    
+    return `Need personalized support? Request sessions for ${availableServices.join(', ')}.`;
   };
 
   return (
@@ -251,12 +309,12 @@ const ClientDashboard = ({
         )}
       </div>
 
-      {/* Makerspace Requests Status - Only show for Limitless clients */}
-      {clientData.program === 'limitless' && (
+      {/* Coordinator Requests Status - Show for all programs except Grace */}
+      {shouldShowCoordinatorRequests() && (
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-xl font-semibold mb-4 flex items-center text-[#292929]">
-            <Wrench className="mr-2 text-[#6D858E]" size={20} />
-            Makerspace Status
+            <Clock className="mr-2 text-[#6D858E]" size={20} />
+            {getCoordinatorSectionTitle()}
           </h3>
           
           {/* Pending Requests */}
@@ -268,11 +326,16 @@ const ClientDashboard = ({
                   <div key={request.id} className={`p-3 rounded-lg border ${getStatusColor(request.status)}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        {getStatusIcon(request.status)}
+                        {getCoordinatorIcon(request.coordinatorType)}
                         <div>
-                          <p className="font-medium">
-                            {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
-                          </p>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-medium">
+                              {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
+                            </p>
+                            <span className="text-xs px-2 py-1 bg-white rounded">
+                              {getCoordinatorName(request.coordinatorType)}
+                            </span>
+                          </div>
                           <p className="text-sm">{request.purpose}</p>
                         </div>
                       </div>
@@ -289,17 +352,22 @@ const ClientDashboard = ({
           {/* Upcoming Approved Sessions */}
           {upcomingApprovedRequests.length > 0 && (
             <div className="mb-4">
-              <h4 className="font-medium text-[#292929] mb-2">Upcoming Makerspace Sessions</h4>
+              <h4 className="font-medium text-[#292929] mb-2">Upcoming Sessions</h4>
               <div className="space-y-2">
                 {upcomingApprovedRequests.map(request => (
                   <div key={request.id} className={`p-3 rounded-lg border ${getStatusColor(request.status)}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        {getStatusIcon(request.status)}
+                        {getCoordinatorIcon(request.coordinatorType)}
                         <div>
-                          <p className="font-medium">
-                            {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
-                          </p>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-medium">
+                              {formatDatePST(request.date)} - {MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot)?.label}
+                            </p>
+                            <span className="text-xs px-2 py-1 bg-white rounded">
+                              {getCoordinatorName(request.coordinatorType)}
+                            </span>
+                          </div>
                           <p className="text-sm">{request.purpose}</p>
                         </div>
                       </div>
@@ -314,22 +382,20 @@ const ClientDashboard = ({
           )}
 
           {/* No requests message */}
-          {clientMakerspaceRequests.length === 0 && (
+          {clientCoordinatorRequests.length === 0 && (
             <div className="text-center py-6 text-[#9B97A2]">
-              <Wrench size={48} className="mx-auto mb-2" />
-              <p>No makerspace requests yet</p>
-              <p className="text-sm">Use the "Request Makerspace Time" tab to schedule your business work time</p>
+              <Clock size={48} className="mx-auto mb-2" />
+              <p>{getNoRequestsMessage().title}</p>
+              <p className="text-sm">{getNoRequestsMessage().subtitle}</p>
             </div>
           )}
 
           {/* Quick action */}
-          {clientData.program === 'limitless' && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-sm text-[#707070] mb-3">
-                Need time in the makerspace? Request a session with access to all equipment including heat press, embroidery machine, and design computers.
-              </p>
-            </div>
-          )}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-sm text-[#707070] mb-3">
+              {getQuickActionMessage()}
+            </p>
+          </div>
         </div>
       )}
     </div>

@@ -518,7 +518,7 @@ const AppLayout = ({
     }
 
     // Josh (Program Admin Coordinator)
-    if (role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
+    if (role === USER_ROLES.ADMIN_DEV_COORDINATOR) {
       switch (activeTab) {
         case 'dashboard':
           return (
