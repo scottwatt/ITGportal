@@ -24,6 +24,122 @@ export const COACH_TYPES = {
   GRACE: 'grace'
 };
 
+export const COORDINATOR_TYPES = {
+  MAKERSPACE: 'makerspace',
+  VOCATIONAL: 'vocational', 
+  ADMIN: 'admin'
+};
+
+export const COORDINATORS = [
+  {
+    id: 'makerspace',
+    name: 'Makerspace Time',
+    coordinatorName: 'Kameron',
+    role: USER_ROLES.MERCHANDISE_COORDINATOR,
+    description: 'Schedule time to work on your business using ITG equipment',
+    icon: 'Wrench',
+    color: 'bg-blue-100 text-blue-800',
+    purposes: [
+      'Design and create custom products',
+      'Use heat press equipment', 
+      'Use embroidery machine',
+      'Work on business inventory',
+      'Product photography and design',
+      'General business workspace needs'
+    ],
+    equipment: MAKERSPACE_EQUIPMENT, // Use existing makerspace equipment
+    timeSlots: MAKERSPACE_TIME_SLOTS,
+    allowedPrograms: ['limitless'] // Only Limitless clients can use makerspace
+  },
+  {
+    id: 'vocational',
+    name: 'Vocational Development',
+    coordinatorName: 'Scott',
+    role: USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+    description: 'Schedule time for career development, internship support, and job skills coaching',
+    icon: 'Briefcase',
+    color: 'bg-green-100 text-green-800',
+    purposes: [
+      'Internship planning and preparation',
+      'Resume and interview coaching',
+      'Job search strategy',
+      'Career goal setting',
+      'Workplace skills development',
+      'Professional development coaching'
+    ],
+    equipment: [], // No physical equipment needed
+    timeSlots: MAKERSPACE_TIME_SLOTS, // Same time slots
+    allowedPrograms: ['limitless', 'new-options', 'bridges'] // All programs except Grace
+  },
+  {
+    id: 'admin',
+    name: 'Administrative Support',
+    coordinatorName: 'Josh', 
+    role: USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
+    description: 'Schedule time for program administration, documentation, and support coordination',
+    icon: 'ClipboardList',
+    color: 'bg-purple-100 text-purple-800',
+    purposes: [
+      'Design',
+      'Program planning and goal setting',
+      'Other'
+    ],
+    equipment: [], // No physical equipment needed
+    timeSlots: MAKERSPACE_TIME_SLOTS, // Same time slots
+    allowedPrograms: ['limitless', 'new-options', 'bridges', 'grace'] // All programs
+  }
+];
+
+export const getCoordinatorById = (coordinatorId) => {
+  return COORDINATORS.find(c => c.id === coordinatorId);
+};
+
+// NEW: Get coordinators available to a client based on their program
+export const getAvailableCoordinators = (clientProgram) => {
+  return COORDINATORS.filter(coordinator => 
+    coordinator.allowedPrograms.includes(clientProgram)
+  );
+};
+
+export const canManageCoordinatorScheduling = (userProfile, coordinatorType) => {
+  if (!userProfile) return false;
+  
+  const { role } = userProfile;
+  
+  switch (coordinatorType) {
+    case COORDINATOR_TYPES.MAKERSPACE:
+      return role === USER_ROLES.MERCHANDISE_COORDINATOR;
+    case COORDINATOR_TYPES.VOCATIONAL:
+      return role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR;
+    case COORDINATOR_TYPES.ADMIN:
+      return role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR;
+    default:
+      return false;
+  }
+};
+
+// NEW: Check if user can access coordinator scheduling requests
+export const canAccessCoordinatorScheduling = (userProfile) => {
+  if (!userProfile) return false;
+  
+  const { role } = userProfile;
+  
+  // All coordinators plus full access roles can view
+  const allowedRoles = [
+    USER_ROLES.MERCHANDISE_COORDINATOR,
+    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
+    USER_ROLES.ADMIN_DEV_COORDINATOR,
+    USER_ROLES.EXECUTIVE_DIRECTOR,
+    USER_ROLES.DIRECTOR_ORG_DEV,
+    USER_ROLES.DIRECTOR_PROGRAM_DEV,
+    USER_ROLES.ADMIN,
+    USER_ROLES.SCHEDULER
+  ];
+  
+  return allowedRoles.includes(role);
+};
+
 // NEW: Makerspace time slots (same as regular coaching slots)
 export const MAKERSPACE_TIME_SLOTS = [
   { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
@@ -122,7 +238,7 @@ export const getNavigationItemsForUser = (userProfile) => {
 
   const { role, coachType, program } = userProfile;
 
-  // Client navigation items
+  // Client navigation items - UPDATED
   if (role === USER_ROLES.CLIENT) {
     // Check if Grace client
     const isGraceClient = program === 'grace' || 
@@ -133,16 +249,17 @@ export const getNavigationItemsForUser = (userProfile) => {
         { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
         { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
         { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
+        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // NEW: Grace can schedule with Josh
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
     } else {
-      // Regular client (Limitless/New Options/Bridges) - ADD MAKERSPACE REQUEST
+      // Regular client (Limitless/New Options/Bridges) - UPDATED
       const items = [
         { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
         { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
         { id: 'my-tasks', label: 'Tasks', icon: 'Clock' },
         { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
-        { id: 'makerspace-request', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // UPDATED: Unified scheduling
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
       
@@ -155,12 +272,42 @@ export const getNavigationItemsForUser = (userProfile) => {
     }
   }
 
-  // NEW: Merchandise Coordinator (Kameron) - Special navigation
+  // NEW: Vocational Development Coordinator (Scott) - Special navigation
+  if (role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
+    return [
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'vocational-scheduling', label: 'Client Requests', icon: 'ClipboardList' },
+      { id: 'vocational-overview', label: 'Overview', icon: 'TrendingUp' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'mileage', label: 'Mileage', icon: 'Car' },
+      { id: 'admin', label: 'Admin', icon: 'Settings' },
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
+    ];
+  }
+
+  // UPDATED: Program Admin Coordinator (Josh) - Special navigation  
+  if (role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
+    return [
+      { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
+      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'admin-scheduling', label: 'Client Requests', icon: 'ClipboardList' },
+      { id: 'admin-overview', label: 'Overview', icon: 'TrendingUp' },
+      { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'mileage', label: 'Mileage', icon: 'Car' },
+      { id: 'admin', label: 'Admin', icon: 'Settings' },
+      { id: 'resources', label: 'Resources', icon: 'BookOpen' }
+    ];
+  }
+
+  // UPDATED: Merchandise Coordinator (Kameron) - Updated navigation
   if (role === USER_ROLES.MERCHANDISE_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'makerspace-schedule', label: 'Schedule', icon: 'Calendar' },
-      { id: 'makerspace-requests', label: 'Requests', icon: 'ClipboardList' },
+      { id: 'makerspace-requests', label: 'Client Requests', icon: 'ClipboardList' }, // UPDATED label
+      { id: 'makerspace-overview', label: 'Overview', icon: 'TrendingUp' }, // UPDATED
       { id: 'walkthrough-schedule', label: 'Training', icon: 'UserCheck' },
       { id: 'production-tracking', label: 'Production', icon: 'Package' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
@@ -450,6 +597,26 @@ export const canManageInternships = (userProfile) => {
   }
   
   return false;
+};
+
+// NEW: Default coordinator request object
+export const DEFAULT_COORDINATOR_REQUEST = {
+  clientId: '',
+  clientName: '',
+  coordinatorType: '', // 'makerspace', 'vocational', 'admin'
+  coordinatorId: '', // Coordinator user ID
+  date: '',
+  timeSlot: '',
+  purpose: '',
+  description: '',
+  equipment: [], // Only for makerspace requests
+  estimatedDuration: '',
+  notes: '',
+  status: 'pending',
+  requestedAt: null,
+  reviewedAt: null,
+  reviewedBy: '',
+  coordinatorNotes: ''
 };
 
 // UPDATED: Coach types with new roles included
