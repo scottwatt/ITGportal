@@ -313,6 +313,7 @@ const AppLayout = ({
               userProfile={userProfile}
               mileageActions={mileageActions}
               mileageRecords={mileageRecords}
+              clients={clients}
             />
           );
         case 'resources':
@@ -402,6 +403,7 @@ const AppLayout = ({
               userProfile={userProfile}
               mileageActions={mileageActions}
               mileageRecords={mileageRecords}
+              clients={clients}
             />
           );
         case 'resources':
@@ -594,6 +596,7 @@ const AppLayout = ({
               userProfile={userProfile}
               mileageActions={mileageActions}
               mileageRecords={mileageRecords}
+              clients={clients}
             />
           );
         case 'resources':
@@ -739,6 +742,7 @@ const AppLayout = ({
             userProfile={userProfile}
             mileageActions={mileageActions}
             mileageRecords={mileageRecords}
+            clients={clients}
           />
         );
         

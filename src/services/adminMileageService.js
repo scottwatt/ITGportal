@@ -1,4 +1,4 @@
-// src/services/adminMileageService.js - Service for admin mileage overview
+// src/services/adminMileageService.js - Service for admin mileage overview - FIXED
 import { 
   collection, 
   getDocs,
@@ -7,6 +7,12 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from './firebase/config';
+
+// Import client transportation functions from mileageService
+import { 
+  getAllClientTransportationStats,
+  getClientTransportationStats
+} from './mileageService';
 
 const COLLECTION_NAME = 'mileageRecords';
 
@@ -144,11 +150,8 @@ export const getMileageSummaryByCoach = async (startDate, endDate) => {
   }
 };
 
-
+// Re-export client transportation functions for convenience
 export { 
-  getAllCoachMileageRecords, 
-  getMileageRecordsInDateRange,
-  getAllCoachMileageForMonth,
   getAllClientTransportationStats,
   getClientTransportationStats
-} from './mileageService';
+};

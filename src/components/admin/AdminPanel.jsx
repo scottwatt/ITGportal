@@ -815,6 +815,7 @@ const AdminPanel = ({
           {activeTab === 'mileage-overview' && (
             <AdminMileageOverview 
               coaches={coaches}
+              clients={clients}
             />
           )}
 
