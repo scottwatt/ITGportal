@@ -1,4 +1,4 @@
-// src/utils/constants.js - FIXED with new roles and makerspace scheduling
+// src/utils/constants.js - FIXED with proper ordering to prevent circular references
 
 import { Building2, Users, Calendar, ClipboardList, Settings, BookOpen, UserCheck, Clock, Car, Briefcase, Wrench, Package } from 'lucide-react';
 
@@ -18,7 +18,7 @@ export const USER_ROLES = {
   DIRECTOR_PROGRAM_DEV: 'director_program_dev'
 };
 
-// Coach type definitions (unchanged)
+// Coach type definitions
 export const COACH_TYPES = {
   SUCCESS: 'success',
   GRACE: 'grace'
@@ -30,6 +30,34 @@ export const COORDINATOR_TYPES = {
   ADMIN: 'admin'
 };
 
+// MOVED UP: Makerspace equipment (must be defined before COORDINATORS array)
+export const MAKERSPACE_EQUIPMENT = [
+  { id: 'heat_press', label: 'Heat Press', category: 'printing' },
+  { id: 'embroidery_machine', label: 'Embroidery Machine', category: 'sewing' },
+  { id: 'mug_press', label: 'Mug Heat Press', category: 'printing' },
+  { id: 'laser_engraver', label: 'Laser Engraver', category: 'cutting' },
+  { id: 'sublimation_printer', label: 'Sublimation Printer', category: 'printing' },
+  { id: 'computer_design', label: 'Design Computer', category: 'digital' },
+  { id: 'general_workspace', label: 'General Workspace', category: 'workspace' }
+];
+
+// MOVED UP: Equipment categories
+export const EQUIPMENT_CATEGORIES = [
+  { id: 'printing', label: 'Printing Equipment', color: 'bg-blue-100 text-blue-800' },
+  { id: 'sewing', label: 'Sewing Equipment', color: 'bg-green-100 text-green-800' },
+  { id: 'cutting', label: 'Cutting Equipment', color: 'bg-purple-100 text-purple-800' },
+  { id: 'digital', label: 'Digital Design', color: 'bg-indigo-100 text-indigo-800' },
+  { id: 'workspace', label: 'Workspace', color: 'bg-gray-100 text-gray-800' }
+];
+
+// MOVED UP: Makerspace time slots (must be defined before COORDINATORS)
+export const MAKERSPACE_TIME_SLOTS = [
+  { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
+  { id: '10-12', label: '10:00 AM - 12:00 PM PST', start: '10:00 AM PST', end: '12:00 PM PST' },
+  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' }
+];
+
+// NOW COORDINATORS can reference the above constants
 export const COORDINATORS = [
   {
     id: 'makerspace',
@@ -47,7 +75,7 @@ export const COORDINATORS = [
       'Product photography and design',
       'General business workspace needs'
     ],
-    equipment: MAKERSPACE_EQUIPMENT, // Use existing makerspace equipment
+    equipment: MAKERSPACE_EQUIPMENT, // Now this reference works!
     timeSlots: MAKERSPACE_TIME_SLOTS,
     allowedPrograms: ['limitless'] // Only Limitless clients can use makerspace
   },
@@ -94,7 +122,7 @@ export const getCoordinatorById = (coordinatorId) => {
   return COORDINATORS.find(c => c.id === coordinatorId);
 };
 
-// NEW: Get coordinators available to a client based on their program
+// Get coordinators available to a client based on their program
 export const getAvailableCoordinators = (clientProgram) => {
   return COORDINATORS.filter(coordinator => 
     coordinator.allowedPrograms.includes(clientProgram)
@@ -118,7 +146,7 @@ export const canManageCoordinatorScheduling = (userProfile, coordinatorType) => 
   }
 };
 
-// NEW: Check if user can access coordinator scheduling requests
+// Check if user can access coordinator scheduling requests
 export const canAccessCoordinatorScheduling = (userProfile) => {
   if (!userProfile) return false;
   
@@ -140,14 +168,7 @@ export const canAccessCoordinatorScheduling = (userProfile) => {
   return allowedRoles.includes(role);
 };
 
-// NEW: Makerspace time slots (same as regular coaching slots)
-export const MAKERSPACE_TIME_SLOTS = [
-  { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
-  { id: '10-12', label: '10:00 AM - 12:00 PM PST', start: '10:00 AM PST', end: '12:00 PM PST' },
-  { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' }
-];
-
-// NEW: Makerspace request status
+// Makerspace request status
 export const MAKERSPACE_REQUEST_STATUS = {
   PENDING: 'pending',
   APPROVED: 'approved',
@@ -156,7 +177,7 @@ export const MAKERSPACE_REQUEST_STATUS = {
   CANCELLED: 'cancelled'
 };
 
-// NEW: Walkthrough types
+// Walkthrough types
 export const WALKTHROUGH_TYPES = [
   { id: 'new_client', label: 'New Client Orientation' },
   { id: 'general_tour', label: 'General Tour' },
@@ -164,7 +185,7 @@ export const WALKTHROUGH_TYPES = [
   { id: 'other', label: 'Other' }
 ];
 
-// Program definitions (unchanged)
+// Program definitions
 export const PROGRAMS = {
   LIMITLESS: 'limitless',
   NEW_OPTIONS: 'new-options', 
@@ -172,14 +193,14 @@ export const PROGRAMS = {
   GRACE: 'grace'
 };
 
-// Time slots for regular scheduling (unchanged)
+// Time slots for regular scheduling
 export const TIME_SLOTS = [
   { id: '8-10', label: '8:00 AM - 10:00 AM PST', start: '8:00 AM PST', end: '10:00 AM PST' },
   { id: '10-12', label: '10:00 AM - 12:00 PM PST', start: '10:00 AM PST', end: '12:00 PM PST' },
   { id: '1230-230', label: '12:30 PM - 2:30 PM PST', start: '12:30 PM PST', end: '2:30 PM PST' }
 ];
 
-// NEW: Special time slots for FlexibleScheduleManager (not shown in main interface)
+// Special time slots for FlexibleScheduleManager (not shown in main interface)
 export const SPECIAL_TIME_SLOTS = [
   // Early morning slots
   { id: '7-9', label: '7:00 AM - 9:00 AM PST', start: '7:00 AM PST', end: '9:00 AM PST', type: 'early' },
@@ -197,7 +218,7 @@ export const SPECIAL_TIME_SLOTS = [
   { id: 'custom', label: 'Custom Time Slot', start: 'Custom', end: 'Custom', type: 'custom' }
 ];
 
-// NEW: Get all time slots (core + special) for special scheduling
+// Get all time slots (core + special) for special scheduling
 export const getAllTimeSlots = () => {
   return [...TIME_SLOTS, ...SPECIAL_TIME_SLOTS];
 };
@@ -319,7 +340,7 @@ export const getNavigationItemsForUser = (userProfile) => {
     ];
   }
 
-  // Grace Coach navigation items (unchanged)
+  // Grace Coach navigation items
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.GRACE) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
@@ -331,7 +352,7 @@ export const getNavigationItemsForUser = (userProfile) => {
     ];
   }
 
-  // Success Coach navigation items (unchanged)
+  // Success Coach navigation items
   if (role === USER_ROLES.COACH && coachType === COACH_TYPES.SUCCESS) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
@@ -418,7 +439,7 @@ export const getNavigationItemsForUser = (userProfile) => {
   ];
 };
 
-// NEW: Helper functions for makerspace access
+// Helper functions for makerspace access
 export const canAccessMakerspaceRequests = (userProfile) => {
   if (!userProfile) return false;
   
@@ -461,7 +482,7 @@ export const canViewMakerspaceOverview = (userProfile) => {
   return allowedRoles.includes(role);
 };
 
-// Helper function to check if user can access mileage tracking (UPDATED)
+// Helper function to check if user can access mileage tracking
 export const canAccessMileageTracking = (userProfile) => {
   if (!userProfile) return false;
   
@@ -484,7 +505,7 @@ export const canAccessMileageTracking = (userProfile) => {
   return allowedRoles.includes(role);
 };
 
-// UPDATED: Helper functions - Scott gets full access
+// Helper functions - Scott gets full access
 export const canAccessGraceAttendance = (userProfile) => {
   if (!userProfile) return false;
   
@@ -602,7 +623,7 @@ export const canManageInternships = (userProfile) => {
   return false;
 };
 
-// NEW: Default coordinator request object
+// Default coordinator request object
 export const DEFAULT_COORDINATOR_REQUEST = {
   clientId: '',
   clientName: '',
@@ -622,7 +643,7 @@ export const DEFAULT_COORDINATOR_REQUEST = {
   coordinatorNotes: ''
 };
 
-// UPDATED: Coach types with new roles included
+// Coach types with new roles included
 export const COACH_TYPES_DETAILED = [
   { id: 'success', name: 'Success Coach', programs: ['limitless', 'new-options', 'bridges'] },
   { id: 'grace', name: 'Grace Coach', programs: ['grace'] },
@@ -635,7 +656,7 @@ export const COACH_TYPES_DETAILED = [
   { id: 'director_program_dev', name: 'Director of Program Development', programs: ['limitless', 'new-options', 'bridges', 'grace'] }
 ];
 
-// NEW: Default makerspace request object
+// Default makerspace request object
 export const DEFAULT_MAKERSPACE_REQUEST = {
   clientId: '',
   clientName: '',
@@ -652,7 +673,7 @@ export const DEFAULT_MAKERSPACE_REQUEST = {
   coordinatorNotes: ''
 };
 
-// NEW: Default walkthrough object
+// Default walkthrough object
 export const DEFAULT_WALKTHROUGH = {
   clientId: '',
   clientName: '',
@@ -666,25 +687,6 @@ export const DEFAULT_WALKTHROUGH = {
   createdAt: null,
   completedAt: null
 };
-
-// NEW: Makerspace equipment categories
-export const MAKERSPACE_EQUIPMENT = [
-  { id: 'heat_press', label: 'Heat Press', category: 'printing' },
-  { id: 'embroidery_machine', label: 'Embroidery Machine', category: 'sewing' },
-  { id: 'mug_press', label: 'Mug Heat Press', category: 'printing' },
-  { id: 'laser_engraver', label: 'Laser Engraver', category: 'cutting' },
-  { id: 'sublimation_printer', label: 'Sublimation Printer', category: 'printing' },
-  { id: 'computer_design', label: 'Design Computer', category: 'digital' },
-  { id: 'general_workspace', label: 'General Workspace', category: 'workspace' }
-];
-
-// NEW: Equipment categories for filtering
-export const EQUIPMENT_CATEGORIES = [
-  { id: 'printing', label: 'Printing Equipment', color: 'bg-blue-100 text-blue-800' },
-  { id: 'sewing', label: 'Sewing Equipment', color: 'bg-green-100 text-green-800' },
-  { id: 'cutting', label: 'Cutting Equipment', color: 'bg-purple-100 text-purple-800' },
-  { id: 'workspace', label: 'Workspace', color: 'bg-gray-100 text-gray-800' }
-];
 
 // Time blocks for task scheduling (30-minute intervals within core hours)
 export const TIME_BLOCKS = [
