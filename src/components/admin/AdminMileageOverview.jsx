@@ -1,3 +1,4 @@
+// src/components/admin/AdminMileageOverview.jsx - FIXED import paths
 import React, { useState, useEffect, useMemo } from 'react';
 import { Car, Calendar, FileText, Filter, Download, Eye, Search, Users, TrendingUp } from 'lucide-react';
 import { formatMileageDate } from '../../utils/mileageHelpers';
@@ -6,7 +7,7 @@ import {
   getMileageRecordsInDateRange,
   getAllCoachMileageForMonth 
 } from '../../services/adminMileageService';
-import ClientTransportationViewer from './ClientTransportationViewer';
+import ClientTransportationViewer from '../mileage/ClientTransportationViewer'; // FIXED: correct path
 
 const AdminMileageOverview = ({ coaches = [], clients = [] }) => {
   const [allRecords, setAllRecords] = useState([]);

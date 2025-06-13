@@ -1,4 +1,4 @@
-// src/services/mileageService.js - UPDATED with client transportation support
+// src/services/mileageService.js - UPDATED with client transportation support - FIXED IMPORT
 import { 
   collection, 
   addDoc, 
@@ -11,8 +11,8 @@ import {
   onSnapshot,
   getDocs,
   serverTimestamp
-} from 'firestore';
-import { db } from '../firebase/config';
+} from 'firebase/firestore';
+import { db } from './firebase/config';
 
 const COLLECTION_NAME = 'mileageRecords';
 

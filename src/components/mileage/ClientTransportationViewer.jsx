@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Search, Car, Calendar, TrendingUp, MapPin, Filter, Download } from 'lucide-react';
-import { formatMileageDate, getAllClientTransportationStats, getClientTransportationStats } from '../../../utils/mileageHelpers';
+import { formatMileageDate, getAllClientTransportationStats, getClientTransportationStats } from '../../utils/mileageHelpers';
 import { 
   getAllClientTransportationStats as getStatsFromService,
   getClientTransportationStats as getClientStatsFromService 
-} from '../../../services/mileageService';
+} from '../../services/mileageService';
 
 const ClientTransportationViewer = ({ clients = [], mileageRecords = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');

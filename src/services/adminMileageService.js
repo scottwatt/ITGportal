@@ -143,3 +143,12 @@ export const getMileageSummaryByCoach = async (startDate, endDate) => {
     throw new Error('Failed to generate mileage summary');
   }
 };
+
+
+export { 
+  getAllCoachMileageRecords, 
+  getMileageRecordsInDateRange,
+  getAllCoachMileageForMonth,
+  getAllClientTransportationStats,
+  getClientTransportationStats
+} from './mileageService';
