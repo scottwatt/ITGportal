@@ -1,10 +1,10 @@
-// src/components/shared/Dashboard.jsx - Fixed with defensive programming and exact mileage display
+// src/components/shared/Dashboard.jsx - Enhanced with coordinator requests
 import React from 'react';
-import { Building2, User, Clock, TrendingUp, Car } from 'lucide-react';
+import { Building2, User, Clock, TrendingUp, Car, AlertCircle, Calendar, Wrench, Briefcase, ClipboardList } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { getSchedulableClients, safeFilter } from '../../utils/helpers';
 import { getOrderedGroupedSchedule } from '../../utils/scheduleHelpers';
-import { MILEAGE_FORMATS } from '../../utils/constants';
+import { MILEAGE_FORMATS, USER_ROLES, MAKERSPACE_TIME_SLOTS, getCoordinatorById } from '../../utils/constants';
 
 const Dashboard = ({
   userProfile,
@@ -13,7 +13,9 @@ const Dashboard = ({
   schedules = [], // Default to empty array
   timeSlots = [], // Default to empty array
   onClientSelect,
-  mileageRecords = [] // Add mileage records prop
+  mileageRecords = [], // Add mileage records prop
+  makerspaceRequests = [], // NEW: Add coordinator requests
+  onNavigate // NEW: Add navigation handler for quick actions
 }) => {
   const today = getPSTDate();
   
@@ -68,6 +70,147 @@ const Dashboard = ({
   const currentMonthMiles = getCurrentMonthMileage();
   const canTrackMileage = ['coach', 'admin', 'scheduler'].includes(userProfile?.role);
 
+  // NEW: Get pending coordinator requests for current user
+  const getMyPendingRequests = () => {
+    if (!Array.isArray(makerspaceRequests) || !userProfile?.role) return [];
+    
+    // Map user roles to coordinator types
+    const roleToCoordinatorType = {
+      [USER_ROLES.MERCHANDISE_COORDINATOR]: 'makerspace',
+      [USER_ROLES.VOCATIONAL_DEV_COORDINATOR]: 'vocational', 
+      [USER_ROLES.ADMIN_DEV_COORDINATOR]: 'admin'
+    };
+    
+    const myCoordinatorType = roleToCoordinatorType[userProfile.role];
+    if (!myCoordinatorType) return [];
+    
+    return makerspaceRequests.filter(request => 
+      request.coordinatorType === myCoordinatorType && 
+      request.status === 'pending'
+    ).sort((a, b) => new Date(a.requestedAt) - new Date(b.requestedAt)); // Oldest first
+  };
+
+  const myPendingRequests = getMyPendingRequests();
+
+  // NEW: Get coordinator info for display
+  const getMyCoordinatorInfo = () => {
+    const roleToCoordinatorType = {
+      [USER_ROLES.MERCHANDISE_COORDINATOR]: 'makerspace',
+      [USER_ROLES.VOCATIONAL_DEV_COORDINATOR]: 'vocational', 
+      [USER_ROLES.ADMIN_DEV_COORDINATOR]: 'admin'
+    };
+    
+    const myCoordinatorType = roleToCoordinatorType[userProfile?.role];
+    return myCoordinatorType ? getCoordinatorById(myCoordinatorType) : null;
+  };
+
+  const myCoordinatorInfo = getMyCoordinatorInfo();
+
+  // NEW: Get coordinator icon
+  const getCoordinatorIcon = (coordinatorType) => {
+    switch (coordinatorType) {
+      case 'makerspace': return <Wrench size={20} className="text-blue-600" />;
+      case 'vocational': return <Briefcase size={20} className="text-green-600" />;
+      case 'admin': return <ClipboardList size={20} className="text-purple-600" />;
+      default: return <AlertCircle size={20} className="text-yellow-600" />;
+    }
+  };
+
+  // NEW: Render coordinator pending requests section
+  const renderCoordinatorRequests = () => {
+    if (myPendingRequests.length === 0 || !myCoordinatorInfo) return null;
+
+    const coordinatorType = myCoordinatorInfo.id;
+    const requestTabMap = {
+      'makerspace': 'makerspace-requests',
+      'vocational': 'vocational-requests', 
+      'admin': 'admin-requests'
+    };
+
+    return (
+      <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-400 rounded-lg p-6 shadow-md">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            {getCoordinatorIcon(coordinatorType)}
+            <div>
+              <h3 className="text-lg font-semibold text-yellow-800">
+                🔔 You have {myPendingRequests.length} pending request{myPendingRequests.length !== 1 ? 's' : ''}!
+              </h3>
+              <p className="text-sm text-yellow-700">
+                Client{myPendingRequests.length !== 1 ? 's have' : ' has'} requested time with you for {myCoordinatorInfo.name.toLowerCase()}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigate && onNavigate(requestTabMap[coordinatorType])}
+            className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors text-sm font-medium"
+          >
+            Review Requests
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {myPendingRequests.slice(0, 3).map(request => {
+            const timeSlot = MAKERSPACE_TIME_SLOTS.find(slot => slot.id === request.timeSlot);
+            const isUpcoming = new Date(request.date) >= new Date(today);
+            
+            return (
+              <div key={request.id} className="bg-white p-3 rounded border border-yellow-200">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <User size={14} className="text-yellow-600" />
+                      <span className="font-medium text-gray-900">{request.clientName}</span>
+                      {isUpcoming && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                          Upcoming
+                        </span>
+                      )}
+                      {!isUpcoming && (
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">
+                          Past Date
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-700">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-1">
+                          <Calendar size={12} />
+                          <span>{formatDatePST(request.date)}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Clock size={12} />
+                          <span>{timeSlot?.label || request.timeSlot}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Purpose: {request.purpose}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Requested: {new Date(request.requestedAt).toLocaleDateString()} at {new Date(request.requestedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {myPendingRequests.length > 3 && (
+            <div className="text-center">
+              <button
+                onClick={() => onNavigate && onNavigate(requestTabMap[coordinatorType])}
+                className="text-yellow-700 hover:text-yellow-800 text-sm font-medium"
+              >
+                View all {myPendingRequests.length} requests →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
@@ -76,6 +219,9 @@ const Dashboard = ({
         </h2>
         <p className="text-[#BED2D8]">Supporting adults with disabilities in their development journey</p>
       </div>
+
+      {/* NEW: Coordinator Pending Requests Section */}
+      {renderCoordinatorRequests()}
       
       {/* Stats Cards - Updated with mileage if applicable */}
       <div className={`grid grid-cols-1 md:grid-cols-${canTrackMileage ? '5' : '4'} gap-6`}>

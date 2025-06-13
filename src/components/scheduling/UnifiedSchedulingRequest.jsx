@@ -1,4 +1,6 @@
-// src/components/scheduling/UnifiedSchedulingRequest.jsx - Client-facing coordinator scheduling
+// 1. UPDATED UnifiedSchedulingRequest.jsx - Enhanced conflict detection
+// src/components/scheduling/UnifiedSchedulingRequest.jsx
+
 import React, { useState } from 'react';
 import { Clock, Calendar, Send, AlertCircle, XCircle, User, Wrench, Briefcase, ClipboardList } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
@@ -14,7 +16,7 @@ const UnifiedSchedulingRequest = ({
   clients, 
   makerspaceActions,
   existingRequests = [],
-  makerspaceSchedule = [],
+  makerspaceSchedule = [], // All coordinator schedules
   walkthroughs = []
 }) => {
   // Find the current client's data
@@ -49,17 +51,19 @@ const UnifiedSchedulingRequest = ({
   const availableCoordinators = getAvailableCoordinators(clientData.program || 'limitless');
   const currentCoordinator = getCoordinatorById(selectedCoordinator);
 
-  // Check if a time slot is already booked
+  // ENHANCED: Check if a time slot is already booked - now includes coordinator's personal schedule
   const checkTimeSlotAvailability = (date, timeSlot, coordinatorType) => {
     if (!date || !timeSlot) return { available: true, conflicts: [] };
 
     const conflicts = [];
 
-    // For makerspace coordinator, check existing makerspace bookings
+    // Check makerspace-specific conflicts (for makerspace coordinator)
     if (coordinatorType === 'makerspace') {
       // Check existing makerspace schedule
       const scheduleConflict = makerspaceSchedule.find(entry => 
-        entry.date === date && entry.timeSlot === timeSlot
+        entry.date === date && 
+        entry.timeSlot === timeSlot &&
+        (entry.coordinatorType === 'makerspace' || !entry.coordinatorType) // Legacy support
       );
       if (scheduleConflict) {
         conflicts.push({
@@ -78,6 +82,20 @@ const UnifiedSchedulingRequest = ({
           details: `Equipment walkthrough/training for ${walkthroughConflict.clientName || 'client'}`
         });
       }
+    }
+
+    // ENHANCED: Check coordinator's personal schedule entries for this coordinator type
+    const coordinatorScheduleConflict = makerspaceSchedule.find(entry => 
+      entry.date === date && 
+      entry.timeSlot === timeSlot &&
+      entry.coordinatorType === coordinatorType &&
+      (entry.type === 'coordinator_appointment' || entry.type === 'coordinator_meeting')
+    );
+    if (coordinatorScheduleConflict) {
+      conflicts.push({
+        type: 'coordinator_busy',
+        details: `${currentCoordinator?.coordinatorName} has another appointment: ${coordinatorScheduleConflict.purpose || 'Meeting'}`
+      });
     }
 
     // Check other pending/approved coordinator requests for same coordinator type
@@ -114,6 +132,8 @@ const UnifiedSchedulingRequest = ({
             return `👥 ${conflict.details}`;
           case 'coordinator_request':
             return `📋 ${conflict.details}`;
+          case 'coordinator_busy':
+            return `⏰ ${conflict.details}`;
           default:
             return `⚠️ ${conflict.details}`;
         }
@@ -399,7 +419,7 @@ const UnifiedSchedulingRequest = ({
             </div>
           </div>
 
-          {/* Conflict Warning */}
+          {/* ENHANCED Conflict Warning */}
           {conflictWarning && (
             <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
               <div className="flex items-start space-x-2">
@@ -534,3 +554,4 @@ const UnifiedSchedulingRequest = ({
 };
 
 export default UnifiedSchedulingRequest;
+

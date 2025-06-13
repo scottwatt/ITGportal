@@ -1,9 +1,9 @@
-// src/components/schedule/MyScheduleTab.jsx - FIXED: Handles special time slots
+// src/components/schedule/MyScheduleTab.jsx - FIXED: Admin and coordinator access
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Clock, User, Star } from 'lucide-react';
 import { getPSTDate, formatDatePST, getWeekDatesStartingMonday, formatDateForInput } from '../../utils/dateUtils';
 import { getOrderedCoachSchedule, getOrderedTimeSlots } from '../../utils/scheduleHelpers';
-import { TIME_SLOTS, getAllTimeSlots } from '../../utils/constants'; // Added getAllTimeSlots
+import { TIME_SLOTS, getAllTimeSlots, USER_ROLES } from '../../utils/constants'; // Added USER_ROLES
 
 const MyScheduleTab = ({ 
   user,
@@ -42,9 +42,29 @@ const MyScheduleTab = ({
     const coreSlots = ['8-10', '10-12', '1230-230'];
     return !coreSlots.includes(timeSlotId);
   };
+
+  // FIXED: Helper function to check if user has admin/coordinator access
+  const hasAdminAccess = () => {
+    if (!userProfile?.role) return false;
+    
+    const adminRoles = [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SCHEDULER,
+      USER_ROLES.MERCHANDISE_COORDINATOR,        // Kameron
+      USER_ROLES.PROGRAM_ADMIN_COORDINATOR,      // Josh  
+      USER_ROLES.ADMIN_DEV_COORDINATOR,          // Connie
+      USER_ROLES.VOCATIONAL_DEV_COORDINATOR,     // Scott
+      USER_ROLES.EXECUTIVE_DIRECTOR,
+      USER_ROLES.DIRECTOR_ORG_DEV,
+      USER_ROLES.DIRECTOR_PROGRAM_DEV
+    ];
+    
+    return adminRoles.includes(userProfile.role);
+  };
   
+  // FIXED: Updated to include all coordinator roles
   const getMySchedule = () => {
-    return userProfile?.role === 'admin' 
+    return hasAdminAccess()
       ? schedules.filter(s => s.date === selectedDate)
       : scheduleActions.getTodaysScheduleForCoach(user.uid, selectedDate);
   };
@@ -75,8 +95,9 @@ const MyScheduleTab = ({
 
     const weekDates = getWeekDatesFromCurrentWeek();
 
-    if (userProfile?.role === 'admin') {
-      // For admin, show all schedules for the week
+    // FIXED: Check for admin access instead of just 'admin' role
+    if (hasAdminAccess()) {
+      // For admin/coordinators, show all schedules for the week
       return weekDates.map(date => {
         const dateStr = formatDateForInput(date);
         const daySchedules = schedules.filter(s => s.date === dateStr);
@@ -120,7 +141,7 @@ const MyScheduleTab = ({
   // Get properly ordered and grouped schedule for daily view
   const orderedSchedule = getOrderedCoachSchedule(mySchedule, clients);
 
-  // Get total weekly stats
+  // UPDATED: Get total weekly stats with role-based title
   const weeklyStats = {
     totalSessions: weeklySchedule.reduce((sum, day) => sum + day.schedules.length, 0),
     uniqueClients: [...new Set(weeklySchedule.flatMap(day => day.schedules.map(s => s.clientId)))].length,
@@ -144,7 +165,8 @@ const MyScheduleTab = ({
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-semibold text-[#292929]">
-            Daily Schedule - {formatDatePST(selectedDate)}
+            {/* UPDATED: Show different title based on access level */}
+            {hasAdminAccess() ? 'All Schedules' : 'My Schedule'} - {formatDatePST(selectedDate)}
           </h3>
           <input
             type="date"
@@ -153,6 +175,21 @@ const MyScheduleTab = ({
             className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#6D858E]"
           />
         </div>
+
+        {/* Admin View Enhancement */}
+        {hasAdminAccess() && mySchedule.length > 0 && (
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+            <div className="flex items-center space-x-2">
+              <User className="text-blue-500" size={16} />
+              <h4 className="font-semibold text-blue-700">
+                Admin/Coordinator View: Showing All {mySchedule.length} Session{mySchedule.length !== 1 ? 's' : ''}
+              </h4>
+            </div>
+            <p className="text-sm text-blue-600 mt-1">
+              You can see all coach schedules and client assignments for this date.
+            </p>
+          </div>
+        )}
 
         {/* Special Schedules Alert */}
         {specialSchedules.length > 0 && (
@@ -166,10 +203,15 @@ const MyScheduleTab = ({
             <div className="mt-2 space-y-1">
               {specialSchedules.map(schedule => {
                 const client = clients.find(c => c.id === schedule.clientId);
+                const coach = coaches.find(c => c.uid === schedule.coachId || c.id === schedule.coachId);
                 const timeSlotInfo = getTimeSlotInfo(schedule.timeSlot);
                 return (
                   <div key={schedule.id} className="text-sm text-orange-800">
                     • {timeSlotInfo.label || timeSlotInfo.id}: {client?.name || 'Unknown Client'}
+                    {/* Show coach name for admin view */}
+                    {hasAdminAccess() && coach && (
+                      <span className="text-orange-600"> (with {coach.name})</span>
+                    )}
                   </div>
                 );
               })}
@@ -185,40 +227,52 @@ const MyScheduleTab = ({
                 <h4 className="font-semibold text-lg mb-2 text-[#292929]">{timeSlot.label}</h4>
                 <div className="space-y-2">
                   {timeSlot.clients.length > 0 ? (
-                    timeSlot.clients.map(client => (
-                      <div key={client.id} className="bg-[#BED2D8] p-3 rounded text-sm">
-                        <p 
-                          className="text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline font-medium"
-                          onClick={() => onClientSelect && onClientSelect(client)}
-                          title="Click to view client details"
-                        >
-                          {client.name}
-                        </p>
-                        <div className="flex justify-between items-center mt-1">
+                    timeSlot.clients.map(client => {
+                      // ENHANCED: For admin view, show coach information
+                      const schedule = mySchedule.find(s => s.clientId === client.id && s.timeSlot === timeSlot.id);
+                      const coach = coaches.find(c => c.uid === schedule?.coachId || c.id === schedule?.coachId);
+                      
+                      return (
+                        <div key={client.id} className="bg-[#BED2D8] p-3 rounded text-sm">
                           <p 
-                            className="text-xs text-[#707070] cursor-pointer hover:text-[#292929] hover:underline"
+                            className="text-[#6D858E] cursor-pointer hover:text-[#5A4E69] hover:underline font-medium"
                             onClick={() => onClientSelect && onClientSelect(client)}
                             title="Click to view client details"
                           >
-                            {client.program === 'limitless' ? client.businessName :
-                             client.program === 'new-options' ? 'Community Job' :
-                             client.program === 'bridges' ? 'Career Dev' :
-                             client.businessName}
+                            {client.name}
                           </p>
-                          <span className={`text-xs px-1 rounded ${
-                            client.program === 'limitless' ? 'bg-white text-[#6D858E]' :
-                            client.program === 'new-options' ? 'bg-white text-[#6D858E]' :
-                            client.program === 'bridges' ? 'bg-white text-[#5A4E69]' :
-                            'bg-white text-[#9B97A2]'
-                          }`}>
-                            {client.program === 'limitless' ? 'L' :
-                             client.program === 'new-options' ? 'NO' :
-                             client.program === 'bridges' ? 'B' :
-                             'L'}
-                          </span>
+                          <div className="flex justify-between items-center mt-1">
+                            <p 
+                              className="text-xs text-[#707070] cursor-pointer hover:text-[#292929] hover:underline"
+                              onClick={() => onClientSelect && onClientSelect(client)}
+                              title="Click to view client details"
+                            >
+                              {client.program === 'limitless' ? client.businessName :
+                               client.program === 'new-options' ? 'Community Job' :
+                               client.program === 'bridges' ? 'Career Dev' :
+                               client.businessName}
+                            </p>
+                            <span className={`text-xs px-1 rounded ${
+                              client.program === 'limitless' ? 'bg-white text-[#6D858E]' :
+                              client.program === 'new-options' ? 'bg-white text-[#6D858E]' :
+                              client.program === 'bridges' ? 'bg-white text-[#5A4E69]' :
+                              'bg-white text-[#9B97A2]'
+                            }`}>
+                              {client.program === 'limitless' ? 'L' :
+                               client.program === 'new-options' ? 'NO' :
+                               client.program === 'bridges' ? 'B' :
+                               'L'}
+                            </span>
+                          </div>
+                          {/* ENHANCED: Show coach name for admin view */}
+                          {hasAdminAccess() && coach && (
+                            <p className="text-xs text-[#5A4E69] mt-1 font-medium">
+                              Coach: {coach.name}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <p className="text-[#9B97A2] italic">No sessions assigned</p>
                   )}
@@ -230,7 +284,12 @@ const MyScheduleTab = ({
           <div className="text-center py-12 text-[#9B97A2] bg-white rounded-lg shadow-md">
             <Clock size={48} className="mx-auto mb-4" />
             <h4 className="text-lg font-medium mb-2">No Sessions Scheduled</h4>
-            <p>You don't have any client sessions scheduled for this date.</p>
+            <p>
+              {hasAdminAccess() 
+                ? "No client sessions are scheduled for this date across all coaches."
+                : "You don't have any client sessions scheduled for this date."
+              }
+            </p>
           </div>
         ) : (
           <div className="text-center py-6 text-[#9B97A2] bg-white rounded-lg shadow-md">
@@ -241,12 +300,13 @@ const MyScheduleTab = ({
     );
   };
 
-  // Weekly View Component
+  // Weekly View Component  
   const renderWeeklyView = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold text-[#292929]">
-          Weekly Schedule Overview
+          {/* UPDATED: Show different title based on access level */}
+          {hasAdminAccess() ? 'All Schedules - Weekly Overview' : 'Weekly Schedule Overview'}
         </h3>
         <div className="flex items-center space-x-3">
           <button
@@ -267,12 +327,14 @@ const MyScheduleTab = ({
         </div>
       </div>
 
-      {/* Weekly Stats */}
+      {/* ENHANCED: Weekly Stats with admin context */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-[#6D858E]">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-[#707070] text-sm">Total Sessions</p>
+              <p className="text-[#707070] text-sm">
+                {hasAdminAccess() ? 'Total Sessions (All)' : 'Total Sessions'}
+              </p>
               <p className="text-2xl font-bold text-[#6D858E]">{weeklyStats.totalSessions}</p>
             </div>
             <Calendar className="text-[#6D858E]" size={24} />
@@ -282,7 +344,9 @@ const MyScheduleTab = ({
         <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-[#5A4E69]">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-[#707070] text-sm">Unique Clients</p>
+              <p className="text-[#707070] text-sm">
+                {hasAdminAccess() ? 'Unique Clients (All)' : 'Unique Clients'}
+              </p>
               <p className="text-2xl font-bold text-[#5A4E69]">{weeklyStats.uniqueClients}</p>
             </div>
             <User className="text-[#5A4E69]" size={24} />
@@ -367,6 +431,7 @@ const MyScheduleTab = ({
                     <div className="space-y-1">
                       {sessionsForSlot.slice(0, 2).map(session => {
                         const client = clients.find(c => c.id === session.clientId);
+                        const coach = coaches.find(c => c.uid === session.coachId || c.id === session.coachId);
                         return (
                           <div 
                             key={session.id} 
@@ -377,9 +442,13 @@ const MyScheduleTab = ({
                                 onClientSelect(client);
                               }
                             }}
-                            title={client?.name || 'Unknown Client'}
+                            title={`${client?.name || 'Unknown Client'}${hasAdminAccess() && coach ? ` (${coach.name})` : ''}`}
                           >
                             {client?.name?.split(' ')[0] || 'Unknown'}
+                            {/* Show coach initial for admin view */}
+                            {hasAdminAccess() && coach && (
+                              <span className="opacity-75"> ({coach.name.split(' ')[0]})</span>
+                            )}
                           </div>
                         );
                       })}
@@ -431,6 +500,7 @@ const MyScheduleTab = ({
                               <div className="space-y-1">
                                 {sessionsForSlot.map(session => {
                                   const client = clients.find(c => c.id === session.clientId);
+                                  const coach = coaches.find(c => c.uid === session.coachId || c.id === session.coachId);
                                   return (
                                     <div 
                                       key={session.id}
@@ -438,6 +508,10 @@ const MyScheduleTab = ({
                                       onClick={() => onClientSelect && onClientSelect(client)}
                                     >
                                       {client?.name}
+                                      {/* Show coach name for admin view */}
+                                      {hasAdminAccess() && coach && (
+                                        <span className="text-[#707070] text-xs ml-1">({coach.name})</span>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -461,6 +535,7 @@ const MyScheduleTab = ({
                       <div className="space-y-1">
                         {specialSchedules.map(session => {
                           const client = clients.find(c => c.id === session.clientId);
+                          const coach = coaches.find(c => c.uid === session.coachId || c.id === session.coachId);
                           const timeSlotInfo = getTimeSlotInfo(session.timeSlot);
                           return (
                             <div 
@@ -469,6 +544,10 @@ const MyScheduleTab = ({
                               onClick={() => onClientSelect && onClientSelect(client)}
                             >
                               • {timeSlotInfo.label || timeSlotInfo.id}: {client?.name}
+                              {/* Show coach name for admin view */}
+                              {hasAdminAccess() && coach && (
+                                <span className="text-orange-600 text-xs ml-1">({coach.name})</span>
+                              )}
                             </div>
                           );
                         })}
@@ -487,7 +566,10 @@ const MyScheduleTab = ({
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-[#292929]">My Schedule</h2>
+        <h2 className="text-2xl font-bold text-[#292929]">
+          {/* UPDATED: Show different title based on access level */}
+          {hasAdminAccess() ? 'Schedule Overview' : 'My Schedule'}
+        </h2>
         
         {/* View Toggle */}
         <div className="flex space-x-1 bg-[#F5F5F5] rounded-lg p-1">

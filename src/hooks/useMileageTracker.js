@@ -1,4 +1,4 @@
-// src/hooks/useMileageTracker.js - Updated to work with new mileage service - FIXED RE-RENDERS
+// src/hooks/useMileageTracker.js - FIXED with optimistic updates for immediate UI feedback
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   subscribeToCoachMileage,
@@ -88,7 +88,7 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     };
   }, []);
 
-  // Add a new mileage record - MEMOIZED
+  // FIXED: Add a new mileage record with optimistic update
   const addRecord = useCallback(async (recordData) => {
     if (!coachIdRef.current) {
       throw new Error('Coach ID is required');
@@ -98,8 +98,23 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
       console.log('🚀 Adding mileage record for coach:', coachIdRef.current);
       
       setError(null);
+      
+      // Add to Firestore first
       const newRecord = await addMileageRecord(coachIdRef.current, recordData);
       console.log('✅ Successfully added record:', newRecord);
+      
+      // OPTIMISTIC UPDATE: Immediately add to local state for instant UI feedback
+      setRecords(prevRecords => {
+        // Check if record already exists (in case subscription fired very quickly)
+        const exists = prevRecords.some(record => record.id === newRecord.id);
+        if (exists) {
+          return prevRecords; // Don't add duplicate
+        }
+        
+        // Add new record at the beginning (most recent first)
+        return [newRecord, ...prevRecords];
+      });
+      
       return newRecord;
     } catch (err) {
       console.error('❌ Error adding mileage record:', err);
@@ -108,11 +123,23 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     }
   }, []); // No dependencies - uses refs
 
-  // Update an existing mileage record - MEMOIZED
+  // FIXED: Update an existing mileage record with optimistic update
   const updateRecord = useCallback(async (recordId, updates) => {
     try {
       setError(null);
+      
+      // Update in Firestore first
       const updatedRecord = await updateMileageRecord(recordId, updates);
+      
+      // OPTIMISTIC UPDATE: Immediately update local state
+      setRecords(prevRecords => 
+        prevRecords.map(record => 
+          record.id === recordId 
+            ? { ...record, ...updates, updatedAt: new Date() }
+            : record
+        )
+      );
+      
       return updatedRecord;
     } catch (err) {
       console.error('Error updating mileage record:', err);
@@ -121,14 +148,25 @@ export const useMileageTracker = (coachId, isAuthenticated) => {
     }
   }, []);
 
-  // Delete a mileage record - MEMOIZED
+  // FIXED: Delete a mileage record with optimistic update
   const deleteRecord = useCallback(async (recordId) => {
     try {
       setError(null);
+      
+      // Delete from Firestore first
       await deleteMileageRecord(recordId);
+      
+      // OPTIMISTIC UPDATE: Immediately remove from local state
+      setRecords(prevRecords => 
+        prevRecords.filter(record => record.id !== recordId)
+      );
+      
     } catch (err) {
       console.error('Error deleting mileage record:', err);
       setError('Failed to delete mileage record');
+      
+      // On error, we should refresh the data since our optimistic update might be wrong
+      // The subscription will handle this automatically
       throw err;
     }
   }, []);

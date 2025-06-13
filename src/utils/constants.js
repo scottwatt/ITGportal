@@ -297,7 +297,9 @@ export const getNavigationItemsForUser = (userProfile) => {
   if (role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'schedule', label: 'Client Schedule', icon: 'Calendar' },
+      { id: 'vocational-schedule', label: 'My Schedule', icon: 'Calendar' }, // NEW
+      { id: 'vocational-requests', label: 'Client Requests', icon: 'Briefcase' }, // NEW
       { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
       { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
@@ -310,11 +312,13 @@ export const getNavigationItemsForUser = (userProfile) => {
     ];
   }
 
-  // UPDATED: Josh (Program Admin Coordinator) - Include his admin requests tab
+  // UPDATED: Josh (Admin Dev Coordinator) - Include his admin requests tab
   if (role === USER_ROLES.ADMIN_DEV_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
-      { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
+      { id: 'schedule', label: 'Client Schedule', icon: 'Calendar' },
+      { id: 'admin-schedule', label: 'My Schedule', icon: 'Calendar' }, // NEW
+      { id: 'admin-requests', label: 'Client Requests', icon: 'ClipboardList' },
       { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
       { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },

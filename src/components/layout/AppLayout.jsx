@@ -31,10 +31,9 @@ import MakerspaceSchedule from '../makerspace/MakerspaceSchedule';
 import MakerspaceOverview from '../makerspace/MakerspaceOverview';
 
 // NEW: Coordinator scheduling components
-import UnifiedSchedulingRequest from '../scheduling/UnifiedSchedulingRequest';
 import CoordinatorScheduleManager from '../scheduling/CoordinatorScheduleManager';
-import CoordinatorScheduleView from '../scheduling/CoordinatorScheduleView';
-
+import CoordinatorPersonalSchedule from '../scheduling/CoordinatorPersonalSchedule';
+import UnifiedSchedulingRequest from '../scheduling/UnifiedSchedulingRequest';
 // Task components
 import DailyTaskScheduler from '../schedule/DailyTaskScheduler';
 
@@ -348,16 +347,17 @@ const AppLayout = ({
       switch (activeTab) {
         case 'dashboard':
           return (
-            <Dashboard 
-              userProfile={userProfile}
-              clients={clients}
-              coaches={coaches}
-              schedules={schedules}
-              timeSlots={TIME_SLOTS}
-              onClientSelect={handleClientSelect}
-              internships={internships}
-              internshipActions={internshipActions}
-            />
+            <Dashboard
+      userProfile={userProfile}
+      clients={clients}
+      coaches={coaches}
+      schedules={schedules}
+      timeSlots={TIME_SLOTS}
+      onClientSelect={setSelectedClient}
+      mileageRecords={mileageRecords}
+      makerspaceRequests={makerspaceRequests} // NEW: Pass coordinator requests
+      onNavigate={setActiveTab} // NEW: Pass navigation handler
+    />
           );
           
         case 'schedule':
@@ -377,6 +377,28 @@ const AppLayout = ({
               />
             </LazyComponentWrapper>
           );
+
+        case 'vocational-schedule':
+          return (
+            <CoordinatorPersonalSchedule
+              coordinatorType="vocational"
+              userProfile={userProfile}
+              makerspaceSchedule={makerspaceSchedule}
+              makerspaceActions={makerspaceActions}
+              requests={makerspaceRequests}
+            />
+          );
+
+        case 'vocational-requests':
+          return (
+            <CoordinatorScheduleManager
+              requests={makerspaceRequests}
+              makerspaceActions={makerspaceActions}
+              userProfile={userProfile}
+              coordinatorType="vocational"
+              title="Vocational Development Requests"
+            />
+          );  
           
         case 'daily-tasks':
           return (
@@ -522,16 +544,17 @@ const AppLayout = ({
       switch (activeTab) {
         case 'dashboard':
           return (
-            <Dashboard 
-              userProfile={userProfile}
-              clients={clients}
-              coaches={coaches}
-              schedules={schedules}
-              timeSlots={TIME_SLOTS}
-              onClientSelect={handleClientSelect}
-              internships={internships}
-              internshipActions={internshipActions}
-            />
+            <Dashboard
+      userProfile={userProfile}
+      clients={clients}
+      coaches={coaches}
+      schedules={schedules}
+      timeSlots={TIME_SLOTS}
+      onClientSelect={setSelectedClient}
+      mileageRecords={mileageRecords}
+      makerspaceRequests={makerspaceRequests} // NEW: Pass coordinator requests
+      onNavigate={setActiveTab} // NEW: Pass navigation handler
+    />
           );
           
         case 'schedule':
@@ -551,6 +574,28 @@ const AppLayout = ({
               />
             </LazyComponentWrapper>
           );
+
+          case 'admin-schedule':
+            return (
+              <CoordinatorPersonalSchedule
+                coordinatorType="admin"
+                userProfile={userProfile}
+                makerspaceSchedule={makerspaceSchedule}
+                makerspaceActions={makerspaceActions}
+                requests={makerspaceRequests}
+              />
+            );
+
+          case 'admin-requests':
+            return (
+              <CoordinatorScheduleManager
+                requests={makerspaceRequests}
+                makerspaceActions={makerspaceActions}
+                userProfile={userProfile}
+                coordinatorType="admin"
+                title="Administrative Support Requests"
+              />
+            );
 
         // NEW: Josh's admin requests management
         case 'admin-requests':
