@@ -1,6 +1,7 @@
-// src/components/layout/AppLayout.jsx - UPDATED with new roles and makerspace functionality
+// src/components/layout/AppLayout.jsx - UPDATED with coordinator scheduling functionality
 import React, { lazy, Suspense, useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { Briefcase, ClipboardList } from 'lucide-react';
 
 // Core components (always loaded)
 import Navigation from '../shared/Navigation';
@@ -23,11 +24,16 @@ import GraceClientDashboard from '../grace/GraceClientDashboard';
 import GraceScheduleView from '../grace/GraceScheduleView';
 import GraceAttendancePage from '../grace/GraceAttendancePage';
 
-// NEW: Makerspace components
+// Makerspace components
 import MakerspaceRequestForm from '../makerspace/MakerspaceRequestForm';
 import MakerspaceRequestManager from '../makerspace/MakerspaceRequestManager';
 import MakerspaceSchedule from '../makerspace/MakerspaceSchedule';
 import MakerspaceOverview from '../makerspace/MakerspaceOverview';
+
+// NEW: Coordinator scheduling components
+import UnifiedSchedulingRequest from '../scheduling/UnifiedSchedulingRequest';
+import CoordinatorScheduleManager from '../scheduling/CoordinatorScheduleManager';
+import CoordinatorScheduleView from '../scheduling/CoordinatorScheduleView';
 
 // Task components
 import DailyTaskScheduler from '../schedule/DailyTaskScheduler';
@@ -102,7 +108,7 @@ const AppLayout = ({
   tasks = [],
   mileageRecords = [],
   internships = [],
-  // NEW: Makerspace data
+  // Makerspace data
   makerspaceRequests = [],
   makerspaceSchedule = [],
   walkthroughs = [],
@@ -116,7 +122,7 @@ const AppLayout = ({
   taskActions,
   mileageActions,
   internshipActions,
-  // NEW: Makerspace actions
+  // Makerspace actions
   makerspaceActions
 }) => {
   
@@ -141,17 +147,16 @@ const AppLayout = ({
     return userProfile?.role === USER_ROLES.COACH && userProfile?.coachType === 'grace';
   };
 
-  // NEW: Check if user is merchandise coordinator (Kameron)
+  // Check if user is merchandise coordinator (Kameron)
   const isMerchandiseCoordinator = () => {
     return userProfile?.role === USER_ROLES.MERCHANDISE_COORDINATOR;
   };
 
-  // NEW: Check if user has full access (Josh, Connie, Scott, Directors)
+  // Check if user has full access (Josh, Connie, Scott, Directors)
   const hasFullAccess = () => {
     const fullAccessRoles = [
       USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
       USER_ROLES.ADMIN_DEV_COORDINATOR,
-      USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
       USER_ROLES.EXECUTIVE_DIRECTOR,
       USER_ROLES.DIRECTOR_ORG_DEV,
       USER_ROLES.DIRECTOR_PROGRAM_DEV
@@ -196,8 +201,10 @@ const AppLayout = ({
 
   // Route to correct component based on active tab and user role
   const renderContent = () => {
+    const { role } = userProfile || {};
+
     // Grace Client views (special handling)
-    if (userProfile?.role === USER_ROLES.CLIENT && isGraceClient()) {
+    if (role === USER_ROLES.CLIENT && isGraceClient()) {
       switch (activeTab) {
         case 'dashboard':
           return (
@@ -230,6 +237,17 @@ const AppLayout = ({
               </div>
             </div>
           );
+        case 'coordinator-request':
+          return (
+            <UnifiedSchedulingRequest
+              userProfile={userProfile}
+              clients={clients}
+              makerspaceActions={makerspaceActions}
+              existingRequests={makerspaceRequests}
+              makerspaceSchedule={makerspaceSchedule}
+              walkthroughs={walkthroughs}
+            />
+          );
         case 'resources':
           return <Resources userRole={userProfile?.role} />;
         default:
@@ -243,7 +261,437 @@ const AppLayout = ({
       }
     }
 
-    // NEW: Merchandise Coordinator (Kameron) views
+    // Regular Client views (non-Grace)
+    if (role === USER_ROLES.CLIENT) {
+      switch (activeTab) {
+        case 'dashboard':
+          return (
+            <ClientDashboard 
+              userProfile={userProfile} 
+              clients={clients} 
+              schedules={schedules} 
+              coaches={coaches} 
+              timeSlots={TIME_SLOTS}
+              internships={internships}
+              internshipActions={internshipActions}
+              makerspaceRequests={makerspaceRequests}
+            />
+          );
+        case 'my-schedule':
+          return (
+            <ClientScheduleView 
+              userProfile={userProfile} 
+              clients={clients} 
+              schedules={schedules} 
+              coaches={coaches} 
+              timeSlots={TIME_SLOTS}
+              taskActions={taskActions}
+              tasks={tasks}
+              internships={internships}
+              internshipActions={internshipActions}
+            />
+          );
+        case 'my-goals':
+          return (
+            <ClientGoalsView 
+              userProfile={userProfile} 
+              clients={clients} 
+            />
+          );
+        case 'my-tasks':
+          return (
+            <ClientTaskView 
+              userProfile={userProfile} 
+              clients={clients}
+              taskActions={taskActions}
+            />
+          );
+        // NEW: Unified coordinator scheduling for clients
+        case 'coordinator-request':
+          return (
+            <UnifiedSchedulingRequest
+              userProfile={userProfile}
+              clients={clients}
+              makerspaceActions={makerspaceActions}
+              existingRequests={makerspaceRequests}
+              makerspaceSchedule={makerspaceSchedule}
+              walkthroughs={walkthroughs}
+            />
+          );
+        // Legacy makerspace request (keeping for backward compatibility)
+        case 'makerspace-request':
+          return canRequestMakerspaceTime(userProfile) && (
+            <MakerspaceRequestForm
+              userProfile={userProfile}
+              clients={clients}
+              makerspaceActions={makerspaceActions}
+              existingRequests={makerspaceRequests}
+            />
+          );
+        case 'resources':
+          return <Resources userRole={userProfile?.role} />;
+        default:
+          return (
+            <ClientDashboard 
+              userProfile={userProfile} 
+              clients={clients} 
+              schedules={schedules} 
+              coaches={coaches} 
+              timeSlots={TIME_SLOTS}
+            />
+          );
+      }
+    }
+
+    // NEW: Scott (Vocational Development Coordinator) - FULL ACCESS
+    if (role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
+      switch (activeTab) {
+        case 'dashboard':
+          return (
+            <Dashboard 
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={handleClientSelect}
+              internships={internships}
+              internshipActions={internshipActions}
+            />
+          );
+          
+        case 'schedule':
+          return (
+            <LazyComponentWrapper>
+              <MyScheduleTab 
+                user={user}
+                userProfile={userProfile}
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                onClientSelect={handleClientSelect}
+                scheduleActions={scheduleActions}
+                internships={internships}
+                internshipActions={internshipActions}
+              />
+            </LazyComponentWrapper>
+          );
+          
+        case 'daily-tasks':
+          return (
+            <DailyTaskScheduler 
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              userProfile={userProfile}
+              taskActions={taskActions}
+              tasks={tasks}
+            />
+          );
+          
+        case 'monthly-schedule':
+          return (
+            <LazyComponentWrapper>
+              <MonthlyScheduleView 
+                schedules={schedules}
+                clients={clients}
+                coaches={coaches}
+                timeSlots={TIME_SLOTS}
+                scheduleActions={scheduleActions}
+              />
+            </LazyComponentWrapper>
+          );
+          
+        case 'clients':
+          return (
+            <LazyComponentWrapper>
+              <ClientsTab 
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                userProfile={userProfile}
+                selectedClient={selectedClient}
+                onClientSelect={handleClientSelect}
+                onBackToClients={handleBackToClients}
+                clientActions={clientActions}
+                scheduleActions={scheduleActions}
+                internships={internships}
+                internshipActions={internshipActions}
+              />
+            </LazyComponentWrapper>
+          );
+
+        // NEW: Scott's vocational requests management
+        case 'vocational-requests':
+          return (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
+                <h2 className="text-2xl font-bold mb-2 flex items-center">
+                  <Briefcase className="mr-3" size={28} />
+                  My Vocational Development Requests
+                </h2>
+                <p className="text-[#BED2D8]">Manage career development and internship support requests</p>
+              </div>
+              
+              <CoordinatorScheduleManager
+                requests={makerspaceRequests}
+                makerspaceActions={makerspaceActions}
+                userProfile={userProfile}
+                coordinatorType="vocational"
+                title="Vocational Development Requests"
+                scheduleActions={scheduleActions}
+              />
+            </div>
+          );
+
+        case 'grace-attendance':
+          return canAccessGraceAttendance(userProfile) && (
+            <GraceAttendancePage
+              clients={clients}
+              graceAttendanceActions={graceAttendanceActions}
+            />
+          );
+
+        case 'makerspace-overview':
+          return canViewMakerspaceOverview(userProfile) && (
+            <MakerspaceOverview 
+              requests={makerspaceRequests}
+              schedule={makerspaceSchedule}
+              walkthroughs={walkthroughs}
+              makerspaceActions={makerspaceActions}
+              userProfile={userProfile}
+            />
+          );
+
+        case 'mileage':
+          return canAccessMileageTracking(userProfile) && (
+            <MileageTracker 
+              userProfile={userProfile}
+              mileageActions={mileageActions}
+              mileageRecords={mileageRecords}
+              clients={clients}
+            />
+          );
+          
+        case 'resources':
+          return <Resources userRole={userProfile?.role} />;
+          
+        case 'admin':
+          return (
+            <LazyComponentWrapper>
+              <AdminPanel 
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                businessTypes={BUSINESS_TYPES}
+                equipmentOptions={EQUIPMENT_OPTIONS}
+                programs={PROGRAMS}
+                coachTypes={COACH_TYPES}  
+                clientActions={clientActions}
+                coachActions={coachActions}
+                scheduleActions={scheduleActions}
+                availabilityActions={availabilityActions}
+                internships={internships}
+                internshipActions={internshipActions}
+                userProfile={userProfile}
+              />
+            </LazyComponentWrapper>
+          );
+          
+        default:
+          return (
+            <Dashboard 
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={handleClientSelect}
+              internships={internships}
+              internshipActions={internshipActions}
+            />
+          );
+      }
+    }
+
+    // Josh (Program Admin Coordinator)
+    if (role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
+      switch (activeTab) {
+        case 'dashboard':
+          return (
+            <Dashboard 
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={handleClientSelect}
+              internships={internships}
+              internshipActions={internshipActions}
+            />
+          );
+          
+        case 'schedule':
+          return (
+            <LazyComponentWrapper>
+              <MyScheduleTab 
+                user={user}
+                userProfile={userProfile}
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                onClientSelect={handleClientSelect}
+                scheduleActions={scheduleActions}
+                internships={internships}
+                internshipActions={internshipActions}
+              />
+            </LazyComponentWrapper>
+          );
+
+        // NEW: Josh's admin requests management
+        case 'admin-requests':
+          return (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
+                <h2 className="text-2xl font-bold mb-2 flex items-center">
+                  <ClipboardList className="mr-3" size={28} />
+                  My Program Administration Requests
+                </h2>
+                <p className="text-[#BED2D8]">Manage program planning, design, and administrative support requests</p>
+              </div>
+              
+              <CoordinatorScheduleManager
+                requests={makerspaceRequests}
+                makerspaceActions={makerspaceActions}
+                userProfile={userProfile}
+                coordinatorType="admin"
+                title="Program Administration Requests"
+                scheduleActions={scheduleActions}
+              />
+            </div>
+          );
+          
+        case 'daily-tasks':
+          return (
+            <DailyTaskScheduler 
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              userProfile={userProfile}
+              taskActions={taskActions}
+              tasks={tasks}
+            />
+          );
+          
+        case 'monthly-schedule':
+          return (
+            <LazyComponentWrapper>
+              <MonthlyScheduleView 
+                schedules={schedules}
+                clients={clients}
+                coaches={coaches}
+                timeSlots={TIME_SLOTS}
+                scheduleActions={scheduleActions}
+              />
+            </LazyComponentWrapper>
+          );
+          
+        case 'clients':
+          return (
+            <LazyComponentWrapper>
+              <ClientsTab 
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                userProfile={userProfile}
+                selectedClient={selectedClient}
+                onClientSelect={handleClientSelect}
+                onBackToClients={handleBackToClients}
+                clientActions={clientActions}
+                scheduleActions={scheduleActions}
+                internships={internships}
+                internshipActions={internshipActions}
+              />
+            </LazyComponentWrapper>
+          );
+
+        case 'grace-attendance':
+          return canAccessGraceAttendance(userProfile) && (
+            <GraceAttendancePage
+              clients={clients}
+              graceAttendanceActions={graceAttendanceActions}
+            />
+          );
+
+        case 'makerspace-overview':
+          return canViewMakerspaceOverview(userProfile) && (
+            <MakerspaceOverview 
+              requests={makerspaceRequests}
+              schedule={makerspaceSchedule}
+              walkthroughs={walkthroughs}
+              makerspaceActions={makerspaceActions}
+              userProfile={userProfile}
+            />
+          );
+
+        case 'mileage':
+          return canAccessMileageTracking(userProfile) && (
+            <MileageTracker 
+              userProfile={userProfile}
+              mileageActions={mileageActions}
+              mileageRecords={mileageRecords}
+              clients={clients}
+            />
+          );
+          
+        case 'resources':
+          return <Resources userRole={userProfile?.role} />;
+          
+        case 'admin':
+          return (
+            <LazyComponentWrapper>
+              <AdminPanel 
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                businessTypes={BUSINESS_TYPES}
+                equipmentOptions={EQUIPMENT_OPTIONS}
+                programs={PROGRAMS}
+                coachTypes={COACH_TYPES}
+                clientActions={clientActions}
+                coachActions={coachActions}
+                scheduleActions={scheduleActions}
+                availabilityActions={availabilityActions}
+                internships={internships}
+                internshipActions={internshipActions}
+                userProfile={userProfile}
+              />
+            </LazyComponentWrapper>
+          );
+          
+        default:
+          return (
+            <Dashboard 
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={handleClientSelect}
+              internships={internships}
+              internshipActions={internshipActions}
+            />
+          );
+      }
+    }
+
+    // Merchandise Coordinator (Kameron) views
     if (isMerchandiseCoordinator()) {
       switch (activeTab) {
         case 'dashboard':
@@ -288,7 +736,6 @@ const AppLayout = ({
                 <h2 className="text-2xl font-bold mb-2">Walkthrough Schedule</h2>
                 <p className="text-[#BED2D8]">Manage equipment training and orientations</p>
               </div>
-              {/* TODO: Create WalkthroughScheduler component */}
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <p className="text-[#707070]">Walkthrough scheduling component coming soon...</p>
               </div>
@@ -301,7 +748,6 @@ const AppLayout = ({
                 <h2 className="text-2xl font-bold mb-2">Production Tracking</h2>
                 <p className="text-[#BED2D8]">Track client production and inventory</p>
               </div>
-              {/* TODO: Create ProductionTracker component */}
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <p className="text-[#707070]">Production tracking component coming soon...</p>
               </div>
@@ -338,7 +784,7 @@ const AppLayout = ({
       }
     }
 
-    // Grace Coach views (unchanged)
+    // Grace Coach views
     if (isGraceCoach()) {
       switch (activeTab) {
         case 'dashboard':
@@ -426,78 +872,7 @@ const AppLayout = ({
       }
     }
 
-    // Regular Client views (non-Grace) - UPDATED with makerspace request
-    if (userProfile?.role === USER_ROLES.CLIENT) {
-      switch (activeTab) {
-        case 'dashboard':
-          return (
-            <ClientDashboard 
-              userProfile={userProfile} 
-              clients={clients} 
-              schedules={schedules} 
-              coaches={coaches} 
-              timeSlots={TIME_SLOTS}
-              internships={internships}
-              internshipActions={internshipActions}
-              makerspaceRequests={makerspaceRequests}
-
-            />
-          );
-        case 'my-schedule':
-          return (
-            <ClientScheduleView 
-              userProfile={userProfile} 
-              clients={clients} 
-              schedules={schedules} 
-              coaches={coaches} 
-              timeSlots={TIME_SLOTS}
-              taskActions={taskActions}
-              tasks={tasks}
-              internships={internships}
-              internshipActions={internshipActions}
-            />
-          );
-        case 'my-goals':
-          return (
-            <ClientGoalsView 
-              userProfile={userProfile} 
-              clients={clients} 
-            />
-          );
-        case 'my-tasks':
-          return (
-            <ClientTaskView 
-              userProfile={userProfile} 
-              clients={clients}
-              taskActions={taskActions}
-            />
-          );
-        // NEW: Makerspace request for clients
-        case 'makerspace-request':
-          return canRequestMakerspaceTime(userProfile) && (
-            <MakerspaceRequestForm
-              userProfile={userProfile}
-              clients={clients}
-              makerspaceActions={makerspaceActions}
-              existingRequests={makerspaceRequests}
-            />
-          );
-        case 'resources':
-          return <Resources userRole={userProfile?.role} />;
-        default:
-          return (
-            <ClientDashboard 
-              userProfile={userProfile} 
-              clients={clients} 
-              schedules={schedules} 
-              coaches={coaches} 
-              timeSlots={TIME_SLOTS}
-            />
-          );
-      }
-    }
-
-    // NEW: Full access users (Josh, Connie, Scott, Directors) - Get all functionality like admin
+    // Full access users (Connie, Directors) - Get all functionality like admin
     if (hasFullAccess()) {
       switch (activeTab) {
         case 'dashboard':
@@ -579,7 +954,6 @@ const AppLayout = ({
               graceAttendanceActions={graceAttendanceActions}
             />
           );
-        // NEW: Makerspace overview for coordinators
         case 'makerspace-overview':
           return canViewMakerspaceOverview(userProfile) && (
             <MakerspaceOverview 
@@ -712,7 +1086,6 @@ const AppLayout = ({
           />
         );
 
-      // NEW: Makerspace overview for staff
       case 'makerspace-overview':
         return canViewMakerspaceOverview(userProfile) && (
           <MakerspaceOverview 
@@ -750,7 +1123,7 @@ const AppLayout = ({
         return <Resources userRole={userProfile?.role} />;
         
       case 'admin':
-        return userProfile?.role === USER_ROLES.ADMIN && (
+        return role === USER_ROLES.ADMIN && (
           <LazyComponentWrapper>
             <AdminPanel 
               clients={clients}

@@ -229,7 +229,7 @@ export const DEFAULT_WORKING_DAYS_BY_PROGRAM = {
   'grace': [] // Grace doesn't use individual scheduling
 };
 
-// FIXED: Navigation function with new roles and makerspace functionality
+// UPDATED: Navigation function with coordinator scheduling functionality
 export const getNavigationItemsForUser = (userProfile) => {
   if (!userProfile || !userProfile.role) {
     console.warn('getNavigationItemsForUser: No user profile or role provided');
@@ -238,7 +238,7 @@ export const getNavigationItemsForUser = (userProfile) => {
 
   const { role, coachType, program } = userProfile;
 
-  // Client navigation items - UPDATED
+  // Client navigation items - UPDATED with unified scheduling
   if (role === USER_ROLES.CLIENT) {
     // Check if Grace client
     const isGraceClient = program === 'grace' || 
@@ -249,7 +249,7 @@ export const getNavigationItemsForUser = (userProfile) => {
         { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
         { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
         { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
-        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // NEW: Grace can schedule with Josh
+        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // NEW: Unified scheduling for Josh
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
     } else {
@@ -259,7 +259,7 @@ export const getNavigationItemsForUser = (userProfile) => {
         { id: 'my-schedule', label: 'Schedule', icon: 'Calendar' },
         { id: 'my-tasks', label: 'Tasks', icon: 'Clock' },
         { id: 'my-goals', label: 'Goals', icon: 'ClipboardList' },
-        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // UPDATED: Unified scheduling
+        { id: 'coordinator-request', label: 'Schedule Time', icon: 'Clock' }, // NEW: Unified scheduling for all coordinators
         { id: 'resources', label: 'Resources', icon: 'BookOpen' }
       ];
       
@@ -272,42 +272,46 @@ export const getNavigationItemsForUser = (userProfile) => {
     }
   }
 
-  // NEW: Vocational Development Coordinator (Scott) - Special navigation
+  // NEW: Scott (Vocational Development Coordinator) - FULL ACCESS
   if (role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
-      { id: 'vocational-scheduling', label: 'Client Requests', icon: 'ClipboardList' },
-      { id: 'vocational-overview', label: 'Overview', icon: 'TrendingUp' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'vocational-requests', label: 'My Requests', icon: 'Briefcase' }, // Scott's vocational requests
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'admin', label: 'Admin', icon: 'Settings' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
-  // UPDATED: Program Admin Coordinator (Josh) - Special navigation  
+  // UPDATED: Josh (Program Admin Coordinator) - Include his admin requests tab
   if (role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
-      { id: 'admin-scheduling', label: 'Client Requests', icon: 'ClipboardList' },
-      { id: 'admin-overview', label: 'Overview', icon: 'TrendingUp' },
+      { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
+      { id: 'admin-requests', label: 'My Requests', icon: 'ClipboardList' }, // Josh's admin requests
       { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'admin', label: 'Admin', icon: 'Settings' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
   }
 
-  // UPDATED: Merchandise Coordinator (Kameron) - Updated navigation
+  // UPDATED: Merchandise Coordinator (Kameron) - Keep existing navigation
   if (role === USER_ROLES.MERCHANDISE_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'makerspace-schedule', label: 'Schedule', icon: 'Calendar' },
-      { id: 'makerspace-requests', label: 'Client Requests', icon: 'ClipboardList' }, // UPDATED label
-      { id: 'makerspace-overview', label: 'Overview', icon: 'TrendingUp' }, // UPDATED
+      { id: 'makerspace-requests', label: 'Client Requests', icon: 'ClipboardList' },
       { id: 'walkthrough-schedule', label: 'Training', icon: 'UserCheck' },
       { id: 'production-tracking', label: 'Production', icon: 'Package' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
@@ -351,14 +355,13 @@ export const getNavigationItemsForUser = (userProfile) => {
     ];
   }
 
-  // FIXED: Full access roles (Josh, Connie, Scott, Directors) - COMPACT LABELS
+  // UPDATED: Full access roles (Connie, Directors) - COMPACT LABELS
   const FULL_ACCESS_ROLES = [
-    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
-    USER_ROLES.ADMIN_DEV_COORDINATOR, 
-    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+    USER_ROLES.ADMIN_DEV_COORDINATOR,            // Connie
     USER_ROLES.EXECUTIVE_DIRECTOR,
     USER_ROLES.DIRECTOR_ORG_DEV,
     USER_ROLES.DIRECTOR_PROGRAM_DEV
+    // Note: Scott and Josh removed from here since they have their own sections above
   ];
 
   if (FULL_ACCESS_ROLES.includes(role)) {
@@ -366,10 +369,10 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
       { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
-      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' },
       { id: 'admin', label: 'Admin', icon: 'Settings' }
@@ -382,10 +385,10 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
       { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
-      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' }, 
       { id: 'resources', label: 'Resources', icon: 'BookOpen' }
     ];
@@ -397,10 +400,10 @@ export const getNavigationItemsForUser = (userProfile) => {
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'Schedule', icon: 'Calendar' },
       { id: 'daily-tasks', label: 'Tasks', icon: 'Clock' },
-      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' }, // SHORTENED
+      { id: 'monthly-schedule', label: 'Monthly', icon: 'Calendar' },
       { id: 'clients', label: 'Clients', icon: 'Users' },
-      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' }, // SHORTENED
-      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' }, // SHORTENED
+      { id: 'grace-attendance', label: 'Grace', icon: 'UserCheck' },
+      { id: 'makerspace-overview', label: 'Makerspace', icon: 'Wrench' },
       { id: 'mileage', label: 'Mileage', icon: 'Car' },
       { id: 'resources', label: 'Resources', icon: 'BookOpen' },
       { id: 'admin', label: 'Admin', icon: 'Settings' },
@@ -446,10 +449,10 @@ export const canViewMakerspaceOverview = (userProfile) => {
   const allowedRoles = [
     USER_ROLES.ADMIN,
     USER_ROLES.SCHEDULER,
-    USER_ROLES.MERCHANDISE_COORDINATOR,
-    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
-    USER_ROLES.ADMIN_DEV_COORDINATOR,
-    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+    USER_ROLES.MERCHANDISE_COORDINATOR,        // Kameron
+    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,      // Josh
+    USER_ROLES.ADMIN_DEV_COORDINATOR,          // Connie
+    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,     // Scott - FULL ACCESS
     USER_ROLES.EXECUTIVE_DIRECTOR,
     USER_ROLES.DIRECTOR_ORG_DEV,
     USER_ROLES.DIRECTOR_PROGRAM_DEV
@@ -481,19 +484,19 @@ export const canAccessMileageTracking = (userProfile) => {
   return allowedRoles.includes(role);
 };
 
-// Helper function to check if user can access Grace attendance (UPDATED)
+// UPDATED: Helper functions - Scott gets full access
 export const canAccessGraceAttendance = (userProfile) => {
   if (!userProfile) return false;
   
   const { role, coachType } = userProfile;
   
-  // Admins, schedulers, and new coordinator roles can access
+  // Full access roles (including Scott)
   const allowedRoles = [
     USER_ROLES.ADMIN,
     USER_ROLES.SCHEDULER,
-    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
-    USER_ROLES.ADMIN_DEV_COORDINATOR,
-    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,      // Josh
+    USER_ROLES.ADMIN_DEV_COORDINATOR,          // Connie
+    USER_ROLES.VOCATIONAL_DEV_COORDINATOR,     // Scott (YOU) - FULL ACCESS
     USER_ROLES.EXECUTIVE_DIRECTOR,
     USER_ROLES.DIRECTOR_ORG_DEV,
     USER_ROLES.DIRECTOR_PROGRAM_DEV
