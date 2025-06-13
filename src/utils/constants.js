@@ -103,7 +103,7 @@ export const COORDINATORS = [
     id: 'admin',
     name: 'Administrative Support',
     coordinatorName: 'Josh', 
-    role: USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
+    role: USER_ROLES.ADMIN_DEV_COORDINATOR,
     description: 'Schedule time for program administration, documentation, and support coordination',
     icon: 'ClipboardList',
     color: 'bg-purple-100 text-purple-800',
@@ -114,7 +114,7 @@ export const COORDINATORS = [
     ],
     equipment: [], // No physical equipment needed
     timeSlots: MAKERSPACE_TIME_SLOTS, // Same time slots
-    allowedPrograms: ['limitless', 'new-options', 'bridges', 'grace'] // All programs
+    allowedPrograms: ['limitless', 'new-options', 'bridges'] // All programs except Grace
   }
 ];
 
@@ -311,7 +311,7 @@ export const getNavigationItemsForUser = (userProfile) => {
   }
 
   // UPDATED: Josh (Program Admin Coordinator) - Include his admin requests tab
-  if (role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
+  if (role === USER_ROLES.ADMIN_DEV_COORDINATOR) {
     return [
       { id: 'dashboard', label: 'Dashboard', icon: 'Building2' },
       { id: 'schedule', label: 'My Schedule', icon: 'Calendar' },
@@ -378,7 +378,7 @@ export const getNavigationItemsForUser = (userProfile) => {
 
   // UPDATED: Full access roles (Connie, Directors) - COMPACT LABELS
   const FULL_ACCESS_ROLES = [
-    USER_ROLES.ADMIN_DEV_COORDINATOR,            // Connie
+    USER_ROLES.PROGRAM_ADMIN_COORDINATOR,            // Connie
     USER_ROLES.EXECUTIVE_DIRECTOR,
     USER_ROLES.DIRECTOR_ORG_DEV,
     USER_ROLES.DIRECTOR_PROGRAM_DEV

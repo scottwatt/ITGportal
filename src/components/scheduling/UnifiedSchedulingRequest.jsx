@@ -91,7 +91,7 @@ const UnifiedSchedulingRequest = ({
     if (requestConflict) {
       conflicts.push({
         type: 'coordinator_request',
-        details: `${request.status === 'pending' ? 'Pending request' : 'Approved session'} with ${currentCoordinator?.coordinatorName} for ${requestConflict.clientName}`
+        details: `${requestConflict.status === 'pending' ? 'Pending request' : 'Approved session'} for ${requestConflict.clientName}`
       });
     }
 
