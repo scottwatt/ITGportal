@@ -1,4 +1,4 @@
-// src/components/schedule/DailyTaskScheduler.jsx - Enhanced with Coach Assignment Filtering (Priority Removed)
+// src/components/schedule/DailyTaskScheduler.jsx - FIXED to allow all coordinators to see all tasks
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Plus, Save, Copy, Clipboard, X, Edit3, Trash2, ChevronLeft, ChevronRight, Users, AlertCircle } from 'lucide-react';
 import { formatDatePST, getPSTDate } from '../../utils/dateUtils';
@@ -25,18 +25,36 @@ const DailyTaskScheduler = ({
   // Get schedulable clients (no Grace clients)
   const schedulableClients = getSchedulableClients(clients);
   
-  // ENHANCED: Filter clients based on user role and task coach assignment
+  // FIXED: Enhanced client filtering to include ALL coordinator roles
   const getClientsForTaskScheduling = () => {
-    if (userProfile?.role === USER_ROLES.ADMIN || userProfile?.role === USER_ROLES.SCHEDULER) {
-      // Admins and schedulers can see all schedulable clients
+    // FIXED: Define all roles that should have full access to all clients
+    const fullAccessRoles = [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SCHEDULER,
+      // NEW COORDINATOR ROLES - All should see all clients
+      USER_ROLES.MERCHANDISE_COORDINATOR,        // Kameron
+      USER_ROLES.PROGRAM_ADMIN_COORDINATOR,      // Josh  
+      USER_ROLES.ADMIN_DEV_COORDINATOR,          // Connie
+      USER_ROLES.VOCATIONAL_DEV_COORDINATOR,     // Scott
+      USER_ROLES.EXECUTIVE_DIRECTOR,
+      USER_ROLES.DIRECTOR_ORG_DEV,
+      USER_ROLES.DIRECTOR_PROGRAM_DEV
+    ];
+
+    // FIXED: Check if user has full access (admin, scheduler, or any coordinator role)
+    if (fullAccessRoles.includes(userProfile?.role)) {
+      console.log(`✅ User ${userProfile.name} (${userProfile.role}) has full access - showing all ${schedulableClients.length} clients`);
       return schedulableClients;
     } else if (userProfile?.role === USER_ROLES.COACH) {
-      // Coaches can only see clients assigned to them for daily tasks
+      // Regular coaches can only see clients assigned to them for daily tasks
       const assignedClients = schedulableClients.filter(client => 
         client.dailyTaskCoachId === userProfile.uid
       );
+      console.log(`👤 Coach ${userProfile.name} assigned to ${assignedClients.length} clients`);
       return assignedClients;
     }
+    
+    console.warn(`⚠️ User ${userProfile?.name} (${userProfile?.role}) has no access to task scheduling`);
     return [];
   };
 
@@ -53,12 +71,12 @@ const DailyTaskScheduler = ({
     return null;
   };
 
-  // Only show clients who are scheduled for the day AND assigned to current coach (or if admin)
+  // Only show clients who are scheduled for the day
   const scheduledClients = availableClients.filter(client => 
     getCoachForClient(client.id) !== null
   );
 
-  // Get tasks for the current date (combines real tasks + optimistic updates)
+  // FIXED: Get tasks for the current date - allow full access users to see ALL tasks
   const getTasksForCurrentDate = () => {
     // Get real tasks from Firebase for the selected date
     const realTasks = tasks.filter(task => task.date === selectedDate);
@@ -82,15 +100,34 @@ const DailyTaskScheduler = ({
       }
     });
     
-    // ENHANCED: Filter tasks to only show those for clients this coach is assigned to
-    if (userProfile?.role === USER_ROLES.COACH) {
-      return combinedTasks.filter(task => {
+    // FIXED: Define full access roles again (same as above)
+    const fullAccessRoles = [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SCHEDULER,
+      USER_ROLES.MERCHANDISE_COORDINATOR,
+      USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
+      USER_ROLES.ADMIN_DEV_COORDINATOR,
+      USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+      USER_ROLES.EXECUTIVE_DIRECTOR,
+      USER_ROLES.DIRECTOR_ORG_DEV,
+      USER_ROLES.DIRECTOR_PROGRAM_DEV
+    ];
+
+    // FIXED: Full access users can see ALL tasks, not just assigned ones
+    if (fullAccessRoles.includes(userProfile?.role)) {
+      console.log(`✅ Showing all ${combinedTasks.length} tasks for full access user`);
+      return combinedTasks;
+    } else if (userProfile?.role === USER_ROLES.COACH) {
+      // Regular coaches only see tasks for their assigned clients
+      const filteredTasks = combinedTasks.filter(task => {
         const client = clients.find(c => c.id === task.clientId);
         return client && client.dailyTaskCoachId === userProfile.uid;
       });
+      console.log(`👤 Showing ${filteredTasks.length} tasks for coach's assigned clients`);
+      return filteredTasks;
     }
     
-    return combinedTasks;
+    return combinedTasks; // Fallback to show all tasks
   };
 
   // Clean up optimistic tasks when real tasks arrive
@@ -252,6 +289,22 @@ const DailyTaskScheduler = ({
   const getTaskTypeStyle = (taskType) => {
     const type = TASK_TYPES.find(t => t.id === taskType);
     return type ? type.color : 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  // FIXED: Check if user has full access for UI messaging
+  const hasFullAccess = () => {
+    const fullAccessRoles = [
+      USER_ROLES.ADMIN,
+      USER_ROLES.SCHEDULER,
+      USER_ROLES.MERCHANDISE_COORDINATOR,
+      USER_ROLES.PROGRAM_ADMIN_COORDINATOR,
+      USER_ROLES.ADMIN_DEV_COORDINATOR,
+      USER_ROLES.VOCATIONAL_DEV_COORDINATOR,
+      USER_ROLES.EXECUTIVE_DIRECTOR,
+      USER_ROLES.DIRECTOR_ORG_DEV,
+      USER_ROLES.DIRECTOR_PROGRAM_DEV
+    ];
+    return fullAccessRoles.includes(userProfile?.role);
   };
 
   // Task Modal Component
@@ -431,7 +484,7 @@ const DailyTaskScheduler = ({
         </div>
       </div>
 
-      {/* ENHANCED: Status Bar with assignment info */}
+      {/* FIXED: Status Bar with better messaging for coordinators */}
       <div className="bg-[#BED2D8] p-4 rounded-lg border-l-4 border-[#6D858E]">
         <h3 className="font-semibold text-[#292929] mb-2">
           📅 {formatDatePST(selectedDate)} - {scheduledClients.length} Clients Scheduled
@@ -439,11 +492,15 @@ const DailyTaskScheduler = ({
         <div className="text-sm text-[#292929]">
           Click any cell to add/edit tasks • Each cell = 30-minute time block • Color-coded by task type
         </div>
-        {userProfile?.role === USER_ROLES.COACH && (
+        {hasFullAccess() ? (
+          <div className="mt-2 text-sm text-[#707070]">
+            👑 <strong>Full Access:</strong> Viewing tasks for all {availableClients.length} clients ({userProfile?.role?.replace(/_/g, ' ')})
+          </div>
+        ) : userProfile?.role === USER_ROLES.COACH ? (
           <div className="mt-2 text-sm text-[#707070]">
             👤 Showing tasks for clients assigned to you ({availableClients.length} total assigned)
           </div>
-        )}
+        ) : null}
         {copiedTasks && (
           <div className="mt-2 text-sm text-[#707070]">
             ✅ {copiedTasks.tasks.length} tasks copied from {formatDatePST(copiedTasks.sourceDate)}
@@ -451,7 +508,7 @@ const DailyTaskScheduler = ({
         )}
       </div>
 
-      {/* ENHANCED: Assignment Status for Coaches */}
+      {/* FIXED: Assignment Status - only show for regular coaches */}
       {userProfile?.role === USER_ROLES.COACH && availableClients.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
           <div className="flex items-center space-x-2">
@@ -580,7 +637,9 @@ const DailyTaskScheduler = ({
           </h3>
           <p className="text-[#707070]">
             {availableClients.length === 0 
-              ? 'You don\'t have any clients assigned for daily task management. Contact an administrator to assign clients to you.'
+              ? hasFullAccess() 
+                ? 'No clients are available for task scheduling. Please check that clients are properly set up in the system.'
+                : 'You don\'t have any clients assigned for daily task management. Contact an administrator to assign clients to you.'
               : 'Please schedule your assigned clients first in the Daily Schedule tab before assigning tasks.'
             }
           </p>
