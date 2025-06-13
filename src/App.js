@@ -153,6 +153,7 @@ function App() {
           internships={internshipHook.internships} 
           makerspaceRequests={appState.makerspaceRequests}
           makerspaceSchedule={appState.makerspaceSchedule}
+          coordinatorRequests={appState.coordinatorRequests || []} 
           walkthroughs={appState.walkthroughs}
           
           // Action props

@@ -109,6 +109,7 @@ const AppLayout = ({
   internships = [],
   // Makerspace data
   makerspaceRequests = [],
+  coordinatorRequests = [], // NEW: All coordinator requests (vocational, admin, etc.)
   makerspaceSchedule = [],
   walkthroughs = [],
   
@@ -242,7 +243,7 @@ const AppLayout = ({
               userProfile={userProfile}
               clients={clients}
               makerspaceActions={makerspaceActions}
-              existingRequests={makerspaceRequests}
+              existingRequests={[...makerspaceRequests, ...coordinatorRequests]}
               makerspaceSchedule={makerspaceSchedule}
               walkthroughs={walkthroughs}
             />
@@ -273,7 +274,7 @@ const AppLayout = ({
               timeSlots={TIME_SLOTS}
               internships={internships}
               internshipActions={internshipActions}
-              makerspaceRequests={makerspaceRequests}
+              makerspaceRequests={[...makerspaceRequests, ...coordinatorRequests]}
             />
           );
         case 'my-schedule':
@@ -312,7 +313,7 @@ const AppLayout = ({
               userProfile={userProfile}
               clients={clients}
               makerspaceActions={makerspaceActions}
-              existingRequests={makerspaceRequests}
+              existingRequests={[...makerspaceRequests, ...coordinatorRequests]}
               makerspaceSchedule={makerspaceSchedule}
               walkthroughs={walkthroughs}
             />
@@ -348,16 +349,17 @@ const AppLayout = ({
         case 'dashboard':
           return (
             <Dashboard
-      userProfile={userProfile}
-      clients={clients}
-      coaches={coaches}
-      schedules={schedules}
-      timeSlots={TIME_SLOTS}
-      onClientSelect={setSelectedClient}
-      mileageRecords={mileageRecords}
-      makerspaceRequests={makerspaceRequests} // NEW: Pass coordinator requests
-      onNavigate={setActiveTab} // NEW: Pass navigation handler
-    />
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={setSelectedClient}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests} // NEW: Pass all coordinator requests
+              onNavigate={setActiveTab}
+            />
           );
           
         case 'schedule':
@@ -385,14 +387,14 @@ const AppLayout = ({
               userProfile={userProfile}
               makerspaceSchedule={makerspaceSchedule}
               makerspaceActions={makerspaceActions}
-              requests={makerspaceRequests}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
             />
           );
 
         case 'vocational-requests':
           return (
             <CoordinatorScheduleManager
-              requests={makerspaceRequests}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
               makerspaceActions={makerspaceActions}
               userProfile={userProfile}
               coordinatorType="vocational"
@@ -445,29 +447,6 @@ const AppLayout = ({
             </LazyComponentWrapper>
           );
 
-        // NEW: Scott's vocational requests management
-        case 'vocational-requests':
-          return (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2 flex items-center">
-                  <Briefcase className="mr-3" size={28} />
-                  My Vocational Development Requests
-                </h2>
-                <p className="text-[#BED2D8]">Manage career development and internship support requests</p>
-              </div>
-              
-              <CoordinatorScheduleManager
-                requests={makerspaceRequests}
-                makerspaceActions={makerspaceActions}
-                userProfile={userProfile}
-                coordinatorType="vocational"
-                title="Vocational Development Requests"
-                scheduleActions={scheduleActions}
-              />
-            </div>
-          );
-
         case 'grace-attendance':
           return canAccessGraceAttendance(userProfile) && (
             <GraceAttendancePage
@@ -479,7 +458,7 @@ const AppLayout = ({
         case 'makerspace-overview':
           return canViewMakerspaceOverview(userProfile) && (
             <MakerspaceOverview 
-              requests={makerspaceRequests}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
               schedule={makerspaceSchedule}
               walkthroughs={walkthroughs}
               makerspaceActions={makerspaceActions}
@@ -534,6 +513,9 @@ const AppLayout = ({
               onClientSelect={handleClientSelect}
               internships={internships}
               internshipActions={internshipActions}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
             />
           );
       }
@@ -545,16 +527,17 @@ const AppLayout = ({
         case 'dashboard':
           return (
             <Dashboard
-      userProfile={userProfile}
-      clients={clients}
-      coaches={coaches}
-      schedules={schedules}
-      timeSlots={TIME_SLOTS}
-      onClientSelect={setSelectedClient}
-      mileageRecords={mileageRecords}
-      makerspaceRequests={makerspaceRequests} // NEW: Pass coordinator requests
-      onNavigate={setActiveTab} // NEW: Pass navigation handler
-    />
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={setSelectedClient}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests} // NEW: Pass all coordinator requests
+              onNavigate={setActiveTab}
+            />
           );
           
         case 'schedule':
@@ -582,43 +565,20 @@ const AppLayout = ({
                 userProfile={userProfile}
                 makerspaceSchedule={makerspaceSchedule}
                 makerspaceActions={makerspaceActions}
-                requests={makerspaceRequests}
+                requests={[...makerspaceRequests, ...coordinatorRequests]}
               />
             );
 
           case 'admin-requests':
             return (
               <CoordinatorScheduleManager
-                requests={makerspaceRequests}
+                requests={[...makerspaceRequests, ...coordinatorRequests]}
                 makerspaceActions={makerspaceActions}
                 userProfile={userProfile}
                 coordinatorType="admin"
                 title="Administrative Support Requests"
               />
             );
-
-        // NEW: Josh's admin requests management
-        case 'admin-requests':
-          return (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2 flex items-center">
-                  <ClipboardList className="mr-3" size={28} />
-                  My Program Administration Requests
-                </h2>
-                <p className="text-[#BED2D8]">Manage program planning, design, and administrative support requests</p>
-              </div>
-              
-              <CoordinatorScheduleManager
-                requests={makerspaceRequests}
-                makerspaceActions={makerspaceActions}
-                userProfile={userProfile}
-                coordinatorType="admin"
-                title="Program Administration Requests"
-                scheduleActions={scheduleActions}
-              />
-            </div>
-          );
           
         case 'daily-tasks':
           return (
@@ -676,7 +636,7 @@ const AppLayout = ({
         case 'makerspace-overview':
           return canViewMakerspaceOverview(userProfile) && (
             <MakerspaceOverview 
-              requests={makerspaceRequests}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
               schedule={makerspaceSchedule}
               walkthroughs={walkthroughs}
               makerspaceActions={makerspaceActions}
@@ -731,6 +691,9 @@ const AppLayout = ({
               onClientSelect={handleClientSelect}
               internships={internships}
               internshipActions={internshipActions}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
             />
           );
       }
@@ -747,12 +710,17 @@ const AppLayout = ({
                 <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
               </div>
               
-              <MakerspaceOverview 
-                requests={makerspaceRequests}
-                schedule={makerspaceSchedule}
-                walkthroughs={walkthroughs}
-                makerspaceActions={makerspaceActions}
+              <Dashboard
                 userProfile={userProfile}
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                onClientSelect={setSelectedClient}
+                mileageRecords={mileageRecords}
+                makerspaceRequests={makerspaceRequests}
+                coordinatorRequests={coordinatorRequests} // NEW: Pass coordinator requests
+                onNavigate={setActiveTab}
               />
             </div>
           );
@@ -817,12 +785,17 @@ const AppLayout = ({
                 <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
               </div>
               
-              <MakerspaceOverview 
-                requests={makerspaceRequests}
-                schedule={makerspaceSchedule}
-                walkthroughs={walkthroughs}
-                makerspaceActions={makerspaceActions}
+              <Dashboard
                 userProfile={userProfile}
+                clients={clients}
+                coaches={coaches}
+                schedules={schedules}
+                timeSlots={TIME_SLOTS}
+                onClientSelect={setSelectedClient}
+                mileageRecords={mileageRecords}
+                makerspaceRequests={makerspaceRequests}
+                coordinatorRequests={coordinatorRequests}
+                onNavigate={setActiveTab}
               />
             </div>
           );
@@ -931,6 +904,10 @@ const AppLayout = ({
               onClientSelect={handleClientSelect}
               internships={internships}
               internshipActions={internshipActions}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
             />
           );
         case 'schedule':
@@ -1002,7 +979,7 @@ const AppLayout = ({
         case 'makerspace-overview':
           return canViewMakerspaceOverview(userProfile) && (
             <MakerspaceOverview 
-              requests={makerspaceRequests}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
               schedule={makerspaceSchedule}
               walkthroughs={walkthroughs}
               makerspaceActions={makerspaceActions}
@@ -1051,6 +1028,10 @@ const AppLayout = ({
               schedules={schedules}
               timeSlots={TIME_SLOTS}
               onClientSelect={handleClientSelect}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
             />
           );
       }
@@ -1069,6 +1050,10 @@ const AppLayout = ({
             onClientSelect={handleClientSelect}
             internships={internships}
             internshipActions={internshipActions}
+            mileageRecords={mileageRecords}
+            makerspaceRequests={makerspaceRequests}
+            coordinatorRequests={coordinatorRequests}
+            onNavigate={setActiveTab}
           />
         );
         
@@ -1134,7 +1119,7 @@ const AppLayout = ({
       case 'makerspace-overview':
         return canViewMakerspaceOverview(userProfile) && (
           <MakerspaceOverview 
-            requests={makerspaceRequests}
+            requests={[...makerspaceRequests, ...coordinatorRequests]}
             schedule={makerspaceSchedule}
             walkthroughs={walkthroughs}
             makerspaceActions={makerspaceActions}
@@ -1199,6 +1184,10 @@ const AppLayout = ({
             schedules={schedules}
             timeSlots={TIME_SLOTS}
             onClientSelect={handleClientSelect}
+            mileageRecords={mileageRecords}
+            makerspaceRequests={makerspaceRequests}
+            coordinatorRequests={coordinatorRequests}
+            onNavigate={setActiveTab}
           />
         );
     }
