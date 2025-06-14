@@ -120,7 +120,27 @@ const Dashboard = ({
 
   // Get holiday-specific dashboard title with animations
   const getDashboardTitle = () => {
-    const baseTitle = `ITG ${userProfile?.role === 'scheduler' ? 'Scheduler' : 'Coach'} Dashboard`;
+    // Handle different role types for title
+    let roleTitle = 'Coach';
+    if (userProfile?.role === 'scheduler') {
+      roleTitle = 'Scheduler';
+    } else if (userProfile?.role === USER_ROLES.MERCHANDISE_COORDINATOR) {
+      roleTitle = 'Makerspace Coordinator';
+    } else if (userProfile?.role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
+      roleTitle = 'Vocational Development Coordinator';
+    } else if (userProfile?.role === USER_ROLES.ADMIN_DEV_COORDINATOR) {
+      roleTitle = 'Administrative Development Coordinator';
+    } else if (userProfile?.role === USER_ROLES.PROGRAM_ADMIN_COORDINATOR) {
+      roleTitle = 'Program Administrator';
+    } else if (userProfile?.role === USER_ROLES.EXECUTIVE_DIRECTOR) {
+      roleTitle = 'Executive Director';
+    } else if (userProfile?.role === USER_ROLES.DIRECTOR_ORG_DEV) {
+      roleTitle = 'Director of Organizational Development';
+    } else if (userProfile?.role === USER_ROLES.DIRECTOR_PROGRAM_DEV) {
+      roleTitle = 'Director of Program Development';
+    }
+    
+    const baseTitle = `ITG ${roleTitle} Dashboard`;
     
     switch (currentTheme) {
       case 'christmas':

@@ -1,4 +1,4 @@
-// src/components/schedule/WeeklyDragDropScheduler.jsx - FIXED: Multiple clients per coach + Better layout
+// src/components/schedule/WeeklyDragDropScheduler.jsx - FIXED: Perfect alignment + No overflow
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, ChevronLeft, ChevronRight, Star } from 'lucide-react';
@@ -650,194 +650,227 @@ Continue?`;
           </div>
         )}
 
-        {/* Vertical Coach Layout with Sticky Headers */}
-        <div className="overflow-auto" style={{ maxHeight: '70vh' }}>
-  <div className="overflow-hidden">
-    {/* Sticky Coach Headers - COMPACT */}
-    <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E]">
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-        {activeCoaches.map(coach => {
-          // Count both core and special schedules for this coach
-          const totalSchedules = dailySchedules.filter(s => 
-            weekDates.includes(s.date) && 
-            s.coachId === (coach.uid || coach.id)
-          );
-          
-          const specialSchedules = totalSchedules.filter(s => isSpecialTimeSlot(s.timeSlot));
-          
-          return (
-            <div key={coach.uid || coach.id} className="p-2 text-center bg-[#6D858E] text-white">
-              <div className="font-semibold text-sm truncate" title={coach.name}>{coach.name}</div>
-              <div className="text-xs text-[#BED2D8]">
-                {totalSchedules.length} this week
-                {specialSchedules.length > 0 && (
-                  <div className="flex items-center justify-center space-x-1 mt-1">
-                    <Star size={10} />
-                    <span>{specialSchedules.length}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-
-    {/* Schedule Grid - Days Horizontal, Time Slots Vertical - COMPACT */}
-    <div className="space-y-0">
-      {weekDates.map(date => {
-        const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { 
-          timeZone: 'America/Los_Angeles',
-          weekday: 'short' 
-        });
-        const dayNumber = new Date(date + 'T12:00:00').getDate();
-        const isToday = date === selectedDate;
-        
-        return (
-          <div key={date} className="border-b border-gray-200">
-            {/* Day Header - COMPACT */}
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-              {activeCoaches.map(coach => {
-                // Count special schedules for this coach on this day
-                const specialSchedules = dailySchedules.filter(s => 
-                  s.date === date && 
-                  s.coachId === (coach.uid || coach.id) && 
-                  isSpecialTimeSlot(s.timeSlot)
-                );
+        {/* FIXED: Full-width columns that fill the entire area */}
+        <div className="bg-white rounded-lg shadow-lg border-2 border-gray-200 overflow-x-auto">
+          <div className="min-w-full">
+            {/* FIXED: Sticky Coach Headers with time slot column */}
+            <div className="sticky top-0 bg-white shadow-md border-b-4 border-[#6D858E] z-50">
+              <div className="grid gap-0 border-b-2 border-gray-300" style={{ gridTemplateColumns: `120px repeat(${activeCoaches.length}, 1fr)` }}>
+                {/* Time slot header column */}
+                <div className="p-3 text-center bg-gradient-to-b from-gray-600 to-gray-700 text-white border-r border-gray-200">
+                  <div className="font-bold text-sm">Time Slots</div>
+                  <div className="text-xs text-gray-300 mt-1">Schedule</div>
+                </div>
                 
-                return (
-                  <div key={`${date}-header-${coach.uid || coach.id}`} 
-                       className={`text-center p-2 border-r border-gray-200 font-semibold ${
-                         isToday ? 'bg-[#5A4E69] text-white' : 'bg-[#F5F5F5] text-[#292929]'
-                       }`}>
-                    <div className="text-xs">{dayName} {dayNumber}</div>
-                    {specialSchedules.length > 0 && (
-                      <div className="flex items-center justify-center space-x-1 text-xs text-orange-600">
-                        <Star size={10} />
-                        <span>{specialSchedules.length}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Time Slots for this day - ONLY CORE 3 SLOTS - COMPACT */}
-            {timeSlots.map(slot => (
-              <div key={`${date}-${slot.id}`} className="grid gap-1" 
-                   style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-                {activeCoaches.map(coach => {
-                  const coachId = coach.uid || coach.id;
-                  const isAvailable = availabilityActions.isCoachAvailable(coachId, date);
-                  const assignments = dailySchedules.filter(s => 
-                    s.date === date && 
-                    s.timeSlot === slot.id && 
-                    s.coachId === coachId
+                {activeCoaches.map((coach, index) => {
+                  // Count both core and special schedules for this coach
+                  const totalSchedules = dailySchedules.filter(s => 
+                    weekDates.includes(s.date) && 
+                    s.coachId === (coach.uid || coach.id)
                   );
-                  const canAssign = isAssigning && selectedClient && isAvailable;
-                  const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
+                  
+                  const specialSchedules = totalSchedules.filter(s => isSpecialTimeSlot(s.timeSlot));
                   
                   return (
-                    <div
-                      key={`${date}-${slot.id}-${coachId}`}
-                      onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id, date)}
-                      className={`min-h-24 p-2 border-r border-b border-gray-200 transition-all overflow-hidden ${
-                        !isAvailable 
-                          ? 'bg-red-50 cursor-not-allowed' :
-                        isClickable 
-                          ? 'bg-[#BED2D8] cursor-pointer hover:shadow-md hover:bg-[#6D858E] hover:bg-opacity-20' :
-                        assignments.length > 0
-                          ? 'bg-[#BED2D8]' 
-                          : 'bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      {/* Time Slot Label (show in every empty slot) - COMPACT */}
-                      {assignments.length === 0 && (
-                        <div className="text-xs font-medium text-[#707070] mb-2 text-center">
-                          {slot.start} - {slot.end}
-                        </div>
-                      )}
-                      
-                      {!isAvailable ? (
-                        <div className="text-center text-red-600">
-                          <AlertTriangle size={12} className="mx-auto mb-1" />
-                          <div className="text-xs">Unavailable</div>
-                        </div>
-                      ) : assignments.length > 0 ? (
-                        <div className="space-y-1">
-                          {assignments.map(assignment => {
-                            const client = clients.find(c => c.id === assignment.clientId);
-                            return client ? (
-                              <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-1">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1 min-w-0 overflow-hidden">
-                                    {/* Very compact layout */}
-                                    <div className="flex items-center space-x-1">
-                                      <div className="font-medium text-xs text-[#292929] truncate">
-                                        {getClientInitials(client.name)}
-                                      </div>
-                                      <span className={`text-xs px-1 rounded font-medium ${
-                                        client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
-                                        'bg-[#F5F5F5] text-[#292929]'
-                                      }`}>
-                                        {client?.program === 'limitless' ? 'L' :
-                                         client?.program === 'new-options' ? 'NO' :
-                                         client?.program === 'bridges' ? 'B' :
-                                         'L'}
-                                      </span>
-                                    </div>
-                                    {/* Super short description */}
-                                    <div className="text-xs text-[#707070] truncate" title={client.businessName || client.name}>
-                                      {client.program === 'limitless' ? 'Business' :
-                                       client.program === 'new-options' ? 'Job' :
-                                       client.program === 'bridges' ? 'Career' :
-                                       'Program'}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRemoveAssignment(assignment.id);
-                                    }}
-                                    className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded flex-shrink-0"
-                                    title="Remove assignment"
-                                  >
-                                    <Trash2 size={10} />
-                                  </button>
-                                </div>
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                      ) : isClickable ? (
-                        <div className="text-center text-[#6D858E]">
-                          <MousePointer size={12} className="mx-auto mb-1" />
-                          <div className="text-xs font-medium">Click</div>
-                        </div>
-                      ) : canAssign && selectedClient && !selectedClient?.availableTimeSlots?.includes(slot.id) ? (
-                        <div className="text-center text-red-600">
-                          <X size={12} className="mx-auto mb-1" />
-                          <div className="text-xs">N/A</div>
-                        </div>
-                      ) : (
-                        <div className="text-center text-[#9B97A2]">
-                          <User size={12} className="mx-auto mb-1" />
-                          <div className="text-xs">Open</div>
-                        </div>
-                      )}
+                    <div key={coach.uid || coach.id} 
+                         className="p-3 text-center bg-gradient-to-b from-[#6D858E] to-[#5A4E69] text-white border-r border-gray-200 last:border-r-0">
+                      <div className="font-bold text-sm truncate" title={coach.name}>{coach.name}</div>
+                      <div className="text-xs text-[#BED2D8] mt-1">
+                        <div className="truncate">{totalSchedules.length} total sessions</div>
+                        {specialSchedules.length > 0 && (
+                          <div className="flex items-center justify-center space-x-1 mt-1">
+                            <Star size={10} />
+                            <span>{specialSchedules.length} special</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            ))}
+            </div>
+
+            {/* FIXED: Schedule Grid with perfect alignment */}
+            <div className="bg-gray-50">
+              {weekDates.map((date, dateIndex) => {
+                const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { 
+                  timeZone: 'America/Los_Angeles',
+                  weekday: 'long' 
+                });
+                const dayShort = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { 
+                  timeZone: 'America/Los_Angeles',
+                  weekday: 'short' 
+                });
+                const dayNumber = new Date(date + 'T12:00:00').getDate();
+                const isToday = date === selectedDate;
+                
+                return (
+                  <div key={date} className={`${dateIndex > 0 ? 'border-t-4 border-gray-400' : ''} bg-white mb-1`}>
+                    {/* FIXED: Day Header with time slot column */}
+                    <div className={`grid gap-0 ${isToday ? 'bg-gradient-to-r from-[#5A4E69] to-[#6D858E]' : 'bg-gradient-to-r from-gray-200 to-gray-300'} border-b-2 ${isToday ? 'border-[#292929]' : 'border-gray-400'}`} 
+                         style={{ gridTemplateColumns: `120px repeat(${activeCoaches.length}, 1fr)` }}>
+                      {/* Day info in time slot column */}
+                      <div className={`text-center py-3 px-2 border-r border-gray-300 ${
+                        isToday ? 'bg-[#292929] text-white' : 'bg-gray-400 text-white'
+                      }`}>
+                        <div className="font-bold text-sm">{dayShort} {dayNumber}</div>
+                        <div className="text-xs mt-1 opacity-90">{dayName}</div>
+                      </div>
+                      
+                      {activeCoaches.map((coach, index) => {
+                        // Count special schedules for this coach on this day
+                        const specialSchedules = dailySchedules.filter(s => 
+                          s.date === date && 
+                          s.coachId === (coach.uid || coach.id) && 
+                          isSpecialTimeSlot(s.timeSlot)
+                        );
+                        
+                        return (
+                          <div key={`${date}-header-${coach.uid || coach.id}`} 
+                               className={`text-center py-3 px-2 border-r border-gray-300 last:border-r-0 ${
+                                 isToday ? 'text-white' : 'text-gray-700'
+                               }`}>
+                            <div className="font-bold text-sm">{dayShort} {dayNumber}</div>
+                            <div className="text-xs mt-1 opacity-80">{dayName}</div>
+                            {specialSchedules.length > 0 && (
+                              <div className="flex items-center justify-center space-x-1 text-xs mt-1">
+                                <Star size={10} className="text-orange-400" />
+                                <span>{specialSchedules.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* FIXED: Time Slots with time slot labels on the left */}
+                    {timeSlots.map((slot, slotIndex) => (
+                      <div key={`${date}-${slot.id}`} 
+                           className={`grid gap-0 ${slotIndex > 0 ? 'border-t-2 border-gray-300' : ''}`}
+                           style={{ gridTemplateColumns: `120px repeat(${activeCoaches.length}, 1fr)` }}>
+                        
+                        {/* Time Slot Label Column */}
+                        <div className="min-h-20 p-2 border-r border-gray-300 bg-gradient-to-r from-gray-100 to-gray-200 flex flex-col justify-center">
+                          <div className="text-center">
+                            <div className="font-bold text-sm text-gray-700">
+                              {slot.start.replace(' PST', '')}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {slot.end.replace(' PST', '')}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1 font-medium">
+                              {slot.label.replace(' PST', '')}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {activeCoaches.map((coach, coachIndex) => {
+                          const coachId = coach.uid || coach.id;
+                          const isAvailable = availabilityActions.isCoachAvailable(coachId, date);
+                          const assignments = dailySchedules.filter(s => 
+                            s.date === date && 
+                            s.timeSlot === slot.id && 
+                            s.coachId === coachId
+                          );
+                          const canAssign = isAssigning && selectedClient && isAvailable;
+                          const isClickable = canAssign && selectedClient?.availableTimeSlots?.includes(slot.id);
+                          
+                          return (
+                            <div
+                              key={`${date}-${slot.id}-${coachId}`}
+                              onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id, date)}
+                              className={`min-h-20 border-r border-gray-300 last:border-r-0 transition-all overflow-hidden p-2 ${
+                                !isAvailable 
+                                  ? 'bg-red-50 cursor-not-allowed' :
+                                isClickable 
+                                  ? 'bg-[#BED2D8] cursor-pointer hover:shadow-md hover:bg-[#6D858E] hover:bg-opacity-20' :
+                                assignments.length > 0
+                                  ? 'bg-[#BED2D8]' 
+                                  : 'bg-white hover:bg-gray-50'
+                              }`}
+                            >
+                              {!isAvailable ? (
+                                <div className="text-center text-red-600 py-2">
+                                  <AlertTriangle size={12} className="mx-auto mb-1" />
+                                  <div className="text-xs">Off</div>
+                                </div>
+                              ) : assignments.length > 0 ? (
+                                <div className="space-y-1">
+                                  {assignments.slice(0, 3).map(assignment => {
+                                    const client = clients.find(c => c.id === assignment.clientId);
+                                    if (!client) return null;
+                                    
+                                    // ULTRA MINIMAL: Only initials + program badge - NO OVERFLOW POSSIBLE
+                                    const initials = getClientInitials(client.name);
+                                    const programBadge = client?.program === 'limitless' ? 'L' :
+                                                       client?.program === 'new-options' ? 'N' :
+                                                       client?.program === 'bridges' ? 'B' : 'L';
+                                    
+                                    return (
+                                      <div 
+                                        key={assignment.id} 
+                                        className="bg-white border border-[#6D858E] rounded w-full h-5 flex items-center justify-between px-1 overflow-hidden"
+                                        title={`${client.name} - ${client.program === 'limitless' ? (client.businessName || 'Business') : client.program === 'new-options' ? 'Job Focus' : 'Career Development'}`}
+                                      >
+                                        {/* COMPLETELY FIXED: Only initials + badge */}
+                                        <div className="flex items-center space-x-1">
+                                          <span className="text-xs font-bold text-[#292929] w-5 text-center">
+                                            {initials.substring(0, 2)}
+                                          </span>
+                                          <span className={`text-xs rounded font-bold w-4 h-4 flex items-center justify-center ${
+                                            client?.program === 'limitless' ? 'bg-blue-500 text-white' :
+                                            client?.program === 'new-options' ? 'bg-green-500 text-white' :
+                                            client?.program === 'bridges' ? 'bg-purple-500 text-white' :
+                                            'bg-gray-400 text-white'
+                                          }`}>
+                                            {programBadge}
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemoveAssignment(assignment.id);
+                                          }}
+                                          className="text-red-500 hover:bg-red-100 rounded w-4 h-4 flex items-center justify-center flex-shrink-0"
+                                          title="Remove"
+                                        >
+                                          <X size={8} />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                  {assignments.length > 3 && (
+                                    <div className="text-xs text-center text-gray-500 w-full h-4 flex items-center justify-center">
+                                      +{assignments.length - 3} more
+                                    </div>
+                                  )}
+                                </div>
+                              ) : isClickable ? (
+                                <div className="text-center text-[#6D858E] py-2">
+                                  <MousePointer size={12} className="mx-auto mb-1" />
+                                  <div className="text-xs">Click</div>
+                                </div>
+                              ) : canAssign && selectedClient && !selectedClient?.availableTimeSlots?.includes(slot.id) ? (
+                                <div className="text-center text-red-600 py-2">
+                                  <X size={12} className="mx-auto mb-1" />
+                                  <div className="text-xs">N/A</div>
+                                </div>
+                              ) : (
+                                <div className="text-center text-gray-400 py-2">
+                                  <div className="text-xs">Available</div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        );
-      })}
-    </div>
-  </div>
-</div>
+        </div>
       </div>
 
       {/* Available Clients */}

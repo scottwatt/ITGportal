@@ -1,4 +1,4 @@
-// src/services/firebase/internships.js - FIXED with better error handling and fallback logic
+// src/services/firebase/internships.js - FIXED: serverTimestamp issue in arrays
 
 import { 
   collection, 
@@ -7,11 +7,13 @@ import {
   updateDoc, 
   deleteDoc, 
   getDocs,
+  getDoc,  // Added getDoc for direct document access
   query,
   where,
   orderBy,
   onSnapshot,
-  serverTimestamp 
+  serverTimestamp,
+  Timestamp 
 } from 'firebase/firestore';
 
 import { db } from './config';
@@ -78,7 +80,19 @@ export const removeInternship = async (internshipId) => {
   try {
     console.log('🔄 Removing internship:', internshipId);
     
-    await deleteDoc(doc(db, 'internships', internshipId));
+    if (!internshipId || typeof internshipId !== 'string') {
+      throw new Error('Invalid internship ID provided');
+    }
+    
+    // First verify the internship exists
+    const internship = await getInternshipById(internshipId);
+    if (!internship) {
+      throw new Error(`Internship with ID ${internshipId} not found`);
+    }
+    
+    // Delete the internship document
+    const internshipRef = doc(db, 'internships', internshipId);
+    await deleteDoc(internshipRef);
     
     console.log('✅ Internship removed successfully');
   } catch (error) {
@@ -150,7 +164,7 @@ export const getInternshipById = async (internshipId) => {
 };
 
 /**
- * Mark a day as completed for an internship
+ * FIXED: Mark a day as completed for an internship
  * @param {string} internshipId - Internship document ID
  * @param {string} date - Date in YYYY-MM-DD format
  * @param {Object} dayData - Day completion data (hours, notes, etc.)
@@ -168,10 +182,11 @@ export const markInternshipDay = async (internshipId, date, dayData) => {
     const attendanceLog = internship.attendanceLog || [];
     const existingEntryIndex = attendanceLog.findIndex(entry => entry.date === date);
     
+    // FIXED: Use Firestore Timestamp instead of serverTimestamp() for array items
     const dayEntry = {
       date,
       ...dayData,
-      markedAt: serverTimestamp()
+      markedAt: Timestamp.now() // Changed from serverTimestamp() to Timestamp.now()
     };
     
     if (existingEntryIndex >= 0) {
@@ -201,7 +216,7 @@ export const markInternshipDay = async (internshipId, date, dayData) => {
 };
 
 /**
- * Add an evaluation to an internship
+ * FIXED: Add an evaluation to an internship
  * @param {string} internshipId - Internship document ID
  * @param {Object} evaluationData - Evaluation data
  * @returns {Promise<void>}
@@ -219,7 +234,7 @@ export const addInternshipEvaluation = async (internshipId, evaluationData) => {
     const newEvaluation = {
       ...evaluationData,
       id: Date.now().toString(),
-      createdAt: serverTimestamp()
+      createdAt: Timestamp.now() // Changed from serverTimestamp() to Timestamp.now()
     };
     
     evaluations.push(newEvaluation);
@@ -246,7 +261,7 @@ export const startInternship = async (internshipId, actualStartDate) => {
     await updateInternship(internshipId, {
       status: INTERNSHIP_STATUS.IN_PROGRESS,
       actualStartDate,
-      startedAt: serverTimestamp()
+      startedAt: serverTimestamp() // This is fine since it's not in an array
     });
     
     console.log('✅ Internship started successfully');
@@ -270,7 +285,7 @@ export const completeInternship = async (internshipId, completionDate, completio
     await updateInternship(internshipId, {
       status: INTERNSHIP_STATUS.COMPLETED,
       completionDate,
-      completedAt: serverTimestamp(),
+      completedAt: serverTimestamp(), // This is fine since it's not in an array
       ...completionData
     });
     
@@ -294,7 +309,7 @@ export const cancelInternship = async (internshipId, reason) => {
     await updateInternship(internshipId, {
       status: INTERNSHIP_STATUS.CANCELLED,
       cancellationReason: reason,
-      cancelledAt: serverTimestamp()
+      cancelledAt: serverTimestamp() // This is fine since it's not in an array
     });
     
     console.log('✅ Internship cancelled successfully');

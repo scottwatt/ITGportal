@@ -1,4 +1,4 @@
-// src/components/schedule/DragDropScheduler.jsx - FIXED: Horizontal layout + Multiple clients per coach
+// src/components/schedule/DragDropScheduler.jsx - ENHANCED: Better visual clarity and separation
 
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Trash2, MousePointer, CheckCircle, Copy, Clipboard, Calendar, X, AlertTriangle, Star } from 'lucide-react';
@@ -595,78 +595,34 @@ Continue?`;
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold mb-6 text-[#292929]">
-          Smart Scheduler for {displayDate}
-          {isAssigning && selectedClient && (
-            <span className="ml-4 text-sm text-[#6D858E] bg-[#BED2D8] px-3 py-1 rounded-full">
-              Assigning: {selectedClient.name} - Click a time slot above
-            </span>
-          )}
-        </h3>
-        
-        {/* Instructions */}
-        <div className="mb-6 p-4 bg-[#BED2D8] rounded-lg border-l-4 border-[#6D858E]">
-          <h4 className="font-semibold text-[#292929] mb-2">How to Schedule:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#292929]">
-            <div>
-              <div className="font-medium mb-1">Step 1: Click a client below</div>
-              <div>The client card will turn blue and get a checkmark</div>
+      <div className="bg-white rounded-lg shadow-lg border-2 border-gray-200">
+        <div className="p-6">
+          <h3 className="text-xl font-semibold mb-6 text-[#292929]">
+            Smart Scheduler for {displayDate}
+            {isAssigning && selectedClient && (
+              <span className="ml-4 text-sm text-[#6D858E] bg-[#BED2D8] px-3 py-1 rounded-full">
+                Assigning: {selectedClient.name} - Click a time slot below
+              </span>
+            )}
+          </h3>
+          
+          {/* Instructions */}
+          <div className="mb-6 p-4 bg-[#BED2D8] rounded-lg border-l-4 border-[#6D858E]">
+            <h4 className="font-semibold text-[#292929] mb-2">How to Schedule:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#292929]">
+              <div>
+                <div className="font-medium mb-1">Step 1: Click a client below</div>
+                <div>The client card will turn blue and get a checkmark</div>
+              </div>
+              <div>
+                <div className="font-medium mb-1">Step 2: Click a time slot below</div>
+                <div>The client will be instantly assigned to that coach and time</div>
+              </div>
             </div>
-            <div>
-              <div className="font-medium mb-1">Step 2: Click a time slot above</div>
-              <div>The client will be instantly assigned to that coach and time</div>
-            </div>
-          </div>
-          <div className="mt-3 text-sm text-[#292929]">
-            <div className="font-medium">🔍 Core Schedule Times:</div>
-            <div>• <strong>8:00 AM - 10:00 AM</strong> • <strong>10:00 AM - 12:00 PM</strong> • <strong>12:30 PM - 2:30 PM</strong></div>
-            <div className="mt-1 text-xs">For special scheduling (early hours, weekends, etc.), use the Special Scheduling section below.</div>
-          </div>
-        </div>
-
-        {/* Schedule Grid */}
-        <div className="mb-8">
-          {/* Sticky Coach Headers */}
-          <div className="sticky top-0 bg-white z-10 border-b-2 border-[#6D858E] mb-4">
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
-              {activeCoaches.map(coach => {
-                // Count both core and special schedules for this coach
-                const allAssignments = dailySchedules.filter(s => 
-                  s.date === selectedDate && 
-                  s.coachId === (coach.uid || coach.id)
-                );
-                
-                const specialAssignments = allAssignments.filter(s => isSpecialTimeSlot(s.timeSlot));
-                const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
-                const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
-                const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
-                
-                return (
-                  <div key={coach.uid || coach.id} className={`p-2 text-center text-white ${
-                    isAvailable ? 'bg-[#6D858E]' : 'bg-red-500'
-                  }`}>
-                    <div className="font-semibold text-sm truncate" title={coach.name}>{coach.name}</div>
-                    <div className="text-xs text-[#BED2D8]">
-                      {isAvailable ? (
-                        <>
-                          {allAssignments.length} today
-                          {specialAssignments.length > 0 && (
-                            <div className="flex items-center justify-center space-x-1 mt-1">
-                              <Star size={10} />
-                              <span>{specialAssignments.length}</span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="truncate text-xs" title={`${status}${reason ? ` - ${reason}` : ''}`}>
-                          {status}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="mt-3 text-sm text-[#292929]">
+              <div className="font-medium">🔍 Core Schedule Times:</div>
+              <div>• <strong>8:00 AM - 10:00 AM</strong> • <strong>10:00 AM - 12:00 PM</strong> • <strong>12:30 PM - 2:30 PM</strong></div>
+              <div className="mt-1 text-xs">For special scheduling (early hours, weekends, etc.), use the Special Scheduling section below.</div>
             </div>
           </div>
 
@@ -695,23 +651,70 @@ Continue?`;
               </div>
             </div>
           )}
+        </div>
 
-          {/* Time Slots Grid - Compact Layout */}
-          <div className="space-y-0">
-            {timeSlots.map(slot => (
-              <div key={slot.id} className="border-b border-gray-200">
-                {/* Time Slot Header */}
-                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+        {/* ENHANCED: Schedule Grid with Better Visual Separation */}
+        <div className="relative">
+          {/* ENHANCED: Sticky Coach Headers */}
+          <div className="sticky top-0 bg-gradient-to-r from-[#6D858E] to-[#5A4E69] shadow-lg z-20 border-b-4 border-gray-300">
+            <div className="grid gap-0" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+              {activeCoaches.map(coach => {
+                // Count both core and special schedules for this coach
+                const allAssignments = dailySchedules.filter(s => 
+                  s.date === selectedDate && 
+                  s.coachId === (coach.uid || coach.id)
+                );
+                
+                const specialAssignments = allAssignments.filter(s => isSpecialTimeSlot(s.timeSlot));
+                const isAvailable = availabilityActions.isCoachAvailable(coach.uid || coach.id, selectedDate);
+                const status = availabilityActions.getCoachStatusForDate(coach.uid || coach.id, selectedDate);
+                const reason = availabilityActions.getCoachReasonForDate(coach.uid || coach.id, selectedDate);
+                
+                return (
+                  <div key={coach.uid || coach.id} className="p-3 text-center text-white border-r-2 border-white border-opacity-30 last:border-r-0">
+                    <div className="font-bold text-sm truncate" title={coach.name}>{coach.name}</div>
+                    <div className="text-xs text-white opacity-90 mt-1">
+                      {isAvailable ? (
+                        <div>
+                          <div className="bg-white bg-opacity-20 rounded px-2 py-1">
+                            {allAssignments.length} sessions today
+                          </div>
+                          {specialAssignments.length > 0 && (
+                            <div className="flex items-center justify-center space-x-1 mt-1 bg-orange-400 bg-opacity-30 rounded px-2 py-1">
+                              <Star size={10} />
+                              <span>{specialAssignments.length} special</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-red-500 bg-opacity-30 rounded px-2 py-1 truncate text-xs" title={`${status}${reason ? ` - ${reason}` : ''}`}>
+                          {status}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ENHANCED: Time Slots Grid with Better Separation */}
+          <div className="bg-gray-50">
+            {timeSlots.map((slot, slotIndex) => (
+              <div key={slot.id} className={`${slotIndex > 0 ? 'border-t-4 border-gray-400' : ''} bg-white mb-1`}>
+                {/* ENHANCED: Time Slot Header */}
+                <div className="grid gap-0 bg-gradient-to-r from-gray-200 to-gray-300 border-b-2 border-gray-400" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
                   {activeCoaches.map(coach => (
                     <div key={`${slot.id}-header-${coach.uid || coach.id}`} 
-                        className="text-center p-2 border-r border-gray-200 font-semibold bg-[#F5F5F5] text-[#292929]">
-                      <div className="text-xs">{slot.start} - {slot.end}</div>
+                        className="text-center py-3 px-2 border-r border-gray-300 last:border-r-0 text-gray-700">
+                      <div className="font-bold text-sm">{slot.start} - {slot.end}</div>
+                      <div className="text-xs opacity-75">{slot.label}</div>
                     </div>
                   ))}
                 </div>
                 
-                {/* Coach Slots for this Time */}
-                <div className="grid gap-1 mb-4" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
+                {/* ENHANCED: Coach Slots with Better Styling */}
+                <div className="grid gap-0" style={{ gridTemplateColumns: `repeat(${activeCoaches.length}, 1fr)` }}>
                   {activeCoaches.map(coach => {
                     const coachId = coach.uid || coach.id;
                     const isAvailable = availabilityActions.isCoachAvailable(coachId, selectedDate);
@@ -727,52 +730,57 @@ Continue?`;
                       <div
                         key={`${slot.id}-${coachId}`}
                         onClick={() => isClickable && handleTimeSlotClick(coachId, slot.id)}
-                        className={`min-h-24 p-2 border-r border-b border-gray-200 transition-all overflow-hidden ${
+                        className={`min-h-32 p-3 border-r border-gray-300 last:border-r-0 transition-all ${
                           !isAvailable 
                             ? 'bg-red-50 cursor-not-allowed' :
                           isClickable 
-                            ? 'bg-[#BED2D8] cursor-pointer hover:shadow-md hover:bg-[#6D858E] hover:bg-opacity-20' :
+                            ? 'bg-[#BED2D8] cursor-pointer hover:shadow-lg hover:bg-[#6D858E] hover:bg-opacity-30' :
                           assignments.length > 0
-                            ? 'bg-[#BED2D8]' 
+                            ? 'bg-blue-50 border-l-4 border-l-blue-400' 
                             : 'bg-white hover:bg-gray-50'
                         }`}
                       >
                         {!isAvailable ? (
-                          <div className="text-center text-red-600">
-                            <AlertTriangle size={12} className="mx-auto mb-1" />
-                            <div className="text-xs">Unavailable</div>
+                          <div className="text-center text-red-600 py-6">
+                            <AlertTriangle size={20} className="mx-auto mb-2" />
+                            <div className="text-sm font-medium">Unavailable</div>
+                            <div className="text-xs mt-1 opacity-75">Coach not working</div>
                           </div>
                         ) : assignments.length > 0 ? (
-                          <div className="space-y-1">
+                          <div className="space-y-2">
                             {assignments.map(assignment => {
                               const client = clients.find(c => c.id === assignment.clientId);
                               return client ? (
-                                <div key={assignment.id} className="bg-white border border-[#6D858E] rounded p-1">
+                                <div key={assignment.id} className="bg-white border-2 border-[#6D858E] rounded-lg p-3 shadow-sm">
                                   <div className="flex justify-between items-start">
-                                    <div className="flex-1 min-w-0 overflow-hidden">
-                                      {/* Very compact layout */}
-                                      <div className="flex items-center space-x-1">
-                                        <div className="font-medium text-xs text-[#292929] truncate">
+                                    <div className="flex-1 min-w-0">
+                                      {/* Client info with better layout */}
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <div className="font-bold text-sm text-[#292929] truncate">
                                           {getClientInitials(client.name)}
                                         </div>
-                                        <span className={`text-xs px-1 rounded font-medium ${
-                                          client?.program === 'limitless' ? 'bg-[#BED2D8] text-[#292929]' :
-                                          client?.program === 'new-options' ? 'bg-[#BED2D8] text-[#292929]' :
-                                          client?.program === 'bridges' ? 'bg-[#BED2D8] text-[#292929]' :
-                                          'bg-[#F5F5F5] text-[#292929]'
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                          client?.program === 'limitless' ? 'bg-[#6D858E] text-white' :
+                                          client?.program === 'new-options' ? 'bg-[#5A4E69] text-white' :
+                                          client?.program === 'bridges' ? 'bg-[#9B97A2] text-white' :
+                                          'bg-gray-400 text-white'
                                         }`}>
                                           {client?.program === 'limitless' ? 'L' :
-                                          client?.program === 'new-options' ? 'NO' :
-                                          client?.program === 'bridges' ? 'B' :
-                                          'L'}
+                                           client?.program === 'new-options' ? 'NO' :
+                                           client?.program === 'bridges' ? 'B' :
+                                           'L'}
                                         </span>
                                       </div>
-                                      {/* Super short description */}
-                                      <div className="text-xs text-[#707070] truncate" title={client.businessName || client.name}>
-                                        {client.program === 'limitless' ? 'Business' :
-                                        client.program === 'new-options' ? 'Job' :
-                                        client.program === 'bridges' ? 'Career' :
-                                        'Program'}
+                                      {/* Business/program description */}
+                                      <div className="text-xs text-gray-600 truncate mb-1" title={client.businessName || client.name}>
+                                        {client.program === 'limitless' ? (client.businessName || 'Business') :
+                                         client.program === 'new-options' ? 'Job Focus' :
+                                         client.program === 'bridges' ? 'Career Dev' :
+                                         'Program'}
+                                      </div>
+                                      {/* Full client name */}
+                                      <div className="text-xs text-gray-500 truncate">
+                                        {client.name}
                                       </div>
                                     </div>
                                     <button
@@ -780,10 +788,10 @@ Continue?`;
                                         e.stopPropagation();
                                         handleRemoveAssignment(assignment.id);
                                       }}
-                                      className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded flex-shrink-0"
+                                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded flex-shrink-0 ml-2"
                                       title="Remove assignment"
                                     >
-                                      <Trash2 size={10} />
+                                      <Trash2 size={14} />
                                     </button>
                                   </div>
                                 </div>
@@ -791,19 +799,22 @@ Continue?`;
                             })}
                           </div>
                         ) : isClickable ? (
-                          <div className="text-center text-[#6D858E]">
-                            <MousePointer size={12} className="mx-auto mb-1" />
-                            <div className="text-xs font-medium">Click</div>
+                          <div className="text-center text-[#6D858E] py-6">
+                            <MousePointer size={20} className="mx-auto mb-2" />
+                            <div className="text-sm font-bold">Click to Assign</div>
+                            <div className="text-xs mt-1">{selectedClient?.name}</div>
                           </div>
                         ) : canAssign && selectedClient && !selectedClient?.availableTimeSlots?.includes(slot.id) ? (
-                          <div className="text-center text-red-600">
-                            <X size={12} className="mx-auto mb-1" />
-                            <div className="text-xs">N/A</div>
+                          <div className="text-center text-red-600 py-6">
+                            <X size={20} className="mx-auto mb-2" />
+                            <div className="text-sm font-medium">Client Not Available</div>
+                            <div className="text-xs mt-1">Wrong time slot</div>
                           </div>
                         ) : (
-                          <div className="text-center text-[#9B97A2]">
-                            <User size={12} className="mx-auto mb-1" />
-                            <div className="text-xs">Open</div>
+                          <div className="text-center text-gray-400 py-6">
+                            <User size={20} className="mx-auto mb-2" />
+                            <div className="text-sm">Available</div>
+                            <div className="text-xs mt-1">Ready for assignment</div>
                           </div>
                         )}
                       </div>
@@ -816,7 +827,7 @@ Continue?`;
         </div>
 
         {/* Available Clients */}
-        <div className="border-t pt-6">
+        <div className="p-6 border-t-4 border-gray-300">
           <h4 className="text-lg font-semibold mb-4 text-[#292929]">
             Clients Available for {displayDate}
             <span className="text-sm text-[#9B97A2] ml-2">

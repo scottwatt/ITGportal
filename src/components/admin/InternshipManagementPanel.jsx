@@ -642,6 +642,13 @@ const InternshipManagementPanel = ({
                                 <CheckCircle size={16} />
                               </button>
                             )}
+                            <button
+                              onClick={() => handleDeleteInternship(internship)}
+                              className="text-red-600 hover:text-red-800 p-1"
+                              title="Delete internship"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                             
                             {internship.status === INTERNSHIP_STATUS.PLANNED && (
                               <button

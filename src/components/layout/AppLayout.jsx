@@ -699,29 +699,22 @@ const AppLayout = ({
     }
 
     // Merchandise Coordinator (Kameron) views
-    if (isMerchandiseCoordinator()) {
+     if (isMerchandiseCoordinator()) {
       switch (activeTab) {
         case 'dashboard':
           return (
-            <div className="space-y-6">
-              <ThemeHeader>
-                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Makerspace Coordinator Dashboard</h2>
-                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
-              </ThemeHeader>
-              
-              <Dashboard
-                userProfile={userProfile}
-                clients={clients}
-                coaches={coaches}
-                schedules={schedules}
-                timeSlots={TIME_SLOTS}
-                onClientSelect={setSelectedClient}
-                mileageRecords={mileageRecords}
-                makerspaceRequests={makerspaceRequests}
-                coordinatorRequests={coordinatorRequests}
-                onNavigate={setActiveTab}
-              />
-            </div>
+            <Dashboard
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={setSelectedClient}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
+            />
           );
         case 'makerspace-schedule':
           return (
@@ -778,25 +771,18 @@ const AppLayout = ({
           return <Resources userRole={userProfile?.role} />;
         default:
           return (
-            <div className="space-y-6">
-              <ThemeHeader>
-                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Makerspace Coordinator Dashboard</h2>
-                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
-              </ThemeHeader>
-              
-              <Dashboard
-                userProfile={userProfile}
-                clients={clients}
-                coaches={coaches}
-                schedules={schedules}
-                timeSlots={TIME_SLOTS}
-                onClientSelect={setSelectedClient}
-                mileageRecords={mileageRecords}
-                makerspaceRequests={makerspaceRequests}
-                coordinatorRequests={coordinatorRequests}
-                onNavigate={setActiveTab}
-              />
-            </div>
+            <Dashboard
+              userProfile={userProfile}
+              clients={clients}
+              coaches={coaches}
+              schedules={schedules}
+              timeSlots={TIME_SLOTS}
+              onClientSelect={setSelectedClient}
+              mileageRecords={mileageRecords}
+              makerspaceRequests={makerspaceRequests}
+              coordinatorRequests={coordinatorRequests}
+              onNavigate={setActiveTab}
+            />
           );
       }
     }
