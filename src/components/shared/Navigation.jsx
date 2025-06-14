@@ -1,6 +1,5 @@
-// src/components/shared/Navigation.jsx - Fixed JSX structure
+// src/components/shared/Navigation.jsx - Fixed dropdown and added title animations
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { 
   TrendingUp, 
   Clock, 
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react';
 import GlobalThemeSwitcher from '../admin/GlobalThemeSwitcher';
 import { useGlobalTheme } from '../../contexts/GlobalThemeContext';
+import ITGLogo from './ITGLogo.jsx';
 
 // Complete icon mapping for navigation items
 const iconMap = {
@@ -51,6 +51,20 @@ const iconMap = {
   Package
 };
 
+// Safe ITGLogo component wrapper
+const SafeITGLogo = () => {
+  try {
+    return <ITGLogo />;
+  } catch (error) {
+    console.warn('ITGLogo component failed to render:', error);
+    return (
+      <div className="flex items-center justify-center w-8 h-8 bg-white bg-opacity-20 rounded text-white font-bold text-sm">
+        ITG
+      </div>
+    );
+  }
+};
+
 // Dynamic icon component that handles string icon names
 const DynamicIcon = ({ iconName, size = 16, className = '' }) => {
   const IconComponent = iconMap[iconName];
@@ -63,63 +77,35 @@ const DynamicIcon = ({ iconName, size = 16, className = '' }) => {
   return <Building2 size={size} className={className} />;
 };
 
-// Portal-based dropdown component for maximum z-index
-const DropdownPortal = ({ show, onClose, children, buttonRef }) => {
-  const [position, setPosition] = useState({ top: 0, right: 0 });
+// Simplified dropdown component - no portal needed
+const SimpleDropdown = ({ show, onClose, children, buttonRef }) => {
+  const dropdownRef = useRef(null);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    console.log('DropdownPortal useEffect called, show:', show);
-    if (show && buttonRef?.current) {
-      const updatePosition = () => {
-        const rect = buttonRef.current.getBoundingClientRect();
-        const newPosition = {
-          top: rect.bottom + 8, // 8px gap
-          right: window.innerWidth - rect.right
-        };
-        console.log('Updating dropdown position:', newPosition);
-        setPosition(newPosition);
-      };
-      
-      updatePosition();
-      window.addEventListener('resize', updatePosition);
-      window.addEventListener('scroll', updatePosition);
-      
-      return () => {
-        window.removeEventListener('resize', updatePosition);
-        window.removeEventListener('scroll', updatePosition);
-      };
-    }
-  }, [show, buttonRef]);
+    if (!show) return;
 
-  console.log('DropdownPortal render, show:', show, 'position:', position);
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) && 
+          buttonRef.current && !buttonRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [show, onClose, buttonRef]);
 
   if (!show) return null;
 
-  console.log('Rendering dropdown portal to body');
-
-  return createPortal(
-    <>
-      {/* Invisible overlay to close dropdown */}
-      <div 
-        className="dropdown-overlay-portal"
-        onClick={() => {
-          console.log('Overlay clicked, closing dropdown');
-          onClose();
-        }}
-      />
-      {/* Dropdown with maximum z-index */}
-      <div 
-        className="nav-dropdown-portal"
-        style={{
-          top: `${position.top}px`,
-          right: `${position.right}px`
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </>,
-    document.body
+  return (
+    <div 
+      ref={dropdownRef}
+      className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden"
+      style={{ zIndex: 9999 }}
+    >
+      {children}
+    </div>
   );
 };
 
@@ -195,9 +181,9 @@ const Navigation = ({
       case 'fourthOfJuly':
         return `${baseClasses} fourth-july-wave`;
       case 'stPatricks':
-        return `${baseClasses}`; // Removed stpatricks-bounce
+        return `${baseClasses}`;
       case 'valentine':
-        return `${baseClasses}`; // Removed valentine-pulse
+        return `${baseClasses}`;
       case 'thanksgiving':
         return `${baseClasses} thanksgiving-warm`;
       default:
@@ -212,21 +198,51 @@ const Navigation = ({
     };
   };
 
-  // Get holiday-specific title suffix
+  // Get holiday-specific title suffix with animations
   const getHolidayTitle = () => {
     switch (currentTheme) {
       case 'christmas':
-        return ' 🎄';
+        return (
+          <span className="inline-flex items-center">
+            <span className="christmas-title-sparkle mr-1">🎄</span>
+            <span className="christmas-snow-text">❄️</span>
+          </span>
+        );
       case 'halloween':
-        return ' 🎃';
+        return (
+          <span className="inline-flex items-center">
+            <span className="halloween-bob mr-1">🎃</span>
+            <span className="halloween-float">👻</span>
+          </span>
+        );
       case 'fourthOfJuly':
-        return ' 🇺🇸';
+        return (
+          <span className="inline-flex items-center">
+            <span className="fourth-july-wave-flag mr-1">🇺🇸</span>
+            <span className="fourth-july-sparkle">✨</span>
+          </span>
+        );
       case 'stPatricks':
-        return ' 🍀';
+        return (
+          <span className="inline-flex items-center">
+            <span className="stpatricks-spin mr-1">🍀</span>
+            <span className="stpatricks-rainbow">🌈</span>
+          </span>
+        );
       case 'valentine':
-        return ' 💕';
+        return (
+          <span className="inline-flex items-center">
+            <span className="valentine-heartbeat mr-1">💕</span>
+            <span className="valentine-float">💖</span>
+          </span>
+        );
       case 'thanksgiving':
-        return ' 🦃';
+        return (
+          <span className="inline-flex items-center">
+            <span className="thanksgiving-bob mr-1">🦃</span>
+            <span className="thanksgiving-leaf-fall">🍂</span>
+          </span>
+        );
       default:
         return '';
     }
@@ -306,12 +322,20 @@ const Navigation = ({
         <div className="container mx-auto">
           <div className="flex justify-between items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold">
-                ITG Coach Portal{getHolidayTitle()}
-              </h1>
-              <p className="text-xs" style={{ color: themeData.colors.accent }}>
-                {getHolidayGreeting()}
-              </p>
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <SafeITGLogo />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-1">
+                    <h1 className="text-lg font-bold">Coach Portal</h1>
+                    {getHolidayTitle()}
+                  </div>
+                  <p className="text-xs" style={{ color: themeData.colors.accent }}>
+                    {getHolidayGreeting()}
+                  </p>
+                </div>
+              </div>
             </div>
             
             {/* Desktop Navigation */}
@@ -326,10 +350,8 @@ const Navigation = ({
                     ref={moreButtonRef}
                     onClick={(e) => {
                       e.stopPropagation();
-                      console.log('More button clicked, current state:', showMoreMenu);
                       setShowMoreMenu(!showMoreMenu);
                       setShowMediumMoreMenu(false);
-                      console.log('Setting showMoreMenu to:', !showMoreMenu);
                     }}
                     className="flex items-center space-x-1 px-2 py-2 rounded text-sm hover:bg-white hover:bg-opacity-10 transition-all duration-200"
                   >
@@ -338,11 +360,19 @@ const Navigation = ({
                     {showMoreMenu ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
                   
-                  <DropdownPortal 
+                  <SimpleDropdown 
                     show={showMoreMenu} 
                     onClose={() => setShowMoreMenu(false)}
                     buttonRef={moreButtonRef}
                   >
+                    <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-3">
+                      <div className="flex items-center space-x-2">
+                        <Settings size={18} />
+                        <span className="font-semibold">More Options</span>
+                      </div>
+                      <p className="text-xs text-purple-100 mt-1">Additional navigation items</p>
+                    </div>
+                    
                     <div className="py-1">
                       {secondaryItems.map(item => (
                         <button
@@ -360,7 +390,7 @@ const Navigation = ({
                         </button>
                       ))}
                     </div>
-                  </DropdownPortal>
+                  </SimpleDropdown>
                 </div>
               )}
             </div>
@@ -384,7 +414,7 @@ const Navigation = ({
                   <Menu size={16} />
                 </button>
                 
-                <DropdownPortal 
+                <SimpleDropdown 
                   show={showMediumMoreMenu} 
                   onClose={() => setShowMediumMoreMenu(false)}
                   buttonRef={mediumMoreButtonRef}
@@ -406,7 +436,7 @@ const Navigation = ({
                       </button>
                     ))}
                   </div>
-                </DropdownPortal>
+                </SimpleDropdown>
               </div>
             </div>
             

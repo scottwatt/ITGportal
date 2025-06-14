@@ -1,10 +1,11 @@
-// src/components/shared/Dashboard.jsx - Enhanced with coordinator requests
+// src/components/shared/Dashboard.jsx - Enhanced with coordinator requests and title animations
 import React from 'react';
 import { Building2, User, Clock, TrendingUp, Car, AlertCircle, Calendar, Wrench, Briefcase, ClipboardList } from 'lucide-react';
 import { getPSTDate, formatDatePST } from '../../utils/dateUtils';
 import { getSchedulableClients, safeFilter } from '../../utils/helpers';
 import { getOrderedGroupedSchedule } from '../../utils/scheduleHelpers';
 import { MILEAGE_FORMATS, USER_ROLES, MAKERSPACE_TIME_SLOTS, getCoordinatorById } from '../../utils/constants';
+import { useGlobalTheme } from '../../contexts/GlobalThemeContext';
 
 const Dashboard = ({
   userProfile,
@@ -18,6 +19,7 @@ const Dashboard = ({
   onNavigate // NEW: Add navigation handler for quick actions
 }) => {
   const today = getPSTDate();
+  const { getCurrentTheme, currentTheme } = useGlobalTheme();
   
   // Get today's schedule based on user role with safe filtering
   const getTodaysSchedule = () => {
@@ -116,6 +118,84 @@ const Dashboard = ({
     }
   };
 
+  // Get holiday-specific dashboard title with animations
+  const getDashboardTitle = () => {
+    const baseTitle = `ITG ${userProfile?.role === 'scheduler' ? 'Scheduler' : 'Coach'} Dashboard`;
+    
+    switch (currentTheme) {
+      case 'christmas':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 christmas-title-sparkle">🎄</span>
+            <span className="ml-1 christmas-snow-text">❄️</span>
+          </span>
+        );
+      case 'halloween':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 halloween-bob">🎃</span>
+            <span className="ml-1 halloween-float">👻</span>
+          </span>
+        );
+      case 'fourthOfJuly':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 fourth-july-wave-flag">🇺🇸</span>
+            <span className="ml-1 fourth-july-sparkle">✨</span>
+          </span>
+        );
+      case 'stPatricks':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 stpatricks-spin">🍀</span>
+            <span className="ml-1 stpatricks-rainbow">🌈</span>
+          </span>
+        );
+      case 'valentine':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 valentine-heartbeat">💕</span>
+            <span className="ml-1 valentine-float">💖</span>
+          </span>
+        );
+      case 'thanksgiving':
+        return (
+          <span className="flex items-center">
+            {baseTitle}
+            <span className="ml-2 thanksgiving-bob">🦃</span>
+            <span className="ml-1 thanksgiving-leaf-fall">🍂</span>
+          </span>
+        );
+      default:
+        return baseTitle;
+    }
+  };
+
+  // Get holiday greeting for dashboard
+  const getDashboardGreeting = () => {
+    switch (currentTheme) {
+      case 'christmas':
+        return 'Supporting adult entrepreneurs with Christmas spirit! 🎁';
+      case 'halloween':
+        return 'Spooktacularly supporting adult entrepreneurs with disabilities! 🦇';
+      case 'fourthOfJuly':
+        return 'Celebrating independence through entrepreneurship! 🎆';
+      case 'stPatricks':
+        return 'Finding the luck of the entrepreneurial Irish! 🍀';
+      case 'valentine':
+        return 'Supporting adult entrepreneurs with love and care! 💝';
+      case 'thanksgiving':
+        return 'Grateful for our amazing entrepreneurial community! 🙏';
+      default:
+        return 'Supporting adults with disabilities in their development journey';
+    }
+  };
+
   // NEW: Render coordinator pending requests section
   const renderCoordinatorRequests = () => {
     if (myPendingRequests.length === 0 || !myCoordinatorInfo) return null;
@@ -211,13 +291,23 @@ const Dashboard = ({
     );
   };
 
+  // Get theme-aware gradient
+  const themeData = getCurrentTheme();
+  const getHeaderStyle = () => {
+    return {
+      background: `linear-gradient(135deg, ${themeData.colors.primary} 0%, ${themeData.colors.secondary} 100%)`,
+    };
+  };
+
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
+      <div className="text-white p-6 rounded-lg" style={getHeaderStyle()}>
         <h2 className="text-2xl font-bold mb-2">
-          ITG {userProfile?.role === 'scheduler' ? 'Scheduler' : 'Coach'} Dashboard
+          {getDashboardTitle()}
         </h2>
-        <p className="text-[#BED2D8]">Supporting adults with disabilities in their development journey</p>
+        <p style={{ color: themeData.colors.accent }}>
+          {getDashboardGreeting()}
+        </p>
       </div>
 
       {/* NEW: Coordinator Pending Requests Section */}

@@ -1,4 +1,4 @@
-/* src/styles/themes.css - Fixed theme styles without unwanted effects */
+/* src/styles/themes.css - Fixed theme styles with title animations */
 
 /* Base theme variables */
 :root {
@@ -24,7 +24,7 @@
   --theme-text-muted: #9B97A2;
 }
 
-/* Christmas Theme - No bouncing effects */
+/* Christmas Theme */
 [data-theme="christmas"] {
   --theme-primary: #C41E3A;
   --theme-secondary: #2F8B2F;
@@ -60,7 +60,7 @@
   --theme-text-muted: #6B7280;
 }
 
-/* St. Patrick's Day Theme - No bouncing effects */
+/* St. Patrick's Day Theme */
 [data-theme="stPatricks"] {
   --theme-primary: #228B22;
   --theme-secondary: #32CD32;
@@ -72,7 +72,7 @@
   --theme-text-muted: #8FBC8F;
 }
 
-/* Valentine's Day Theme - No bouncing effects */
+/* Valentine's Day Theme */
 [data-theme="valentine"] {
   --theme-primary: #FF1493;
   --theme-secondary: #FF69B4;
@@ -165,6 +165,144 @@
   border-color: var(--theme-secondary);
   color: white;
 }
+
+/* ======================== */
+/* HOLIDAY TITLE ANIMATIONS */
+/* ======================== */
+
+/* Christmas Title Animations */
+@keyframes christmas-sparkle-rotate {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  50% { transform: rotate(0deg) scale(1); }
+  75% { transform: rotate(10deg) scale(1.1); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes christmas-snow-drift {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(180deg); }
+}
+
+.christmas-title-sparkle {
+  animation: christmas-sparkle-rotate 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+.christmas-snow-text {
+  animation: christmas-snow-drift 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Halloween Title Animations */
+@keyframes halloween-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes halloween-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+  50% { transform: translateY(-8px) rotate(5deg); opacity: 1; }
+}
+
+.halloween-bob {
+  animation: halloween-bob 2.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+.halloween-float {
+  animation: halloween-float 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Fourth of July Title Animations */
+@keyframes fourth-july-wave-flag {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+@keyframes fourth-july-sparkle-twinkle {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.fourth-july-wave-flag {
+  animation: fourth-july-wave-flag 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+.fourth-july-sparkle {
+  animation: fourth-july-sparkle-twinkle 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* St. Patrick's Day Title Animations */
+@keyframes stpatricks-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes stpatricks-rainbow-slide {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(3px); }
+}
+
+.stpatricks-spin {
+  animation: stpatricks-spin 4s linear infinite;
+  display: inline-block;
+}
+
+.stpatricks-rainbow {
+  animation: stpatricks-rainbow-slide 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Valentine's Day Title Animations */
+@keyframes valentine-heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes valentine-float-heart {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-5deg); }
+}
+
+.valentine-heartbeat {
+  animation: valentine-heartbeat 1.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+.valentine-float {
+  animation: valentine-float-heart 2.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* Thanksgiving Title Animations */
+@keyframes thanksgiving-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes thanksgiving-leaf-fall {
+  0% { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(10px) rotate(360deg); }
+}
+
+.thanksgiving-bob {
+  animation: thanksgiving-bob 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+.thanksgiving-leaf-fall {
+  animation: thanksgiving-leaf-fall 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ======================== */
+/* EXISTING ANIMATIONS */
+/* ======================== */
 
 /* Christmas Snow Effect - Keep this */
 .christmas-snow {
@@ -320,16 +458,11 @@
   animation: none !important;
 }
 
-/* Ensure navigation dropdowns stay above all content */
-.nav-dropdown {
-  position: absolute !important;
-  z-index: 9999 !important;
-  top: calc(100% + 0.5rem) !important;
-  right: 0 !important;
-  left: auto !important;
-}
+/* ======================== */
+/* NAVIGATION Z-INDEX FIXES */
+/* ======================== */
 
-/* Ensure navigation bar stays above content */
+/* Ensure navigation dropdowns stay above all content */
 nav {
   position: sticky !important;
   top: 0 !important;
@@ -347,6 +480,11 @@ nav > div {
 nav .relative {
   overflow: visible !important;
   position: relative;
+}
+
+/* Simple dropdown positioning */
+nav .relative > div[style*="zIndex"] {
+  z-index: 9999 !important;
 }
 
 /* Content area z-index - much lower */
@@ -408,16 +546,138 @@ nav .absolute.bg-white {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Prevent Tailwind z-index utilities from overriding */
-.z-10, .z-20, .z-30, .z-40, .z-50 {
+/* Prevent Tailwind z-index utilities from overriding in main content */
+main .z-10, 
+main .z-20, 
+main .z-30, 
+main .z-40, 
+main .z-50 {
   z-index: auto !important;
 }
 
-/* Allow only specific high z-index values */
+/* Allow only specific high z-index values for navigation */
 .z-modal {
   z-index: 8000 !important;
 }
 
 .z-dropdown {
   z-index: 9999 !important;
+}
+
+/* Christmas Title Animations */
+@keyframes christmas-sparkle-rotate {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  50% { transform: rotate(0deg) scale(1); }
+  75% { transform: rotate(10deg) scale(1.1); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+@keyframes christmas-snow-drift {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(180deg); }
+}
+
+.christmas-title-sparkle {
+  animation: christmas-sparkle-rotate 3s ease-in-out infinite;
+}
+
+.christmas-snow-text {
+  animation: christmas-snow-drift 2s ease-in-out infinite;
+}
+
+/* Halloween Title Animations */
+@keyframes halloween-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes halloween-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+  50% { transform: translateY(-8px) rotate(5deg); opacity: 1; }
+}
+
+.halloween-bob {
+  animation: halloween-bob 2.5s ease-in-out infinite;
+}
+
+.halloween-float {
+  animation: halloween-float 3s ease-in-out infinite;
+}
+
+/* Fourth of July Title Animations */
+@keyframes fourth-july-wave-flag {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+@keyframes fourth-july-sparkle-twinkle {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.fourth-july-wave-flag {
+  animation: fourth-july-wave-flag 2s ease-in-out infinite;
+}
+
+.fourth-july-sparkle {
+  animation: fourth-july-sparkle-twinkle 1.5s ease-in-out infinite;
+}
+
+/* St. Patrick's Day Title Animations */
+@keyframes stpatricks-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes stpatricks-rainbow-slide {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(3px); }
+}
+
+.stpatricks-spin {
+  animation: stpatricks-spin 4s linear infinite;
+}
+
+.stpatricks-rainbow {
+  animation: stpatricks-rainbow-slide 2s ease-in-out infinite;
+}
+
+/* Valentine's Day Title Animations */
+@keyframes valentine-heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes valentine-float-heart {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-5deg); }
+}
+
+.valentine-heartbeat {
+  animation: valentine-heartbeat 1.5s ease-in-out infinite;
+}
+
+.valentine-float {
+  animation: valentine-float-heart 2.5s ease-in-out infinite;
+}
+
+/* Thanksgiving Title Animations */
+@keyframes thanksgiving-bob {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes thanksgiving-leaf-fall {
+  0% { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(10px) rotate(360deg); }
+}
+
+.thanksgiving-bob {
+  animation: thanksgiving-bob 2s ease-in-out infinite;
+}
+
+.thanksgiving-leaf-fall {
+  animation: thanksgiving-leaf-fall 3s ease-in-out infinite;
 }
