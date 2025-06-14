@@ -7,13 +7,17 @@ import AppLayout from './components/layout/AppLayout';
 import LoginScreen from './components/auth/LoginScreen';
 import LoadingScreen from './components/shared/LoadingScreen';
 
+
 // Custom hooks
 import { useAuth } from './hooks/useAuth';
 import { useAppState } from './hooks/useAppState';
 import { useInternships } from './hooks/useInternships'; // ADD: Import internships hook
 
+
 // Styles
 import './App.css';
+import './styles/themes.css';
+import { GlobalThemeProvider } from './contexts/GlobalThemeContext';
 
 // Global error boundary fallback
 const GlobalErrorFallback = ({ error, resetErrorBoundary }) => (
@@ -128,6 +132,8 @@ function App() {
           // errorReportingService.captureException(error, { extra: errorInfo });
         }}
       >
+        <GlobalThemeProvider>
+                <div className="min-h-screen theme-bg-background">
         <AppLayout 
           // Auth props
           user={auth.user}
@@ -167,9 +173,68 @@ function App() {
           internshipActions={internshipActions}
           makerspaceActions={appState.makerspaceActions}
         />
+        </div>
+        </GlobalThemeProvider>
       </ErrorBoundary>
     </div>
   );
 }
+
+// Global Theme Change Notification Component
+const GlobalThemeNotification = () => {
+  const { currentTheme, getCurrentTheme, lastChangedBy, lastChangedAt } = useGlobalTheme();
+  const [showNotification, setShowNotification] = useState(false);
+  const [previousTheme, setPreviousTheme] = useState('default');
+
+  useEffect(() => {
+    // Show notification when theme changes (but not on initial load)
+    if (currentTheme !== previousTheme && previousTheme !== null) {
+      if (currentTheme !== 'default' && lastChangedBy) {
+        setShowNotification(true);
+        
+        // Auto-hide notification after 5 seconds
+        const timer = setTimeout(() => {
+          setShowNotification(false);
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+    setPreviousTheme(currentTheme);
+  }, [currentTheme, previousTheme, lastChangedBy]);
+
+  if (!showNotification || currentTheme === 'default') return null;
+
+  const themeData = getCurrentTheme();
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 max-w-sm">
+      <div 
+        className="bg-white rounded-lg shadow-lg border-l-4 p-4 transition-all duration-300"
+        style={{ borderLeftColor: themeData.colors.primary }}
+      >
+        <div className="flex items-start space-x-3">
+          <span className="text-2xl">{themeData.emoji}</span>
+          <div className="flex-1">
+            <h4 className="font-medium text-gray-900">
+              Theme Changed to {themeData.name}!
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">
+              {lastChangedBy?.name || 'An admin'} switched the portal theme for everyone.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowNotification(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default App;

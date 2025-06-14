@@ -1,6 +1,5 @@
-// src/components/auth/LoginScreen.jsx
+// src/components/auth/LoginScreen.jsx - With Fun Background
 import React, { useState } from 'react';
-import { Building2 } from 'lucide-react';
 
 const LoginScreen = ({ onLogin, error: authError }) => {
   const [email, setEmail] = useState('');
@@ -26,14 +25,34 @@ const LoginScreen = ({ onLogin, error: authError }) => {
   const displayError = authError || error;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#6D858E] to-[#5A4E69] flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Fun Animated Background */}
+          <div className="absolute inset-0 overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-90"
+          style={{
+            background: 'linear-gradient(45deg, #6D858E, #5A4E69, #BED2D8, #6D858E)',
+            backgroundSize: '400% 400%',
+            animation: 'gradientShift 15s ease infinite'
+          }}
+        ></div>
+        <style jsx>{`
+          @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
+      </div>
+
+      {/* Login Modal - Exactly the same as before */}
+      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="bg-[#BED2D8] w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="text-[#6D858E]" size={32} />
+          {/* Logo section */}
+          <div className="flex justify-center mb-6">
+            <ITGLogo size="xxl" showTagline={false} />
           </div>
-          <h1 className="text-3xl font-bold text-[#292929] mb-2">ITG Coach Portal</h1>
-          <p className="text-[#707070]">Independence Through Grace</p>
+          <h1 className="text-2xl font-bold text-[#292929] mb-2">Coach Portal</h1>
           <p className="text-sm text-[#9B97A2]">Supporting Adult Entrepreneurs with Disabilities</p>
         </div>
         

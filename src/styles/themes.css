@@ -1,0 +1,207 @@
+/* src/styles/themes.css */
+
+/* CSS Custom Properties for Theme System */
+:root {
+  /* Default ITG Colors */
+  --color-primary: #6D858E;
+  --color-secondary: #5A4E69;
+  --color-accent: #BED2D8;
+  --color-text: #292929;
+  --color-text-secondary: #707070;
+  --color-text-muted: #9B97A2;
+  --color-background: #F5F5F5;
+  --color-white: #FFFFFF;
+  
+  /* Animation and transition variables */
+  --theme-transition: all 0.3s ease-in-out;
+}
+
+/* Theme-aware utility classes */
+.theme-bg-primary { background-color: var(--color-primary) !important; }
+.theme-bg-secondary { background-color: var(--color-secondary) !important; }
+.theme-bg-accent { background-color: var(--color-accent) !important; }
+.theme-bg-background { background-color: var(--color-background) !important; }
+.theme-bg-white { background-color: var(--color-white) !important; }
+
+.theme-text-primary { color: var(--color-primary) !important; }
+.theme-text-secondary { color: var(--color-secondary) !important; }
+.theme-text-accent { color: var(--color-accent) !important; }
+.theme-text-main { color: var(--color-text) !important; }
+.theme-text-secondary-text { color: var(--color-text-secondary) !important; }
+.theme-text-muted { color: var(--color-text-muted) !important; }
+
+.theme-border-primary { border-color: var(--color-primary) !important; }
+.theme-border-secondary { border-color: var(--color-secondary) !important; }
+.theme-border-accent { border-color: var(--color-accent) !important; }
+
+/* Hover effects */
+.theme-hover-primary:hover { background-color: var(--color-primary) !important; }
+.theme-hover-secondary:hover { background-color: var(--color-secondary) !important; }
+
+/* Special Halloween dark mode overrides */
+.halloween-dark {
+  --color-background: #2F2F2F;
+  --color-white: #1C1C1C;
+  --color-text: #FFFFFF;
+  --color-text-secondary: #CCCCCC;
+  --color-text-muted: #999999;
+}
+
+/* Christmas sparkle animation */
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.christmas-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+/* Halloween spooky glow */
+@keyframes spooky-glow {
+  0%, 100% { box-shadow: 0 0 5px var(--color-primary); }
+  50% { box-shadow: 0 0 20px var(--color-primary), 0 0 30px var(--color-secondary); }
+}
+
+.halloween-glow {
+  animation: spooky-glow 3s ease-in-out infinite;
+}
+
+/* Fourth of July patriotic wave */
+@keyframes patriotic-wave {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.fourth-july-wave {
+  background: linear-gradient(45deg, var(--color-primary), var(--color-white), var(--color-secondary), var(--color-white));
+  background-size: 400% 400%;
+  animation: patriotic-wave 4s ease infinite;
+}
+
+/* St. Patrick's Day shamrock bounce */
+@keyframes shamrock-bounce {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.stpatricks-bounce {
+  animation: shamrock-bounce 2s ease-in-out infinite;
+}
+
+/* Valentine's Day heart pulse */
+@keyframes heart-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.valentine-pulse {
+  animation: heart-pulse 1.5s ease-in-out infinite;
+}
+
+/* Thanksgiving warm glow */
+.thanksgiving-warm {
+  filter: sepia(20%) saturate(120%) hue-rotate(10deg);
+}
+
+/* Theme transition for smooth switching */
+* {
+  transition: var(--theme-transition);
+}
+
+/* Special theme indicators */
+.theme-indicator {
+  position: relative;
+}
+
+.theme-indicator::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.theme-indicator.active::before {
+  opacity: 1;
+}
+
+/* Halloween special effects */
+.halloween-shadow {
+  box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+}
+
+/* Christmas snow effect (optional) */
+@keyframes snow {
+  0% { transform: translateY(-100vh) translateX(0px); }
+  100% { transform: translateY(100vh) translateX(100px); }
+}
+
+.christmas-snow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.christmas-snow::before,
+.christmas-snow::after {
+  content: '❄️';
+  position: absolute;
+  font-size: 20px;
+  animation: snow 10s linear infinite;
+}
+
+.christmas-snow::before {
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.christmas-snow::after {
+  left: 80%;
+  animation-delay: 5s;
+  font-size: 15px;
+}
+
+/* Responsive theme adjustments */
+@media (max-width: 768px) {
+  .theme-mobile-compact {
+    padding: 0.5rem !important;
+  }
+}
+
+/* Print styles - always use default theme */
+@media print {
+  :root {
+    --color-primary: #6D858E;
+    --color-secondary: #5A4E69;
+    --color-accent: #BED2D8;
+    --color-text: #292929;
+    --color-text-secondary: #707070;
+    --color-text-muted: #9B97A2;
+    --color-background: #FFFFFF;
+    --color-white: #FFFFFF;
+  }
+  
+  .halloween-dark,
+  .christmas-sparkle,
+  .halloween-glow,
+  .fourth-july-wave,
+  .stpatricks-bounce,
+  .valentine-pulse,
+  .thanksgiving-warm {
+    animation: none !important;
+    filter: none !important;
+    background: white !important;
+    color: black !important;
+  }
+}
