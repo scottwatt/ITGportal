@@ -1,5 +1,6 @@
 // src/components/shared/LoadingScreen.jsx - Updated with ITG Logo
 import React from 'react';
+import ITGLogo from './ITGLogo';
 
 const LoadingScreen = ({ message = 'Loading ITG Coach Portal...' }) => {
   return (

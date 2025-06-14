@@ -1,23 +1,22 @@
-// src/App.js - Updated with Grace Attendance support + Mileage Tracking + INTERNSHIPS
-import React from 'react';
+// src/App.js - Corrected with proper Global Theme integration
+import React, { useState, useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 // Core components
 import AppLayout from './components/layout/AppLayout';
 import LoginScreen from './components/auth/LoginScreen';
 import LoadingScreen from './components/shared/LoadingScreen';
-
+import ThemeWrapper from './components/theme/ThemeWrapper';
 
 // Custom hooks
 import { useAuth } from './hooks/useAuth';
 import { useAppState } from './hooks/useAppState';
-import { useInternships } from './hooks/useInternships'; // ADD: Import internships hook
+import { useInternships } from './hooks/useInternships';
 
-
-// Styles
+// Styles and contexts
 import './App.css';
 import './styles/themes.css';
-import { GlobalThemeProvider } from './contexts/GlobalThemeContext';
+import { GlobalThemeProvider, useGlobalTheme } from './contexts/GlobalThemeContext';
 
 // Global error boundary fallback
 const GlobalErrorFallback = ({ error, resetErrorBoundary }) => (
@@ -49,15 +48,82 @@ const GlobalErrorFallback = ({ error, resetErrorBoundary }) => (
   </div>
 );
 
-function App() {
+// Global Theme Change Notification Component
+const GlobalThemeNotification = () => {
+  const { currentTheme, getCurrentTheme, lastChangedBy, lastChangedAt } = useGlobalTheme();
+  const [showNotification, setShowNotification] = useState(false);
+  const [previousTheme, setPreviousTheme] = useState('default');
+
+  useEffect(() => {
+    // Show notification when theme changes (but not on initial load)
+    if (currentTheme !== previousTheme && previousTheme !== 'default') {
+      if (currentTheme !== 'default' && lastChangedBy) {
+        setShowNotification(true);
+        
+        // Auto-hide notification after 5 seconds
+        const timer = setTimeout(() => {
+          setShowNotification(false);
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+    setPreviousTheme(currentTheme);
+  }, [currentTheme, previousTheme, lastChangedBy]);
+
+  if (!showNotification || currentTheme === 'default') return null;
+
+  const themeData = getCurrentTheme();
+  
+  return (
+    <div 
+      className="fixed top-4 right-4 max-w-sm"
+      style={{ zIndex: 2147483645 }}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-lg border-l-4 p-4 transition-all duration-300"
+        style={{ 
+          borderLeftColor: themeData.colors.primary,
+          zIndex: 2147483645
+        }}
+      >
+        <div className="flex items-start space-x-3">
+          <span className="text-2xl">{themeData.emoji}</span>
+          <div className="flex-1">
+            <h4 className="font-medium text-gray-900">
+              Theme Changed to {themeData.name}!
+            </h4>
+            <p className="text-sm text-gray-600 mt-1">
+              {lastChangedBy?.name || 'An admin'} switched the portal theme for everyone.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowNotification(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main App Content (wrapped by theme provider)
+const AppContent = () => {
   // Authentication state and methods
   const auth = useAuth();
   
   // Application state and data (only initialize if authenticated)
   const appState = useAppState(auth.isAuthenticated);
 
-  // ADD: Internship management hook (only initialize if authenticated)
+  // Internship management hook (only initialize if authenticated)
   const internshipHook = useInternships(null, auth.isAuthenticated);
+
+  // Get current theme for global animations
+  const { getCurrentTheme, currentTheme } = useGlobalTheme();
 
   // Handle authentication loading
   if (auth.loading) {
@@ -88,22 +154,24 @@ function App() {
   if (allErrors.length > 0) {
     const errorMessage = allErrors.join(', ');
     return (
-      <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center">
-          <h2 className="text-xl font-bold text-red-600 mb-4">Data Loading Error</h2>
-          <p className="text-gray-600 mb-4">{errorMessage}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="bg-[#6D858E] text-white px-4 py-2 rounded hover:bg-[#5A4E69]"
-          >
-            Refresh Application
-          </button>
+      <ThemeWrapper>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="theme-card max-w-md w-full text-center">
+            <h2 className="text-xl font-bold text-red-600 mb-4">Data Loading Error</h2>
+            <p className="theme-text-secondary mb-4">{errorMessage}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-[#6D858E] text-white px-4 py-2 rounded hover:bg-[#5A4E69]"
+            >
+              Refresh Application
+            </button>
+          </div>
         </div>
-      </div>
+      </ThemeWrapper>
     );
   }
 
-  // ADD: Create internship actions object
+  // Create internship actions object
   const internshipActions = {
     add: internshipHook.add,
     update: internshipHook.update,
@@ -118,22 +186,30 @@ function App() {
     getClientStats: internshipHook.getClientStats
   };
 
-  // Render main application
+  // Render main application with theme notification and seasonal animations
   return (
-    <div className="App">
-      <ErrorBoundary
-        FallbackComponent={GlobalErrorFallback}
-        onError={(error, errorInfo) => {
-          // Log error to console and potentially to error reporting service
-          console.error('Application Error:', error);
-          console.error('Error Info:', errorInfo);
-          
-          // You could add error reporting here
-          // errorReportingService.captureException(error, { extra: errorInfo });
-        }}
-      >
-        <GlobalThemeProvider>
-                <div className="min-h-screen theme-bg-background">
+    <>
+      {/* Global Seasonal Animations */}
+      {currentTheme === 'christmas' && (
+        <div className="christmas-snow fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+      {currentTheme === 'halloween' && (
+        <div className="halloween-bats fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+      {currentTheme === 'valentine' && (
+        <div className="valentine-hearts fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+      {currentTheme === 'stPatricks' && (
+        <div className="stpatricks-shamrocks fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+      {currentTheme === 'thanksgiving' && (
+        <div className="thanksgiving-leaves fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+      {currentTheme === 'fourthOfJuly' && (
+        <div className="fourth-july-fireworks fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />
+      )}
+
+      <ThemeWrapper>
         <AppLayout 
           // Auth props
           user={auth.user}
@@ -173,68 +249,37 @@ function App() {
           internshipActions={internshipActions}
           makerspaceActions={appState.makerspaceActions}
         />
-        </div>
+      </ThemeWrapper>
+      
+      {/* Global Theme Change Notification */}
+      <GlobalThemeNotification />
+    </>
+  );
+};
+
+function App() {
+  // Get user profile for theme provider
+  const auth = useAuth();
+
+  return (
+    <div className="App">
+      <ErrorBoundary
+        FallbackComponent={GlobalErrorFallback}
+        onError={(error, errorInfo) => {
+          // Log error to console and potentially to error reporting service
+          console.error('Application Error:', error);
+          console.error('Error Info:', errorInfo);
+          
+          // You could add error reporting here
+          // errorReportingService.captureException(error, { extra: errorInfo });
+        }}
+      >
+        <GlobalThemeProvider userProfile={auth.userProfile}>
+          <AppContent />
         </GlobalThemeProvider>
       </ErrorBoundary>
     </div>
   );
 }
-
-// Global Theme Change Notification Component
-const GlobalThemeNotification = () => {
-  const { currentTheme, getCurrentTheme, lastChangedBy, lastChangedAt } = useGlobalTheme();
-  const [showNotification, setShowNotification] = useState(false);
-  const [previousTheme, setPreviousTheme] = useState('default');
-
-  useEffect(() => {
-    // Show notification when theme changes (but not on initial load)
-    if (currentTheme !== previousTheme && previousTheme !== null) {
-      if (currentTheme !== 'default' && lastChangedBy) {
-        setShowNotification(true);
-        
-        // Auto-hide notification after 5 seconds
-        const timer = setTimeout(() => {
-          setShowNotification(false);
-        }, 5000);
-        
-        return () => clearTimeout(timer);
-      }
-    }
-    setPreviousTheme(currentTheme);
-  }, [currentTheme, previousTheme, lastChangedBy]);
-
-  if (!showNotification || currentTheme === 'default') return null;
-
-  const themeData = getCurrentTheme();
-  
-  return (
-    <div className="fixed top-4 right-4 z-50 max-w-sm">
-      <div 
-        className="bg-white rounded-lg shadow-lg border-l-4 p-4 transition-all duration-300"
-        style={{ borderLeftColor: themeData.colors.primary }}
-      >
-        <div className="flex items-start space-x-3">
-          <span className="text-2xl">{themeData.emoji}</span>
-          <div className="flex-1">
-            <h4 className="font-medium text-gray-900">
-              Theme Changed to {themeData.name}!
-            </h4>
-            <p className="text-sm text-gray-600 mt-1">
-              {lastChangedBy?.name || 'An admin'} switched the portal theme for everyone.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowNotification(false)}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default App;

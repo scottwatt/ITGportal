@@ -1,9 +1,9 @@
-// src/contexts/GlobalThemeContext.jsx
+// src/contexts/GlobalThemeContext.jsx - Fixed version
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase/config';
 
-// Holiday theme definitions (same as before)
+// Holiday theme definitions
 export const HOLIDAY_THEMES = {
   default: {
     id: 'default',
@@ -123,6 +123,21 @@ export const useGlobalTheme = () => {
   return context;
 };
 
+// Check if user can change theme
+const canChangeTheme = (userProfile) => {
+  if (!userProfile) return false;
+  
+  const adminRoles = [
+    'admin',
+    'program_admin_coordinator',
+    'admin_dev_coordinator', 
+    'executive_director',
+    'director_org_dev',
+    'director_program_dev'
+  ];
+  return adminRoles.includes(userProfile.role);
+};
+
 // Global Theme Provider Component
 export const GlobalThemeProvider = ({ children, userProfile }) => {
   const [currentTheme, setCurrentTheme] = useState('default');
@@ -159,6 +174,8 @@ export const GlobalThemeProvider = ({ children, userProfile }) => {
     if (loading) return;
     
     const theme = HOLIDAY_THEMES[currentTheme];
+    if (!theme) return;
+    
     const root = document.documentElement;
     
     // Set CSS custom properties
@@ -171,19 +188,27 @@ export const GlobalThemeProvider = ({ children, userProfile }) => {
       root.style.setProperty('--color-background', '#2F2F2F');
       root.style.setProperty('--color-white', '#1C1C1C');
       root.style.setProperty('--color-text', '#FFFFFF');
+      document.body.classList.add('halloween-dark');
+    } else {
+      document.body.classList.remove('halloween-dark');
     }
+    
+    // Add theme class to body for additional styling
+    document.body.className = document.body.className.replace(/theme-\w+/g, '');
+    document.body.classList.add(`theme-${currentTheme}`);
+    
   }, [currentTheme, loading]);
   
   // Change theme globally (admin only)
   const changeGlobalTheme = async (themeId) => {
     if (!userProfile || !canChangeTheme(userProfile)) {
       console.warn('User does not have permission to change global theme');
-      return;
+      throw new Error('Insufficient permissions to change global theme');
     }
     
     if (!HOLIDAY_THEMES[themeId]) {
       console.warn('Invalid theme ID:', themeId);
-      return;
+      throw new Error('Invalid theme ID');
     }
     
     try {
@@ -192,13 +217,13 @@ export const GlobalThemeProvider = ({ children, userProfile }) => {
         theme: themeId,
         changedBy: {
           uid: userProfile.uid,
-          name: userProfile.name,
+          name: userProfile.name || userProfile.email,
           email: userProfile.email
         },
         changedAt: new Date().toISOString()
       });
       
-      console.log(`Global theme changed to ${themeId} by ${userProfile.name}`);
+      console.log(`Global theme changed to ${themeId} by ${userProfile.name || userProfile.email}`);
     } catch (error) {
       console.error('Error changing global theme:', error);
       throw error;
@@ -210,20 +235,7 @@ export const GlobalThemeProvider = ({ children, userProfile }) => {
     await changeGlobalTheme('default');
   };
   
-  // Check if user can change theme
-  const canChangeTheme = (user) => {
-    const adminRoles = [
-      'admin',
-      'program_admin_coordinator',
-      'admin_dev_coordinator', 
-      'executive_director',
-      'director_org_dev',
-      'director_program_dev'
-    ];
-    return user && adminRoles.includes(user.role);
-  };
-  
-  const getCurrentTheme = () => HOLIDAY_THEMES[currentTheme];
+  const getCurrentTheme = () => HOLIDAY_THEMES[currentTheme] || HOLIDAY_THEMES.default;
   
   const value = {
     currentTheme,

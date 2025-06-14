@@ -1,4 +1,4 @@
-// src/components/admin/GlobalThemeSwitcher.jsx
+// src/components/admin/GlobalThemeSwitcher.jsx - Fixed version
 import React, { useState } from 'react';
 import { Palette, ChevronDown, ChevronUp, Crown, RotateCcw, Globe, Clock, User } from 'lucide-react';
 import { useGlobalTheme } from '../../contexts/GlobalThemeContext';
@@ -18,6 +18,7 @@ const GlobalThemeSwitcher = () => {
   
   const [isOpen, setIsOpen] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
+  const [error, setError] = useState(null);
   
   // Only show to users who can change themes
   if (!canChangeTheme || loading) return null;
@@ -26,26 +27,29 @@ const GlobalThemeSwitcher = () => {
   
   const handleThemeChange = async (themeId) => {
     setIsChanging(true);
+    setError(null);
     try {
       await changeGlobalTheme(themeId);
+      setIsOpen(false);
     } catch (error) {
       console.error('Failed to change theme:', error);
-      // You might want to show a toast notification here
+      setError(error.message || 'Failed to change theme');
     } finally {
       setIsChanging(false);
-      setIsOpen(false);
     }
   };
   
   const handleReset = async () => {
     setIsChanging(true);
+    setError(null);
     try {
       await resetToDefault();
+      setIsOpen(false);
     } catch (error) {
       console.error('Failed to reset theme:', error);
+      setError(error.message || 'Failed to reset theme');
     } finally {
       setIsChanging(false);
-      setIsOpen(false);
     }
   };
   
@@ -124,6 +128,16 @@ const GlobalThemeSwitcher = () => {
               </div>
             )}
           </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-50 border-b border-red-200">
+              <div className="flex items-center space-x-2">
+                <span className="text-red-600">⚠️</span>
+                <span className="text-sm text-red-800">{error}</span>
+              </div>
+            </div>
+          )}
           
           <div className="max-h-80 overflow-y-auto">
             {Object.values(themes).map((theme) => (

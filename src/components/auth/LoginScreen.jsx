@@ -1,5 +1,6 @@
 // src/components/auth/LoginScreen.jsx - With Fun Background
 import React, { useState } from 'react';
+import ITGLogo from '../shared/ITGLogo.jsx'
 
 const LoginScreen = ({ onLogin, error: authError }) => {
   const [email, setEmail] = useState('');

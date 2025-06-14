@@ -1,4 +1,4 @@
-// src/components/layout/AppLayout.jsx - UPDATED with coordinator scheduling functionality
+// src/components/layout/AppLayout.jsx - Complete with Theme Integration
 import React, { lazy, Suspense, useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Briefcase, ClipboardList } from 'lucide-react';
@@ -10,6 +10,7 @@ import PasswordChangeModal from '../auth/PasswordChangeModal';
 import Dashboard from '../shared/Dashboard';
 import Resources from '../shared/Resources';
 import MileageTracker from '../mileage/MileageTracker'; 
+import { ThemeCard, ThemeHeader } from '../theme/ThemeWrapper';
 import { loadGoogleMapsAPI } from '../../utils/googleMapsLoader'; 
 import { canAccessMileageTracking } from '../../utils/constants';
 
@@ -30,7 +31,7 @@ import MakerspaceRequestManager from '../makerspace/MakerspaceRequestManager';
 import MakerspaceSchedule from '../makerspace/MakerspaceSchedule';
 import MakerspaceOverview from '../makerspace/MakerspaceOverview';
 
-// NEW: Coordinator scheduling components
+// Coordinator scheduling components
 import CoordinatorScheduleManager from '../scheduling/CoordinatorScheduleManager';
 import CoordinatorPersonalSchedule from '../scheduling/CoordinatorPersonalSchedule';
 import UnifiedSchedulingRequest from '../scheduling/UnifiedSchedulingRequest';
@@ -59,19 +60,19 @@ const MonthlyScheduleView = lazy(() => import('../schedule/MonthlyScheduleView')
 const MyScheduleTab = lazy(() => import('../schedule/MyScheduleTab'));
 const ClientsTab = lazy(() => import('../client/ClientsTab'));
 
-// Error fallback component
+// Error fallback component with theme support
 const ErrorFallback = ({ error, resetErrorBoundary }) => (
-  <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center">
-    <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center">
+  <div className="min-h-screen flex items-center justify-center">
+    <ThemeCard className="max-w-md w-full text-center">
       <h2 className="text-xl font-bold text-red-600 mb-4">Something went wrong</h2>
-      <p className="text-gray-600 mb-4">{error.message}</p>
+      <p className="theme-text-secondary mb-4">{error.message}</p>
       <button 
         onClick={resetErrorBoundary}
         className="bg-[#6D858E] text-white px-4 py-2 rounded hover:bg-[#5A4E69]"
       >
         Try again
       </button>
-    </div>
+    </ThemeCard>
   </div>
 );
 
@@ -109,7 +110,7 @@ const AppLayout = ({
   internships = [],
   // Makerspace data
   makerspaceRequests = [],
-  coordinatorRequests = [], // NEW: All coordinator requests (vocational, admin, etc.)
+  coordinatorRequests = [],
   makerspaceSchedule = [],
   walkthroughs = [],
   
@@ -224,17 +225,17 @@ const AppLayout = ({
         case 'my-goals':
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">My Grace Journey</h2>
-                <p className="text-[#BED2D8]">Track your enrichment program progress</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-xl font-semibold mb-4 text-[#292929]">Personal Growth Goals</h3>
-                <p className="text-[#707070]">
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">My Grace Journey</h2>
+                <p className="theme-text-secondary">Track your enrichment program progress</p>
+              </ThemeHeader>
+              <ThemeCard>
+                <h3 className="text-xl font-semibold mb-4 theme-text-primary">Personal Growth Goals</h3>
+                <p className="theme-text-secondary">
                   Work with your Grace coach to set and track your personal development goals 
                   in community engagement, skill building, and enrichment activities.
                 </p>
-              </div>
+              </ThemeCard>
             </div>
           );
         case 'coordinator-request':
@@ -306,7 +307,6 @@ const AppLayout = ({
               taskActions={taskActions}
             />
           );
-        // NEW: Unified coordinator scheduling for clients
         case 'coordinator-request':
           return (
             <UnifiedSchedulingRequest
@@ -318,7 +318,6 @@ const AppLayout = ({
               walkthroughs={walkthroughs}
             />
           );
-        // Legacy makerspace request (keeping for backward compatibility)
         case 'makerspace-request':
           return canRequestMakerspaceTime(userProfile) && (
             <MakerspaceRequestForm
@@ -343,7 +342,7 @@ const AppLayout = ({
       }
     }
 
-    // NEW: Scott (Vocational Development Coordinator) - FULL ACCESS
+    // Scott (Vocational Development Coordinator) - FULL ACCESS
     if (role === USER_ROLES.VOCATIONAL_DEV_COORDINATOR) {
       switch (activeTab) {
         case 'dashboard':
@@ -357,7 +356,7 @@ const AppLayout = ({
               onClientSelect={setSelectedClient}
               mileageRecords={mileageRecords}
               makerspaceRequests={makerspaceRequests}
-              coordinatorRequests={coordinatorRequests} // NEW: Pass all coordinator requests
+              coordinatorRequests={coordinatorRequests}
               onNavigate={setActiveTab}
             />
           );
@@ -521,7 +520,7 @@ const AppLayout = ({
       }
     }
 
-    // Josh (Program Admin Coordinator)
+    // Josh (Admin Dev Coordinator)
     if (role === USER_ROLES.ADMIN_DEV_COORDINATOR) {
       switch (activeTab) {
         case 'dashboard':
@@ -535,7 +534,7 @@ const AppLayout = ({
               onClientSelect={setSelectedClient}
               mileageRecords={mileageRecords}
               makerspaceRequests={makerspaceRequests}
-              coordinatorRequests={coordinatorRequests} // NEW: Pass all coordinator requests
+              coordinatorRequests={coordinatorRequests}
               onNavigate={setActiveTab}
             />
           );
@@ -558,27 +557,27 @@ const AppLayout = ({
             </LazyComponentWrapper>
           );
 
-          case 'admin-schedule':
-            return (
-              <CoordinatorPersonalSchedule
-                coordinatorType="admin"
-                userProfile={userProfile}
-                makerspaceSchedule={makerspaceSchedule}
-                makerspaceActions={makerspaceActions}
-                requests={[...makerspaceRequests, ...coordinatorRequests]}
-              />
-            );
+        case 'admin-schedule':
+          return (
+            <CoordinatorPersonalSchedule
+              coordinatorType="admin"
+              userProfile={userProfile}
+              makerspaceSchedule={makerspaceSchedule}
+              makerspaceActions={makerspaceActions}
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
+            />
+          );
 
-          case 'admin-requests':
-            return (
-              <CoordinatorScheduleManager
-                requests={[...makerspaceRequests, ...coordinatorRequests]}
-                makerspaceActions={makerspaceActions}
-                userProfile={userProfile}
-                coordinatorType="admin"
-                title="Administrative Support Requests"
-              />
-            );
+        case 'admin-requests':
+          return (
+            <CoordinatorScheduleManager
+              requests={[...makerspaceRequests, ...coordinatorRequests]}
+              makerspaceActions={makerspaceActions}
+              userProfile={userProfile}
+              coordinatorType="admin"
+              title="Administrative Support Requests"
+            />
+          );
           
         case 'daily-tasks':
           return (
@@ -705,10 +704,10 @@ const AppLayout = ({
         case 'dashboard':
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Makerspace Coordinator Dashboard</h2>
-                <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Makerspace Coordinator Dashboard</h2>
+                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
+              </ThemeHeader>
               
               <Dashboard
                 userProfile={userProfile}
@@ -719,7 +718,7 @@ const AppLayout = ({
                 onClientSelect={setSelectedClient}
                 mileageRecords={mileageRecords}
                 makerspaceRequests={makerspaceRequests}
-                coordinatorRequests={coordinatorRequests} // NEW: Pass coordinator requests
+                coordinatorRequests={coordinatorRequests}
                 onNavigate={setActiveTab}
               />
             </div>
@@ -745,25 +744,25 @@ const AppLayout = ({
         case 'walkthrough-schedule':
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Walkthrough Schedule</h2>
-                <p className="text-[#BED2D8]">Manage equipment training and orientations</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <p className="text-[#707070]">Walkthrough scheduling component coming soon...</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Walkthrough Schedule</h2>
+                <p className="theme-text-secondary">Manage equipment training and orientations</p>
+              </ThemeHeader>
+              <ThemeCard>
+                <p className="theme-text-secondary">Walkthrough scheduling component coming soon...</p>
+              </ThemeCard>
             </div>
           );
         case 'production-tracking':
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Production Tracking</h2>
-                <p className="text-[#BED2D8]">Track client production and inventory</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <p className="text-[#707070]">Production tracking component coming soon...</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Production Tracking</h2>
+                <p className="theme-text-secondary">Track client production and inventory</p>
+              </ThemeHeader>
+              <ThemeCard>
+                <p className="theme-text-secondary">Production tracking component coming soon...</p>
+              </ThemeCard>
             </div>
           );
         case 'mileage':
@@ -780,10 +779,10 @@ const AppLayout = ({
         default:
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#6D858E] to-[#5A4E69] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Makerspace Coordinator Dashboard</h2>
-                <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Makerspace Coordinator Dashboard</h2>
+                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage the ITG Makerspace.</p>
+              </ThemeHeader>
               
               <Dashboard
                 userProfile={userProfile}
@@ -808,10 +807,10 @@ const AppLayout = ({
         case 'dashboard':
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Grace Coach Dashboard</h2>
-                <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage Grace enrichment activities.</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Grace Coach Dashboard</h2>
+                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage Grace enrichment activities.</p>
+              </ThemeHeader>
               
               <GraceClientDashboard 
                 userProfile={userProfile} 
@@ -839,10 +838,10 @@ const AppLayout = ({
           return (
             <LazyComponentWrapper>
               <div className="space-y-6">
-                <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                  <h2 className="text-2xl font-bold mb-2">Grace Participants</h2>
-                  <p className="text-[#BED2D8]">Manage Grace program participants</p>
-                </div>
+                <ThemeHeader>
+                  <h2 className="text-2xl font-bold mb-2 theme-text-primary">Grace Participants</h2>
+                  <p className="theme-text-secondary">Manage Grace program participants</p>
+                </ThemeHeader>
                 
                 <ClientsTab 
                   clients={safeFilterGraceClients()} 
@@ -875,10 +874,10 @@ const AppLayout = ({
         default:
           return (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-[#5A4E69] to-[#292929] text-white p-6 rounded-lg">
-                <h2 className="text-2xl font-bold mb-2">Grace Coach Dashboard</h2>
-                <p className="text-[#BED2D8]">Welcome, {userProfile?.name}! Manage Grace enrichment activities.</p>
-              </div>
+              <ThemeHeader>
+                <h2 className="text-2xl font-bold mb-2 theme-text-primary">Grace Coach Dashboard</h2>
+                <p className="theme-text-secondary">Welcome, {userProfile?.name}! Manage Grace enrichment activities.</p>
+              </ThemeHeader>
               
               <GraceClientDashboard 
                 userProfile={userProfile} 
@@ -1037,7 +1036,7 @@ const AppLayout = ({
       }
     }
 
-    // Success Coach and other staff views (unchanged but with makerspace overview)
+    // Success Coach and other staff views
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -1195,7 +1194,7 @@ const AppLayout = ({
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <div className="min-h-screen bg-[#F5F5F5]">
+      <div className="min-h-screen">
         <Navigation 
           userProfile={userProfile}
           activeTab={activeTab}

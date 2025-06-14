@@ -1,148 +1,172 @@
-/* src/styles/themes.css */
+/* src/styles/themes.css - Fixed theme styles without unwanted effects */
 
-/* CSS Custom Properties for Theme System */
+/* Base theme variables */
 :root {
-  /* Default ITG Colors */
-  --color-primary: #6D858E;
-  --color-secondary: #5A4E69;
-  --color-accent: #BED2D8;
-  --color-text: #292929;
-  --color-text-secondary: #707070;
-  --color-text-muted: #9B97A2;
-  --color-background: #F5F5F5;
-  --color-white: #FFFFFF;
-  
-  /* Animation and transition variables */
-  --theme-transition: all 0.3s ease-in-out;
+  --theme-primary: #6D858E;
+  --theme-secondary: #5A4E69;
+  --theme-accent: #BED2D8;
+  --theme-bg-primary: #F5F5F5;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #292929;
+  --theme-text-secondary: #707070;
+  --theme-text-muted: #9B97A2;
 }
 
-/* Theme-aware utility classes */
-.theme-bg-primary { background-color: var(--color-primary) !important; }
-.theme-bg-secondary { background-color: var(--color-secondary) !important; }
-.theme-bg-accent { background-color: var(--color-accent) !important; }
-.theme-bg-background { background-color: var(--color-background) !important; }
-.theme-bg-white { background-color: var(--color-white) !important; }
-
-.theme-text-primary { color: var(--color-primary) !important; }
-.theme-text-secondary { color: var(--color-secondary) !important; }
-.theme-text-accent { color: var(--color-accent) !important; }
-.theme-text-main { color: var(--color-text) !important; }
-.theme-text-secondary-text { color: var(--color-text-secondary) !important; }
-.theme-text-muted { color: var(--color-text-muted) !important; }
-
-.theme-border-primary { border-color: var(--color-primary) !important; }
-.theme-border-secondary { border-color: var(--color-secondary) !important; }
-.theme-border-accent { border-color: var(--color-accent) !important; }
-
-/* Hover effects */
-.theme-hover-primary:hover { background-color: var(--color-primary) !important; }
-.theme-hover-secondary:hover { background-color: var(--color-secondary) !important; }
-
-/* Special Halloween dark mode overrides */
-.halloween-dark {
-  --color-background: #2F2F2F;
-  --color-white: #1C1C1C;
-  --color-text: #FFFFFF;
-  --color-text-secondary: #CCCCCC;
-  --color-text-muted: #999999;
+/* Default ITG Theme */
+[data-theme="default"] {
+  --theme-primary: #6D858E;
+  --theme-secondary: #5A4E69;
+  --theme-accent: #BED2D8;
+  --theme-bg-primary: #F5F5F5;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #292929;
+  --theme-text-secondary: #707070;
+  --theme-text-muted: #9B97A2;
 }
 
-/* Christmas sparkle animation */
-@keyframes sparkle {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.1); }
+/* Christmas Theme - No bouncing effects */
+[data-theme="christmas"] {
+  --theme-primary: #C41E3A;
+  --theme-secondary: #2F8B2F;
+  --theme-accent: #FFD700;
+  --theme-bg-primary: #FFF8F8;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #2C5530;
+  --theme-text-secondary: #8B0000;
+  --theme-text-muted: #CD853F;
 }
 
-.christmas-sparkle {
-  animation: sparkle 2s ease-in-out infinite;
+/* Halloween Theme - All text white */
+[data-theme="halloween"] {
+  --theme-primary: #FF6B35;
+  --theme-secondary: #1A1A1A;
+  --theme-accent: #FFD23F;
+  --theme-bg-primary: #0D0D0D;
+  --theme-bg-secondary: #1A1A1A;
+  --theme-text-primary: #FFFFFF;
+  --theme-text-secondary: #FFFFFF;
+  --theme-text-muted: #FFFFFF;
 }
 
-/* Halloween spooky glow */
-@keyframes spooky-glow {
-  0%, 100% { box-shadow: 0 0 5px var(--color-primary); }
-  50% { box-shadow: 0 0 20px var(--color-primary), 0 0 30px var(--color-secondary); }
+/* Fourth of July Theme */
+[data-theme="fourthOfJuly"] {
+  --theme-primary: #B22234;
+  --theme-secondary: #3C3B6E;
+  --theme-accent: #FFFFFF;
+  --theme-bg-primary: #F8F9FA;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #3C3B6E;
+  --theme-text-secondary: #B22234;
+  --theme-text-muted: #6B7280;
 }
 
-.halloween-glow {
-  animation: spooky-glow 3s ease-in-out infinite;
+/* St. Patrick's Day Theme - No bouncing effects */
+[data-theme="stPatricks"] {
+  --theme-primary: #228B22;
+  --theme-secondary: #32CD32;
+  --theme-accent: #FFD700;
+  --theme-bg-primary: #F0FFF0;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #006400;
+  --theme-text-secondary: #228B22;
+  --theme-text-muted: #8FBC8F;
 }
 
-/* Fourth of July patriotic wave */
-@keyframes patriotic-wave {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* Valentine's Day Theme - No bouncing effects */
+[data-theme="valentine"] {
+  --theme-primary: #FF1493;
+  --theme-secondary: #FF69B4;
+  --theme-accent: #FFB6C1;
+  --theme-bg-primary: #FFF0F5;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #8B008B;
+  --theme-text-secondary: #DC143C;
+  --theme-text-muted: #DB7093;
 }
 
-.fourth-july-wave {
-  background: linear-gradient(45deg, var(--color-primary), var(--color-white), var(--color-secondary), var(--color-white));
-  background-size: 400% 400%;
-  animation: patriotic-wave 4s ease infinite;
+/* Thanksgiving Theme */
+[data-theme="thanksgiving"] {
+  --theme-primary: #D2691E;
+  --theme-secondary: #A0522D;
+  --theme-accent: #DAA520;
+  --theme-bg-primary: #FFF8DC;
+  --theme-bg-secondary: #FFFFFF;
+  --theme-text-primary: #8B4513;
+  --theme-text-secondary: #A0522D;
+  --theme-text-muted: #CD853F;
 }
 
-/* St. Patrick's Day shamrock bounce */
-@keyframes shamrock-bounce {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+/* Apply theme colors to content areas */
+.theme-bg-primary {
+  background-color: var(--theme-bg-primary);
 }
 
-.stpatricks-bounce {
-  animation: shamrock-bounce 2s ease-in-out infinite;
+.theme-bg-secondary {
+  background-color: var(--theme-bg-secondary);
 }
 
-/* Valentine's Day heart pulse */
-@keyframes heart-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+.theme-text-primary {
+  color: var(--theme-text-primary);
 }
 
-.valentine-pulse {
-  animation: heart-pulse 1.5s ease-in-out infinite;
+.theme-text-secondary {
+  color: var(--theme-text-secondary);
 }
 
-/* Thanksgiving warm glow */
-.thanksgiving-warm {
-  filter: sepia(20%) saturate(120%) hue-rotate(10deg);
+.theme-text-muted {
+  color: var(--theme-text-muted);
 }
 
-/* Theme transition for smooth switching */
-* {
-  transition: var(--theme-transition);
+/* Theme-aware card styles */
+.theme-card {
+  background-color: var(--theme-bg-secondary);
+  color: var(--theme-text-primary);
+  border: 1px solid rgba(var(--theme-primary), 0.2);
 }
 
-/* Special theme indicators */
-.theme-indicator {
-  position: relative;
+.theme-card h1,
+.theme-card h2,
+.theme-card h3,
+.theme-card h4,
+.theme-card h5,
+.theme-card h6 {
+  color: var(--theme-text-primary);
 }
 
-.theme-indicator::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: var(--color-accent);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.theme-card p {
+  color: var(--theme-text-secondary);
 }
 
-.theme-indicator.active::before {
-  opacity: 1;
+.theme-card .text-gray-600,
+.theme-card .text-gray-700,
+.theme-card .text-gray-800 {
+  color: var(--theme-text-secondary) !important;
 }
 
-/* Halloween special effects */
-.halloween-shadow {
-  box-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+.theme-card .text-gray-500,
+.theme-card .text-gray-400 {
+  color: var(--theme-text-muted) !important;
 }
 
-/* Christmas snow effect (optional) */
-@keyframes snow {
-  0% { transform: translateY(-100vh) translateX(0px); }
-  100% { transform: translateY(100vh) translateX(100px); }
+/* Theme-aware button styles */
+.theme-button-primary {
+  background-color: var(--theme-primary);
+  border-color: var(--theme-primary);
+  color: white;
 }
 
+.theme-button-primary:hover {
+  background-color: var(--theme-secondary);
+  border-color: var(--theme-secondary);
+}
+
+.theme-button-secondary {
+  background-color: var(--theme-secondary);
+  border-color: var(--theme-secondary);
+  color: white;
+}
+
+/* Christmas Snow Effect - Keep this */
 .christmas-snow {
   position: fixed;
   top: 0;
@@ -150,58 +174,250 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 1000;
+  z-index: -1;
 }
 
 .christmas-snow::before,
 .christmas-snow::after {
-  content: '❄️';
+  content: '';
   position: absolute;
-  font-size: 20px;
-  animation: snow 10s linear infinite;
-}
-
-.christmas-snow::before {
-  left: 10%;
-  animation-delay: 0s;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, white, transparent),
+    radial-gradient(2px 2px at 40px 70px, white, transparent),
+    radial-gradient(1px 1px at 90px 40px, white, transparent),
+    radial-gradient(1px 1px at 130px 80px, white, transparent),
+    radial-gradient(2px 2px at 160px 30px, white, transparent);
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: snow-fall 10s linear infinite;
 }
 
 .christmas-snow::after {
-  left: 80%;
-  animation-delay: 5s;
-  font-size: 15px;
+  background-image: 
+    radial-gradient(1px 1px at 10px 20px, white, transparent),
+    radial-gradient(1px 1px at 60px 60px, white, transparent),
+    radial-gradient(2px 2px at 110px 10px, white, transparent),
+    radial-gradient(1px 1px at 140px 50px, white, transparent);
+  animation: snow-fall 7s linear infinite;
 }
 
-/* Responsive theme adjustments */
-@media (max-width: 768px) {
-  .theme-mobile-compact {
-    padding: 0.5rem !important;
-  }
+@keyframes snow-fall {
+  0% { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
 }
 
-/* Print styles - always use default theme */
-@media print {
-  :root {
-    --color-primary: #6D858E;
-    --color-secondary: #5A4E69;
-    --color-accent: #BED2D8;
-    --color-text: #292929;
-    --color-text-secondary: #707070;
-    --color-text-muted: #9B97A2;
-    --color-background: #FFFFFF;
-    --color-white: #FFFFFF;
-  }
-  
-  .halloween-dark,
-  .christmas-sparkle,
-  .halloween-glow,
-  .fourth-july-wave,
-  .stpatricks-bounce,
-  .valentine-pulse,
-  .thanksgiving-warm {
-    animation: none !important;
-    filter: none !important;
-    background: white !important;
-    color: black !important;
-  }
+/* Navigation sparkle effect for Christmas - Subtle only */
+.christmas-sparkle {
+  position: relative;
+  overflow: hidden;
+}
+
+.christmas-sparkle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: sparkle 3s infinite;
+}
+
+@keyframes sparkle {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Halloween glow effect */
+.halloween-glow {
+  box-shadow: 0 0 20px rgba(255, 107, 53, 0.3);
+}
+
+.halloween-shadow {
+  text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+}
+
+/* Fourth of July wave effect */
+.fourth-july-wave {
+  background-image: 
+    linear-gradient(45deg, #B22234 25%, transparent 25%), 
+    linear-gradient(-45deg, #B22234 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #3C3B6E 75%), 
+    linear-gradient(-45deg, transparent 75%, #3C3B6E 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  animation: wave-move 20s linear infinite;
+}
+
+@keyframes wave-move {
+  0% { background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }
+  100% { background-position: 20px 20px, 20px 30px, 30px 10px, 10px 20px; }
+}
+
+/* Thanksgiving warm glow */
+.thanksgiving-warm {
+  box-shadow: 0 0 30px rgba(210, 105, 30, 0.3);
+}
+
+/* Force Halloween white text everywhere */
+[data-theme="halloween"] * {
+  color: white !important;
+}
+
+[data-theme="halloween"] .bg-white {
+  background-color: #1A1A1A !important;
+}
+
+[data-theme="halloween"] .bg-gray-50,
+[data-theme="halloween"] .bg-gray-100 {
+  background-color: #2D2D2D !important;
+}
+
+[data-theme="halloween"] .text-gray-900,
+[data-theme="halloween"] .text-gray-800,
+[data-theme="halloween"] .text-gray-700,
+[data-theme="halloween"] .text-gray-600,
+[data-theme="halloween"] .text-gray-500 {
+  color: white !important;
+}
+
+[data-theme="halloween"] .border-gray-200,
+[data-theme="halloween"] .border-gray-300 {
+  border-color: #FF6B35 !important;
+}
+
+/* Remove all bouncing/pulsing effects for specific themes - but preserve transitions */
+[data-theme="christmas"] .stpatricks-bounce,
+[data-theme="christmas"] .valentine-pulse,
+[data-theme="valentine"] .stpatricks-bounce,
+[data-theme="valentine"] .valentine-pulse,
+[data-theme="stPatricks"] .stpatricks-bounce,
+[data-theme="stPatricks"] .valentine-pulse,
+.stpatricks-bounce,
+.valentine-pulse {
+  animation: none !important;
+}
+
+/* Allow transitions to work normally */
+[data-theme="christmas"] .transition-all,
+[data-theme="valentine"] .transition-all,
+[data-theme="stPatricks"] .transition-all {
+  transition: all 0.2s ease !important;
+}
+
+/* Override any existing bounce animations */
+.stpatricks-bounce,
+.valentine-pulse {
+  animation: none !important;
+}
+
+/* Ensure navigation dropdowns stay above all content */
+.nav-dropdown {
+  position: absolute !important;
+  z-index: 9999 !important;
+  top: calc(100% + 0.5rem) !important;
+  right: 0 !important;
+  left: auto !important;
+}
+
+/* Ensure navigation bar stays above content */
+nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  overflow: visible !important;
+}
+
+/* Navigation container must allow overflow */
+nav > div {
+  overflow: visible !important;
+  position: relative;
+}
+
+/* All navigation relative containers */
+nav .relative {
+  overflow: visible !important;
+  position: relative;
+}
+
+/* Content area z-index - much lower */
+.z-content {
+  z-index: 1;
+}
+
+/* Main content should be below navigation */
+main {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dashboard and page content containers */
+.container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Force all page content to stay below navigation */
+main *, 
+.container *,
+.space-y-6 *,
+.bg-white,
+.shadow-md,
+.shadow-lg,
+.shadow-xl {
+  z-index: auto !important;
+}
+
+/* Specifically target dashboard and theme cards */
+.theme-card,
+.dashboard-card,
+.bg-gradient-to-r {
+  position: relative;
+  z-index: auto !important;
+}
+
+/* Ensure modals and overlays don't interfere */
+.modal,
+.overlay,
+[role="dialog"] {
+  z-index: 8000 !important;
+}
+
+/* Global theme switcher dropdown should also be high */
+.theme-switcher-dropdown {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* FINAL OVERRIDE: Ensure navigation dropdowns always win */
+nav .nav-dropdown,
+nav .theme-switcher-dropdown,
+nav .absolute.bg-white {
+  z-index: 9999 !important;
+  position: absolute !important;
+  top: calc(100% + 0.5rem) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Prevent Tailwind z-index utilities from overriding */
+.z-10, .z-20, .z-30, .z-40, .z-50 {
+  z-index: auto !important;
+}
+
+/* Allow only specific high z-index values */
+.z-modal {
+  z-index: 8000 !important;
+}
+
+.z-dropdown {
+  z-index: 9999 !important;
 }
