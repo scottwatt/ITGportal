@@ -681,3 +681,18 @@ main .z-50 {
 .thanksgiving-leaf-fall {
   animation: thanksgiving-leaf-fall 3s ease-in-out infinite;
 }
+
+.mileage-dropdown-portal,
+.mileage-dropdown-portal *,
+[data-mileage-dropdown],
+[data-mileage-dropdown] * {
+  z-index: 9999 !important;
+  position: fixed !important;
+}
+
+/* Exclude mileage dropdowns from the general z-index auto rule */
+main .mileage-dropdown-portal,
+.container .mileage-dropdown-portal,
+.space-y-6 .mileage-dropdown-portal {
+  z-index: 9999 !important;
+}

@@ -20,13 +20,13 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
   const [error, setError] = useState(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   
-  // NEW: State for dropdown visibility and client selection
+  // State for dropdown visibility with proper z-index management
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showEndDropdown, setShowEndDropdown] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [selectedClients, setSelectedClients] = useState([]);
 
-  // Form state - UPDATED with transported clients
+  // Form state with transported clients
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     startLocation: '',
@@ -34,10 +34,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     purpose: '',
     mileage: '',
     useGoogleMaps: false,
-    transportedClients: [] // NEW: Array of transported client objects
+    transportedClients: []
   });
 
-  // NEW: Get schedulable clients (excludes Grace program)
+  // Get schedulable clients (excludes Grace program)
   const schedulableClients = useMemo(() => {
     if (!Array.isArray(clients)) return [];
     return clients.filter(client => {
@@ -46,7 +46,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [clients]);
 
-  // MEMOIZED: Get records for selected month - prevent recalculation on every render
+  // Get records for selected month
   const monthlyRecords = useMemo(() => {
     if (!Array.isArray(mileageRecords)) return [];
     
@@ -59,7 +59,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     });
   }, [mileageRecords, selectedMonth, selectedYear]);
 
-  // MEMOIZED: Calculate monthly totals - prevent recalculation on every render
+  // Calculate monthly totals
   const monthlyTotals = useMemo(() => {
     return monthlyRecords.reduce((totals, record) => ({
       miles: totals.miles + record.mileage,
@@ -68,7 +68,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }), { miles: 0, clientMiles: 0, clientTransports: 0 });
   }, [monthlyRecords]);
 
-  // Load monthly records effect - FIXED to prevent infinite loop
+  // Load monthly records effect
   useEffect(() => {
     const loadMonthlyRecords = async () => {
       if (!mileageActions || !mileageActions.getMonthlyRecords) {
@@ -92,7 +92,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }
   }, [userProfile?.uid, selectedMonth, selectedYear]);
 
-  // Load Google Maps API when component mounts - ONLY ONCE
+  // Load Google Maps API when component mounts
   useEffect(() => {
     const initMaps = async () => {
       try {
@@ -107,6 +107,29 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     initMaps();
   }, []);
 
+  // Override theme CSS for dropdown z-index
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Override theme z-index rules for common places dropdowns */
+      .common-places-dropdown {
+        z-index: 10000 !important;
+        position: absolute !important;
+      }
+      
+      /* Make sure they override main content z-index rules */
+      main .common-places-dropdown,
+      .container .common-places-dropdown {
+        z-index: 10000 !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
@@ -119,7 +142,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // MEMOIZED: Handle form input changes
+  // Handle form input changes
   const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -128,7 +151,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }));
   }, []);
 
-  // NEW: Handle client selection for transportation
+  // Handle client selection for transportation
   const handleClientToggle = useCallback((client) => {
     setSelectedClients(prev => {
       const isSelected = prev.some(c => c.id === client.id);
@@ -140,22 +163,26 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     });
   }, []);
 
-  // NEW: Remove selected client
+  // Remove selected client
   const handleRemoveClient = useCallback((clientId) => {
     setSelectedClients(prev => prev.filter(c => c.id !== clientId));
   }, []);
 
-  // NEW: Handle common place selection
+  // Handle common place selection
   const handleCommonPlaceSelect = useCallback((field, place) => {
     setFormData(prev => ({
       ...prev,
       [field]: place.address
     }));
-    setShowStartDropdown(false);
-    setShowEndDropdown(false);
+    // Close only the relevant dropdown
+    if (field === 'startLocation') {
+      setShowStartDropdown(false);
+    } else if (field === 'endLocation') {
+      setShowEndDropdown(false);
+    }
   }, []);
 
-  // UPDATED: Calculate mileage using Google Maps with exact precision
+  // Calculate mileage using Google Maps
   const calculateGoogleMileage = useCallback(async () => {
     if (!mapsLoaded || !window.google) {
       alert('Google Maps is not available. Please enter mileage manually.');
@@ -220,7 +247,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }
   }, [mapsLoaded, formData.startLocation, formData.endLocation]);
 
-  // UPDATED: Handle form submission with client transportation
+  // Handle form submission
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
@@ -245,11 +272,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
         endLocation: formData.endLocation.trim(),
         purpose: formData.purpose.trim(),
         mileage: parseFloat(formData.mileage),
-        // NEW: Add transported clients data
         transportedClients: selectedClients.map(client => ({
           clientId: client.id,
           clientName: client.name,
-          mileage: parseFloat(formData.mileage) // Same mileage since they're in the same trip
+          mileage: parseFloat(formData.mileage)
         }))
       };
 
@@ -286,7 +312,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }
   }, [formData, editingRecord, selectedClients]);
 
-  // MEMOIZED: Handle record deletion
+  // Handle record deletion
   const handleDelete = useCallback(async (recordId) => {
     if (!mileageActions || !mileageActions.deleteRecord) {
       setError('Delete function not available. Please refresh the page.');
@@ -306,7 +332,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     }
   }, []);
 
-  // UPDATED: Handle record editing with client data
+  // Handle record editing
   const handleEdit = useCallback((record) => {
     setFormData({
       date: record.date,
@@ -328,7 +354,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     setIsAddingRecord(true);
   }, []);
 
-  // MEMOIZED: Cancel form
+  // Cancel form
   const handleCancel = useCallback(() => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
@@ -345,7 +371,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
     setError(null);
   }, []);
 
-  // Early return AFTER all hooks and functions are defined
+  // Early return checks
   if (!userProfile) {
     return (
       <div className="space-y-6">
@@ -423,7 +449,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
           </div>
         </div>
 
-        {/* Monthly Summary - Coach-focused (no client transportation details) */}
+        {/* Monthly Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center">
@@ -462,7 +488,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
         </div>
       </div>
 
-      {/* UPDATED: Add/Edit Form with client selection */}
+      {/* Add/Edit Form with FIXED z-index hierarchy */}
       {isAddingRecord && (
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-4">
@@ -475,7 +501,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mileage-form">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -521,7 +547,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
               </div>
             </div>
 
-            {/* Address inputs with autocomplete and common places */}
+            {/* Address inputs with FIXED positioning dropdowns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -544,6 +570,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                       e.stopPropagation();
                       setShowStartDropdown(!showStartDropdown);
                       setShowEndDropdown(false);
+                      setShowClientDropdown(false);
                     }}
                     className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100"
                   >
@@ -552,7 +579,16 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                   </button>
                   
                   {showStartDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div 
+                      className="absolute w-full mt-1 bg-white border border-gray-300 rounded-md shadow-2xl max-h-48 overflow-y-auto common-places-dropdown"
+                      style={{ 
+                        zIndex: 10000,
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        width: '100%'
+                      }}
+                    >
                       {COMMON_PLACES.map((place) => (
                         <button
                           key={place.id}
@@ -590,6 +626,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                       e.stopPropagation();
                       setShowEndDropdown(!showEndDropdown);
                       setShowStartDropdown(false);
+                      setShowClientDropdown(false);
                     }}
                     className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100"
                   >
@@ -598,7 +635,16 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                   </button>
                   
                   {showEndDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div 
+                      className="absolute w-full mt-1 bg-white border border-gray-300 rounded-md shadow-2xl max-h-48 overflow-y-auto common-places-dropdown"
+                      style={{ 
+                        zIndex: 10000,
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        width: '100%'
+                      }}
+                    >
                       {COMMON_PLACES.map((place) => (
                         <button
                           key={place.id}
@@ -616,8 +662,8 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
               </div>
             </div>
 
-            {/* NEW: Client Transportation Section */}
-            <div>
+            {/* Client Transportation Section */}
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Users size={16} className="inline mr-1" />
                 Transported Clients (Optional)
@@ -641,7 +687,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                 </div>
               )}
               
-              {/* Client selection dropdown */}
+              {/* Client selection dropdown with lower z-index */}
               <div className="relative">
                 <button
                   type="button"
@@ -658,7 +704,10 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
                 </button>
                 
                 {showClientDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  <div 
+                    className="absolute w-full mt-1 bg-white border border-gray-300 rounded-md shadow-xl max-h-48 overflow-y-auto"
+                    style={{ zIndex: 50 }}
+                  >
                     {schedulableClients.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-gray-500">No clients available</div>
                     ) : (
@@ -730,7 +779,7 @@ const MileageTracker = ({ userProfile, mileageActions, mileageRecords = [], clie
         </div>
       )}
 
-      {/* UPDATED: Records List with client transportation display */}
+      {/* Records List */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold">
